@@ -1,4 +1,4 @@
-#' Process data from data stream 1
+#' Compute incidence from data stream 1
 #'
 #' This function BLABLA
 #'
@@ -13,6 +13,8 @@
 #' @param location string specifying location for which incidence will be computed
 #' @param merge_rule string to specify how merging should be made when duplicated entries exist. At the moment only "median" is supported. 
 #'
+#' @return a dataframe containing incidence and cumulative incidence obtained from merged_dat. 
+#'
 #' @details XXX
 #' 
 #' @importFrom stats median
@@ -22,7 +24,7 @@
 #' # to be written
 #'
 
-processDS1 <- function(dat, 
+get_incid_DS1 <- function(dat, 
                        spec, 
                        disease, 
                        case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"), 
@@ -51,14 +53,15 @@ processDS1 <- function(dat,
   dat <- check_dat(dat, 
                    spec, 
                    disease, 
-                   case_type)
+                   case_type, 
+                   location)
   
   ####################################
-  ### identify unique entries based on date, location and country columns
+  ### identify unique entries based on date and country columns
   ####################################
   
-  dat$DateLocCountry <- paste0(as.character(dat$Date), dat$Location, dat$Country)
-  uniq_dat <- unique(dat$DateLocCountry)
+  dat$DateCountry <- paste0(as.character(dat$Date), dat$Country)
+  uniq_dat <- unique(dat$DateCountry)
   
   ####################################
   ### merge duplicated entries where necessary
@@ -75,13 +78,14 @@ processDS1 <- function(dat,
   ### merging entries ###
   for(i in 1:length(uniq_dat))
   {
-    new_dat[i,] <- merge_dup_lines_DS1(dat[which(dat$DateLocCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
+    new_dat[i,] <- merge_dup_lines_DS1(dat[which(dat$DateCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
   }
   
   ### order these by dates ###
   new_dat <- new_dat[order(as.numeric(new_dat$Date)), ]
   
-  return(new_dat)
+  out <- compute_inc_with_corrections_DS1(new_dat)
   
+  return(out)
   
 }

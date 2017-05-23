@@ -13,6 +13,9 @@ merge_dup_lines_DS1(dat_dup, cols_to_keep, rule = c("median"))
 
 \item{rule}{string to specify how merging should be made. At the moment only "median" is supported.}
 }
+\value{
+a single line dataframe with duplicated entries merged into one
+}
 \description{
 This function BLABLA
 }

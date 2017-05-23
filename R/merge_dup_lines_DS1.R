@@ -11,9 +11,11 @@
 #' @param cols_to_keep vector of column names to appear in merged dataset
 #' @param rule string to specify how merging should be made. At the moment only "median" is supported. 
 #'
+#' @return a single line dataframe with duplicated entries merged into one
+#'
 #' @details XXX
 #'
-#'@importFrom stats median
+#' @importFrom stats median
 #'
 #' @examples
 #'

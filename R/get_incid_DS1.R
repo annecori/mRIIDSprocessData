@@ -67,6 +67,8 @@ get_incid_DS1 <- function(dat,
   ### merge duplicated entries where necessary
   ####################################
   
+  cols_to_keep <- cols_to_keep[cols_to_keep %in% names(dat)]
+  
   ### create a processed dataset ###
   new_dat <- as.data.frame(matrix(NA, length(uniq_dat), length(cols_to_keep)))
   names(new_dat) <- cols_to_keep

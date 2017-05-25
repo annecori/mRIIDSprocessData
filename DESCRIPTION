@@ -6,6 +6,7 @@ Description: Please add a description.
 Depends:
     R (>= 3.3.0)
 Imports: stats
+Suggests: geosphere
 License: MIT + file LICENSE
 Encoding: UTF-8
 RoxygenNote: 5.0.1

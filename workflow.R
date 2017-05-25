@@ -142,7 +142,7 @@ names(dat3) <- c("country", "id", "lon", "lat", "pop")
 
 pow_N_from <- 1
 pow_N_to <- 1
-pow_dist <- 2
+pow_dist <- 1 # 2
 
 ####################################
 ### Compute flows using the gravity model ###

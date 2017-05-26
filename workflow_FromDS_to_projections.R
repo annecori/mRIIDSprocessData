@@ -104,24 +104,56 @@ dev.off()
 
 file <- 'estimated_flow_from_to_gravity_model_powers_Nfrom_1_Nto_1_dist_'
 pth <- '../../../Dropbox (SPH Imperial College)/mRIIDS/data/Geography/GravityModel/processed/'
-for (i in 1:2){
-  flow <- read.csv(paste0(pth,file,i,'pn.csv'), stringsAsFactors = FALSE)
+
+############# for 1 table
+Scenario_proj <- 1:length(T_proj) # related to which projection period
+
+get_table_summary <- function(Scenario_proj){
+  scenario_grav <- c(1,2) # 2 scenario with power 1 or 2 for gravity
+  p_travel <- c(1,5)*1e-2 # proba of traveling during SI
   
-  countries_names <- flow[,1]
-  rel_prob <- flow[,which(countries_names %in% location) + 1]/
-    sum(flow[,which(countries_names %in% location) + 1],na.rm=TRUE)
-  risk <- data.frame(country=flow[,1],rel_prob=rel_prob)
+  summary_tab <- matrix(NA,10+2,4*length(p_travel))
   
-  risk <- risk[order(risk$rel_prob,decreasing=TRUE),]
+  # total projected cases
+  T_proj_case <- colSums(projection[[Scenario_proj]])
   
-  p_travel <- c(1:5)*1e-2
-  T_proj_case <- matrix(NA,2,1e3)
-  N_travel <- matrix(NA,2,1e3)
-  for (j in 1:2) {
-    T_proj_case[j,] <- colSums(projection[[j]])
-    N_travel[j,] <- rbinom(1e3,T_proj_case[j,],p_travel[j])
+  for (sg in scenario_grav){
+    flow <- read.csv(paste0(pth,file,sg,'pn.csv'), stringsAsFactors = FALSE)
+    countries_names <- flow[,1]
+    
+    # relative flow
+    rel_prob <- flow[,which(countries_names %in% location) + 1]/
+      sum(flow[,which(countries_names %in% location) + 1],na.rm=TRUE)
+    rel_prob[is.na(rel_prob)] <- 0
+    risk <- data.frame(country=flow[,1],rel_prob=rel_prob)
+    risk <- risk[order(risk$rel_prob,decreasing=TRUE),]
+    
+    summary_tab[(1:10)+2,(1:2)+(sg-1)*(2+length(p_travel))] <- as.matrix(risk[1:10,])
+    
+    export_n <- rep(NA,10)
+    for (j in 1:length(p_travel)){ # different probas of travel
+      N_travel <- rbinom(1e3,T_proj_case,p_travel[j])
+      N_travel_country <- matrix(NA,nrow(risk),1e3)
+      for (l in 1:1e3) N_travel_country[,l] <- rmultinom(1,N_travel[l],risk$rel_prob)
+      Q <- rbind(rowSums(N_travel_country)/1e3,
+                 apply(N_travel_country,1,quantile,c(.025,.975)))
+      for (m in 1:10) export_n[m] <- paste0(round(Q[1,m]*10)/10,' (',
+                                            round(Q[2,m]*10)/10,
+                                            ';',round(Q[3,m]*10)/10,')')
+      
+      summary_tab[(1:10)+2,2+j+(sg-1)*(2+length(p_travel))] <- export_n
+      
+    }
+    
   }
-  for (j in 1:length(p_travel)) 
-  
-  write.csv(risk, file=paste(pth,'est_risk_dist',i,'.csv'))
+  summary_tab[1,c(1,5)] <- c('Power of gravity model: 1','Power of gravity model: 2')
+  summary_tab[2,] <- c('Country','Relative risk','Exportation 1','Exportation 2',
+                       'Country','Relative risk','Exportation 1','Exportation 2')
+  return(summary_tab)
 }
+
+for (i in Scenario_proj){
+  summary_tab <- get_table_summary(i)
+  write.csv(file=paste0('summary_projection_period_',i,'.csv'),summary_tab)
+}
+

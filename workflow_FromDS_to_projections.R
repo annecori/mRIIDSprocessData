@@ -75,24 +75,53 @@ names(res$R) <- c(names(res$R)[1:11],'dates')
 ####################################
 ###   Project case forward       ###
 ####################################
-install_github("reconhub/projections")
-install_github("reconhub/incidence")
-library(projections)
-library(incidence)
-
-T_proj <- 100
-T_sim <- 2*7
-
-# samples for R
-shape <- res$R$`Mean(R)`[T_proj]^2 / res$R$`Std(R)`[T_proj]^2
-scale <- res$R$`Std(R)`[T_proj]^2 / res$R$`Mean(R)`[T_proj]
-R_samples <- rgamma(1e3,shape=shape,scale=scale)
+source('useful.R')
+# projections
+T_proj <- 7*c(21,43,64)
+T_sim <- 7*7
 
 # transform incidence to incidence object
-new_i <- as.incidence(incid$incid, incid$dates)
+new_i <- as.incidence(matrix(incid$incid,length(incid$incid),1), incid$dates)
+new_i$dates <- incid$dates
+new_i$counts <- matrix(incid$incid,nrow(incid),1)
+new_i$timespan <- as.numeric(diff(range(new_i$dates, na.rm = TRUE))) + 1
+new_i$n <- sum(new_i$counts)
 
-# prjoections
-project_1 <- project(x = new_i[1:T_proj], R = R_samples , si = SI_Distr, n_sim = 1e3, n_days = T_sim,
-                     R_fix_within = TRUE)
 
-plot(new_i[1:(T_proj+T_sim)], proj = project_1)
+projection <- get_projection(T_proj , T_sim  , new_i  , res )
+
+####################################
+###  Plot data and projections   ###
+####################################
+
+png("Proj1.png",width=1600,height=1000,res=200)
+get_plot_weekly(new_i, T_proj, projection, res )
+dev.off()
+
+####################################
+###  Plot data and projections   ###
+####################################
+
+file <- 'estimated_flow_from_to_gravity_model_powers_Nfrom_1_Nto_1_dist_'
+pth <- '../../../Dropbox (SPH Imperial College)/mRIIDS/data/Geography/GravityModel/processed/'
+for (i in 1:2){
+  flow <- read.csv(paste0(pth,file,i,'pn.csv'), stringsAsFactors = FALSE)
+  
+  countries_names <- flow[,1]
+  rel_prob <- flow[,which(countries_names %in% location) + 1]/
+    sum(flow[,which(countries_names %in% location) + 1],na.rm=TRUE)
+  risk <- data.frame(country=flow[,1],rel_prob=rel_prob)
+  
+  risk <- risk[order(risk$rel_prob,decreasing=TRUE),]
+  
+  p_travel <- c(1:5)*1e-2
+  T_proj_case <- matrix(NA,2,1e3)
+  N_travel <- matrix(NA,2,1e3)
+  for (j in 1:2) {
+    T_proj_case[j,] <- colSums(projection[[j]])
+    N_travel[j,] <- rbinom(1e3,T_proj_case[j,],p_travel[j])
+  }
+  for (j in 1:length(p_travel)) 
+  
+  write.csv(risk, file=paste(pth,'est_risk_dist',i,'.csv'))
+}

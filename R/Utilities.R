@@ -93,9 +93,9 @@ check_dat <- function(case.counts,
   ### Create column called Cases which comprises all relevant cases to be counted in incidence ###
   ####################################
   
-  dat$Cases <- get_cases(dat, case_type)
+  case.counts$Cases <- get_cases(case.counts, case_type)
   
-  return(dat)
+  return(case.counts)
 }
 
 # function to create a merged entry, separated by a slash

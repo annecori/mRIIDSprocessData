@@ -60,14 +60,14 @@ get_incid_DS1 <- function(case.count,
   ### identify unique entries based on date and country columns
   ####################################
   
-  dat$DateCountry <- paste0(as.character(dat$Date), dat$Country)
-  uniq_dat <- unique(dat$DateCountry)
+  case.count$DateCountry <- paste0(as.character(case.count$Date), case.count$Country)
+  uniq_dat <- unique(case.count$DateCountry)
   
   ####################################
   ### merge duplicated entries where necessary
   ####################################
   
-  cols_to_keep <- cols_to_keep[cols_to_keep %in% names(dat)]
+  cols_to_keep <- cols_to_keep[cols_to_keep %in% names(case.count)]
   
   ### create a processed dataset ###
   new_dat <- as.data.frame(matrix(NA, length(uniq_dat), length(cols_to_keep)))
@@ -75,12 +75,12 @@ get_incid_DS1 <- function(case.count,
   ### making sure classes are consistent with original dataset (useful for dates in particular)
   for(j in 1:length(cols_to_keep))
   {
-    class(new_dat[,j]) <- class(dat[, cols_to_keep[j]])
+    class(new_dat[,j]) <- class(case.count[, cols_to_keep[j]])
   }
   ### merging entries ###
   for(i in 1:length(uniq_dat))
   {
-    new_dat[i,] <- merge_dup_lines_DS1(dat[which(dat$DateCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
+    new_dat[i,] <- merge_dup_lines_DS1(case.count[which(case.count$DateCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
   }
   
   ### order these by dates ###

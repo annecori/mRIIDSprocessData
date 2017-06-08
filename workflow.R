@@ -1,8 +1,9 @@
 rm(list=ls())
-
-library(devtools)
-install_github("annecori/mRIIDSprocessData")
-library(mRIIDSprocessData)
+library(magrittr)
+#library(devtools)
+#install_github("annecori/mRIIDSprocessData")
+#library(mRIIDSprocessData)
+# For now we will source all files
 
 
 
@@ -16,7 +17,7 @@ library(mRIIDSprocessData)
 ### arguments that user may want to change
 ###############################
 
-spec <- "Humans"
+spec <- "Humans" 
 disease <- "Ebola"
 
 ### for now looking at suspected and confirmed cases ###
@@ -30,15 +31,15 @@ location <- "Sierra Leone"
 ####################################
 
 ### file in which data is stored ###
-filename <- "~/Dropbox/mRIIDS/data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv"
+raw_casecounts <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv"
 
-dat <- read.csv(filename, stringsAsFactors = FALSE)
+raw_casecounts %<>% read.csv(stringsAsFactors = FALSE)
 
 ####################################
 ### test get_incid_DS1 function ###
 ####################################
 
-incid <- get_incid_DS1(dat, 
+incid <- get_incid_DS1(raw_casecounts, 
                        spec, 
                        disease, 
                        case_type, 

@@ -40,11 +40,20 @@ get_cases <- function(dat,
   return(col)
 }
 
+# Check column names
+
+check.columns <- function(case.counts)
+{
+  good.colnames <- c("Disease","Species","Issue.Date","Location","Country")
+  actual.colnames <- colnames(case.counts)
+  check.colnames <- lapply(good.colnames, FUN = function(x) x %in% actual.colnames) %>% unlist
+  return(all(check.colnames))
+}
 
 # selects appropriate species and disease, and adds a column "Cases' with appropriate case definition. 
 #
 
-check_dat <- function(dat, 
+check_dat <- function(case.counts, 
                       spec, 
                       disease, 
                       case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"), 
@@ -56,53 +65,30 @@ check_dat <- function(dat,
   ####################################
   
   case_type <- match.arg(case_type)
-  
-  if(!("Disease" %in% names(dat)))
-  {
-    stop("dat should have a column 'Disease'.")
-  }
-  
-  if(!("Species" %in% names(dat)))
-  {
-    stop("dat should have a column 'Species'.")
-  }
-  
-  if(!("Issue.Date" %in% names(dat)))
-  {
-    stop("dat should have a column 'Issue.Date'.")
-  }
-  
-  if(!("Location" %in% names(dat)))
-  {
-    stop("dat should have a column 'Location'.")
-  }
-  
-  if(!("Country" %in% names(dat)))
-  {
-    stop("dat should have a column 'Country'.")
-  }
+  if(!check.columns(case.counts)) stop("Input data should have columns named:Disease, Species, Issue.Date, Location, Country")  
+
   
   ####################################
   ### select disease / species / location ###
   ####################################
   
   ### select only disease of interest ###
-  dat <- dat[dat$Disease %in% disease,]
+  case.counts <- case.counts[case.counts$Disease %in% disease,]
   
   ### select only species of interest ###
-  dat <- dat[dat$Species %in% spec,]
+  case.counts <- case.counts[case.counts$Species %in% spec,]
   
   
   ### select only species of interest ###
-  dat <- dat[dat$Location %in% location,]
+  case.counts <- case.counts[case.counts$Location %in% location,]
   
   ####################################
   ### deal with dates ###
   ####################################
   
   ### create dates without time from Issue.Date
-  dat$Date <- as.Date(unlist(strsplit(dat$Issue.Date, " "))[seq(1, 2*nrow(dat), 2)], format="%m/%d/%y")
-  
+  #dat$Date <- as.Date(unlist(strsplit(dat$Issue.Date, " "))[seq(1, 2*nrow(dat), 2)], format="%m/%d/%y")
+  case.counts$Date <- lubridate::mdy_hm(case.counts$Issue.Date) %>% lubridate::date(.)
   ####################################
   ### Create column called Cases which comprises all relevant cases to be counted in incidence ###
   ####################################

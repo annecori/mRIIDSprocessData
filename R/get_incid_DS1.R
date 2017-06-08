@@ -24,7 +24,7 @@
 #' # to be written
 #'
 
-get_incid_DS1 <- function(dat, 
+get_incid_DS1 <- function(case.count, 
                        spec, 
                        disease, 
                        case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"), 
@@ -50,7 +50,7 @@ get_incid_DS1 <- function(dat,
   ### and adds a column "Cases' with appropriate case definition. 
   ####################################
   
-  dat <- check_dat(dat, 
+  case.count <- check_dat(case.count, 
                    spec, 
                    disease, 
                    case_type, 

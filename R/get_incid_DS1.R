@@ -1,33 +1,40 @@
 #' Compute incidence from data stream 1
-#'
-#' This function BLABLA
-#'
-#' @export
-#'
-#' @author Pierre Nouvellet and Anne Cori
-#'
-#' @param dat dataframe containing data stream 1 to be processed
-#' @param spec string giving species in which disease incidence will be extracted
-#' @param disease string specifying disease of interest
-#' @param case_type string specifying column name from which incidence is extracted; one of "SCC" (suspected and confirmed cases), "SC" (suspected cases), "CC" (confirmed cases), "SCD" (suspected and confirmed deaths), "SD" (suspected deaths), or "CD" (confirmed deaths). 
-#' @param location string specifying location for which incidence will be computed
-#' @param merge_rule string to specify how merging should be made when duplicated entries exist. At the moment only "median" is supported. 
-#'
-#' @return a dataframe containing incidence and cumulative incidence obtained from merged_dat. 
-#'
-#' @details XXX
 #' 
+#' This function BLABLA
+#' 
+#' @export
+#' 
+#' @author Pierre Nouvellet, Anne Cori and Sangeeta Bhatia
+#'   
+#' @param case.count dataframe containing data stream 1 to be processed
+#' @param species string giving species in which disease incidence will be
+#'   extracted
+#' @param disease string specifying disease of interest
+#' @param case.type string specifying column name from which incidence is
+#'   extracted; one of "SCC" (suspected and confirmed cases), "SC" (suspected
+#'   cases), "CC" (confirmed cases), "SCD" (suspected and confirmed deaths), 
+#'   "SD" (suspected deaths), or "CD" (confirmed deaths).
+#' @param location string specifying location for which incidence will be
+#'   computed
+#' @param merge_rule string to specify how merging should be made when
+#'   duplicated entries exist. At the moment only "median" is supported.
+#'   
+#' @return a dataframe containing incidence and cumulative incidence obtained
+#'   from merged_dat.
+#'   
+#' @details XXX
+#'   
 #' @importFrom stats median
-#'
+#'   
 #' @examples
-#'
+#' 
 #' # to be written
-#'
+#' 
 
-get_incid_DS1 <- function(case.count, 
-                       spec, 
+incidence.from.DS1 <- function(case.count, 
+                       species, 
                        disease, 
-                       case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"), 
+                       case.type = c("SCC", "SC", "CC", "SCD", "SD", "CD"), 
                        location, 
                        merge_rule = c("median"))
 {
@@ -45,16 +52,19 @@ get_incid_DS1 <- function(case.count,
                    "Alert.Tag", "Feed.Name", "Lon", "Lat")
   cols_to_keep <- c(cols_to_keep, "Date", "Cases") # these are columns we generate ourselves later on
   
+  # If column names are not as expected, stop right here.
+  good.colnames <- c("Disease","Species","Issue.Date","Location","Country")
+  if(!check.columns(case.count, good.colnames)) stop("Input data should have columns named:Disease, Species, Issue.Date, Location, Country")  
+
   ####################################
-  ### select appropriate species and disease, 
+  ### select appropriate species and disease
+  ####################################
+  case.count %<>% filter.case.count(species, disease, location)
+
   ### and adds a column "Cases' with appropriate case definition. 
   ####################################
   
-  case.count <- check_dat(case.count, 
-                   spec, 
-                   disease, 
-                   case_type, 
-                   location)
+  case.count <- update.cases.column(case.count, case.type)
   
   ####################################
   ### identify unique entries based on date and country columns

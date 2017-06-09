@@ -63,7 +63,7 @@ filter.case.count <- function(case.count, species, disease, location)
 
 # adds a column "Cases" with appropriate case definition. 
 # adds a column "Date" with date extracted from timestamp
-update.case.count <- function(case.count,
+update.cases.column <- function(case.count,
                       case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD")
 {
   
@@ -198,4 +198,37 @@ deal_non_incr_cumI <- function(cum_incid, dates, t1)
   out <- list(cum_incid = cum_incid, dates = dates)
   return(out)
   
+}
+
+
+
+
+merge.duplicates <- function(case.count, cols.to.keep)
+{
+  ####################################
+  ### identify unique entries based on date and country columns
+  ####################################
+  
+  case.count$DateCountry <- paste0(as.character(case.count$Date), case.count$Country)
+  uniq_dat <- unique(case.count$DateCountry)
+  
+  ####################################
+  ### merge duplicated entries where necessary
+  ####################################
+  
+  cols.to.keep <- cols_to_keep[cols_to_keep %in% names(case.count)]
+  
+  ### create a processed dataset ###
+  duplicates.free <- as.data.frame(matrix(NA, length(uniq_dat), length(cols_to_keep)))
+  names(duplicates.free) <- cols_to_keep
+  ### making sure classes are consistent with original dataset (useful for dates in particular)
+  for(j in 1:length(cols_to_keep))
+  {
+    class(duplicates.free[,j]) <- class(case.count[, cols_to_keep[j]])
+  }
+  ### merging entries ###
+  for(i in 1:length(uniq_dat))
+  {
+    duplicates.free[i,] <- merge_dup_lines_DS1(case.count[which(case.count$DateCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
+  }
 }

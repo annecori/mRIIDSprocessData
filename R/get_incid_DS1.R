@@ -43,55 +43,31 @@ incidence.from.DS1 <- function(case.count,
   merge_rule <- match.arg(merge_rule)
   
   ####################################
-  ### cols_to_keep contains a list of column names to be merged in case of duplicated entries
+  ### cols.to.keep contains a list of column names to be merged in case of duplicated entries
   ### if a column name does not exist and is not needed apart from merging, it is ignored. 
   ####################################
   
-  cols_to_keep = c("Location", "Country", "Disease", "Species", 
+  cols.to.keep = c("Location", "Country", "Disease", "Species", 
                    "HealthMap.Alert.ID", "Headline", "URL", 
                    "Alert.Tag", "Feed.Name", "Lon", "Lat")
-  cols_to_keep <- c(cols_to_keep, "Date", "Cases") # these are columns we generate ourselves later on
+  cols.to.keep <- c(cols.to.keep, "Date", "Cases") # these are columns we generate ourselves later on
   
   # If column names are not as expected, stop right here.
   good.colnames <- c("Disease","Species","Issue.Date","Location","Country")
-  if(!check.columns(case.count, good.colnames)) stop("Input data should have columns named:Disease, Species, Issue.Date, Location, Country")  
+  if(!check.columns(case.count, good.colnames)) 
+    stop("Input data should have columns named:Disease, Species, Issue.Date, Location, Country")  
 
   ####################################
   ### select appropriate species and disease
   ####################################
   case.count %<>% filter.case.count(species, disease, location)
 
-  ### and adds a column "Cases' with appropriate case definition. 
+  ### add a column "Cases' with appropriate case definition. 
   ####################################
   
   case.count <- update.cases.column(case.count, case.type)
   
-  ####################################
-  ### identify unique entries based on date and country columns
-  ####################################
-  
-  case.count$DateCountry <- paste0(as.character(case.count$Date), case.count$Country)
-  uniq_dat <- unique(case.count$DateCountry)
-  
-  ####################################
-  ### merge duplicated entries where necessary
-  ####################################
-  
-  cols_to_keep <- cols_to_keep[cols_to_keep %in% names(case.count)]
-  
-  ### create a processed dataset ###
-  new_dat <- as.data.frame(matrix(NA, length(uniq_dat), length(cols_to_keep)))
-  names(new_dat) <- cols_to_keep
-  ### making sure classes are consistent with original dataset (useful for dates in particular)
-  for(j in 1:length(cols_to_keep))
-  {
-    class(new_dat[,j]) <- class(case.count[, cols_to_keep[j]])
-  }
-  ### merging entries ###
-  for(i in 1:length(uniq_dat))
-  {
-    new_dat[i,] <- merge_dup_lines_DS1(case.count[which(case.count$DateCountry %in% uniq_dat[i]),], cols_to_keep, rule = merge_rule)
-  }
+  case.count <- merge.duplicates(case.count, cols.to.keep)
   
   ### order these by dates ###
   new_dat <- new_dat[order(as.numeric(new_dat$Date)), ]

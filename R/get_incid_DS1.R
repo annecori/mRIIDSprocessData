@@ -39,7 +39,7 @@ incidence.from.DS1 <- function(case.count,
                        merge_rule = c("median"))
 {
   
-  case_type <- match.arg(case_type)
+  case.type <- match.arg(case.type)
   merge_rule <- match.arg(merge_rule)
   
   ####################################
@@ -59,20 +59,18 @@ incidence.from.DS1 <- function(case.count,
 
   ####################################
   ### select appropriate species and disease
-  ####################################
-  case.count %<>% filter.case.count(species, disease, location)
-
   ### add a column "Cases' with appropriate case definition. 
   ####################################
-  
-  case.count <- update.cases.column(case.count, case.type)
-  
-  case.count <- merge.duplicates(case.count, cols.to.keep)
+  case.count %<>% 
+    filter.case.count(species, disease, location) %<>%
+    update.cases.column(case.type) %<>%
+    merge.duplicates(cols.to.keep)
+
   
   ### order these by dates ###
-  new_dat <- new_dat[order(as.numeric(new_dat$Date)), ]
+  case.count <- case.count[order(as.numeric(case.count$Date)), ]
   
-  out <- compute_inc_with_corrections_DS1(new_dat)
+  out <- compute_inc_with_corrections_DS1(case.count)
   
   return(out)
   

@@ -4,7 +4,11 @@ library(magrittr)
 #install_github("annecori/mRIIDSprocessData")
 #library(mRIIDSprocessData)
 # For now we will source all files
-
+source("R/compute_inc_with_corrections_DS1.R")
+source("R/get_gravity_model_flow_DS3.R")
+source("R/get_incid_DS1.R")
+source("R/merge_dup_lines_DS1.R")
+source("R/Utilities.R")
 
 
 ##############################################################################################################################
@@ -17,11 +21,11 @@ library(magrittr)
 ### arguments that user may want to change
 ###############################
 
-spec <- "Humans" 
+species <- "Humans"
 disease <- "Ebola"
 
 ### for now looking at suspected and confirmed cases ###
-case_type <- "SCC"
+case.type <- "SCC"
 
 ### location of interest ###
 location <- "Sierra Leone"
@@ -31,19 +35,18 @@ location <- "Sierra Leone"
 ####################################
 
 ### file in which data is stored ###
-raw_casecounts <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv"
-
-raw_casecounts %<>% read.csv(stringsAsFactors = FALSE)
+case.count <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %<>%
+  read.csv(stringsAsFactors = FALSE)
 
 ####################################
 ### test get_incid_DS1 function ###
 ####################################
 
-incid <- get_incid_DS1(raw_casecounts, 
-                       spec, 
-                       disease, 
-                       case_type, 
-                       location, 
+incid <- incidence.from.DS1(case.count = case.count,
+                       species,
+                       disease,
+                       case.type,
+                       location,
                        merge_rule = "median")
 
 
@@ -75,7 +78,7 @@ process_names_promed_dat <- function(dat)
   names(dat)[names(dat) %in% "Cumulative.SD"] <- "SD"
   names(dat)[names(dat) %in% "Cumulative.CC"] <- "CC"
   names(dat)[names(dat) %in% "Cumulative.CD"] <- "CD"
-  
+
   return(dat)
 }
 
@@ -85,7 +88,7 @@ process_issue_dates_promed_dat <- function(dat)
   dates_m_d_y <- as.character(format(as.Date(tmp[seq(1, 2*nrow(dat), 2)], format="%d/%m/%y"), "%m/%d/%y"))
   times <- tmp[seq(2, 2*nrow(dat), 2)]
   dat$Issue.Date <- paste(dates_m_d_y, times)
-  
+
   return(dat)
 }
 
@@ -96,11 +99,11 @@ dat2 <- process_issue_dates_promed_dat(dat2)
 ### test get_incid_DS1 function ###
 ####################################
 
-incid2 <- get_incid_DS1(dat2, 
-                        spec, 
-                        disease, 
-                        case_type, 
-                        location, 
+incid2 <- get_incid_DS1(dat2,
+                        spec,
+                        disease,
+                        case_type,
+                        location,
                         merge_rule = "median")
 
 
@@ -109,10 +112,10 @@ incid2 <- get_incid_DS1(dat2,
 plot(incid2$dates, incid2$cum_incid, type="l", xlab="Time", ylab="Cumulative Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
 plot(incid2$dates, incid2$incid, type="l", xlab="Time", ylab="Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
 
-dat2 <- mRIIDSprocessData:::check_dat(dat2, 
-                                      spec, 
-                                      disease, 
-                                      case_type, 
+dat2 <- mRIIDSprocessData:::check_dat(dat2,
+                                      spec,
+                                      disease,
+                                      case_type,
                                       location)
 points(dat2$Date, dat2$New.SC + dat2$New.SD, col="red")
 ### To do: add our estimate of daily incidence
@@ -181,11 +184,11 @@ dat3$country[which_max_flow[2,]]
 ### look for top destinations from Sierra Leone
 top_destinations_from_SL <- sort(flow_from_to[dat3$country %in% "Sierra Leone",], decreasing = TRUE)
 head(names(top_destinations_from_SL), 10)
-# --> with pow_dist = 1, top 10 desinations are 
-# "India"                  "China"                  "Nigeria"                            "Guinea"           "Brazil" 
-# "United States"          "C\xf4te d'Ivoire"       "Democratic Republic of the Congo"   "Pakistan"         "Mali" 
+# --> with pow_dist = 1, top 10 desinations are
+# "India"                  "China"                  "Nigeria"                            "Guinea"           "Brazil"
+# "United States"          "C\xf4te d'Ivoire"       "Democratic Republic of the Congo"   "Pakistan"         "Mali"
 
-# --> with pow_dist = 2, top 10 desinations are 
-# "Guinea"           "Nigeria"          "C\xf4te d'Ivoire" "Liberia"          "Mali"             "Senegal"          
-# "Ghana"            "India"           "Burkina Faso"     "Brazil"   
+# --> with pow_dist = 2, top 10 desinations are
+# "Guinea"           "Nigeria"          "C\xf4te d'Ivoire" "Liberia"          "Mali"             "Senegal"
+# "Ghana"            "India"           "Burkina Faso"     "Brazil"
 

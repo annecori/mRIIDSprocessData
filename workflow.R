@@ -158,12 +158,12 @@ n_to <- adm0_centroids[pairs[2,],'pop']
 
 pow_N_from <- 1
 pow_N_to <- 1
-pow_dist <- 1 # 2
-
+pow_dist <- 2
+K <- 1
 
                                         # another way of calculating the flow matrix
-flow_from_to <- flow_vector(n_from, n_to, distances, pow_N_from, pow_N_to, pow_dist)
-flow_to_from <- flow_vector(n_to, n_from, distances, pow_N_from, pow_N_to, pow_dist)
+flow_from_to <- flow_vector(n_from, n_to, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
+flow_to_from <- flow_vector(n_to, n_from, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
 
                                         # fill in the matrix from the vectors
 flow_matrix <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))

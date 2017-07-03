@@ -1,6 +1,6 @@
-##' .. content for \description{} (no empty lines) ..
+##' .. Given the populations at two places and the distances between them, returns the flow matrix under the specified model ..
+##' .. The models are : gravity and radiation ..
 ##'
-##' .. content for \details{} ..
 ##' @title
 ##' @param K
 ##' @param alpha
@@ -11,7 +11,10 @@
 ##' @return
 ##' @author Sangeeta Bhatia
 
-flow_matrix <-  function(K=1, alpha=1, beta=1, gamma=1, model=c("gravity")) {
+flow_matrix <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, pow_dist=1, model=c("gravity")) {
+    if(model=="gravity") gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist) %>% return
+    else if(model=="radiation") stop("Model not yet implemented")
+    else stop("Model not yet implemented")
 }
 
 ##' .. Computes the flow from A to B under the gravity model ..
@@ -28,9 +31,9 @@ flow_matrix <-  function(K=1, alpha=1, beta=1, gamma=1, model=c("gravity")) {
 ##' @return estimated flow between source and destination
 ##' @author Pierre Nouvellet, Anne Cori Sangeeta Bhatia
 ##' @export
-gravity_model_flow <- function(N_from, N_to, dist, pow_N_from = 1, pow_N_to = 1, pow_dist=1){
+gravity_model_flow <- function(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist){
 
-   out <- N_from ^ pow_N_from * N_to ^ pow_N_to / ( dist ^ pow_dist )
-   return(out)
+   K * (N_from^pow_N_from) * (N_to^pow_N_to) / (distance^pow_dist) %>% return
+
 }
-}
+

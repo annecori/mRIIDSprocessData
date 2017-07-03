@@ -11,7 +11,7 @@
 ##' @return
 ##' @author Sangeeta Bhatia
 
-flow_matrix <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, pow_dist=1, model=c("gravity")) {
+flow_vector <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, pow_dist=1, model=c("gravity")) {
     if(model=="gravity") gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist) %>% return
     else if(model=="radiation") stop("Model not yet implemented")
     else stop("Model not yet implemented")

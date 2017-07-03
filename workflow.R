@@ -9,7 +9,7 @@ source("R/get_gravity_model_flow_DS3.R")
 source("R/get_incid_DS1.R")
 source("R/merge_dup_lines_DS1.R")
 source("R/Utilities.R")
-
+source("R/spatial_processing.R")
 
 ##############################################################################################################################
 ##############################################################################################################################
@@ -49,12 +49,15 @@ incid <- incidence.from.DS1(case.count = case.count,
                        location,
                        merge_rule = "median")
 
+# visualise incidence. works like a charm
+library(ggplot2)
+p1 = ggplot(incid, aes(dates, incid)) + geom_line() + xlab("Time") + ylab("Incidence")
+p2 = ggplot(incid, aes(dates, cum_incid)) + geom_line() + xlab("Time") + ylab("Cumulative Incidence")
+multiplot(p1, p2, cols=2)
 
-
-### visualise incidence
-par(mfrow=c(2,2))
-plot(incid$dates, incid$cum_incid, type="l", xlab="Time", ylab="Cumulative Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
-plot(incid$dates, incid$incid, type="l", xlab="Time", ylab="Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
+##par(mfrow=c(2,2))
+##plot(incid$dates, incid$cum_incid, type="l", xlab="Time", ylab="Cumulative Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
+##plot(incid$dates, incid$incid, type="l", xlab="Time", ylab="Incidence", xlim= c(as.Date("2014-01-01"), as.Date("2016-12-12")))
 ### To do: add our estimate of daily incidence
 
 
@@ -135,10 +138,19 @@ require(geosphere)
 ####################################
 
 ### file in which data is stored ###
-filename <- "~/Dropbox/mRIIDS/data/Geography/GravityModel/raw/adm0_centroids.tsv"
+adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
+                   read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE)
+names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
 
-dat3 <- read.csv(filename, stringsAsFactors = FALSE, sep = "\t", header = FALSE)
-names(dat3) <- c("country", "id", "lon", "lat", "pop")
+
+
+
+distances <- geosphere::distm(adm0_centroids[,c('lon', 'lat')])
+distances <- distances[lower.tri(distances)] # Extract the distances vector
+pairs <-  nrow(adm0_centroids) %>% combn(2)
+n_from <- adm0_centroids[pairs[1,],'pop']
+n_to <- adm0_centroids[pairs[2,],'pop']
+
 
 ####################################
 ### Choose parameters of the gravity model ###
@@ -148,41 +160,35 @@ pow_N_from <- 1
 pow_N_to <- 1
 pow_dist <- 1 # 2
 
-####################################
-### Compute flows using the gravity model ###
-####################################
 
-flow_from_to <- matrix(NA, nrow(dat3), nrow(dat3))
-row.names(flow_from_to) <- dat3$country
-colnames(flow_from_to) <- dat3$country
+                                        # another way of calculating the flow matrix
+flow_from_to <- flow_vector(n_from, n_to, distances, pow_N_from, pow_N_to, pow_dist)
+flow_to_from <- flow_vector(n_to, n_from, distances, pow_N_from, pow_N_to, pow_dist)
 
-for(i in 2:nrow(dat3))
-{
-  print(i)
-  for(j in 1:(i-1))
-  {
-    dist_i_j <- as.numeric(distm(dat3[i,c('lon','lat')], dat3[j,c('lon','lat')]))
-    flow_from_to[i,j] <- get_gravity_model_flow_DS3(dat3[i,'pop'], dat3[j,'pop'], dist_i_j, pow_N_from = pow_N_from, pow_N_to = pow_N_to, pow_dist = pow_dist)
-    flow_from_to[j,i] <- get_gravity_model_flow_DS3(dat3[j,'pop'], dat3[i,'pop'], dist_i_j, pow_N_from = pow_N_from, pow_N_to = pow_N_to, pow_dist = pow_dist)
-  }
-}
+                                        # fill in the matrix from the vectors
+flow_matrix <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
+rownames(flow_matrix) <- adm0_centroids$country
+colnames(flow_matrix) <- adm0_centroids$country
+flow_matrix[lower.tri(flow_matrix)] <- flow_from_to
+flow_matrix <- t(flow_matrix) # fill out the upper triangule
+flow_matrix[lower.tri(flow_matrix)] <- flow_to_from # fill out the lower triangle
 
 ### write output so don't have to rerun every time
-write.csv(flow_from_to, file = paste0("~/Dropbox/mRIIDS/data/Geography/GravityModel/processed/estimated_flow_from_to_gravity_model_powers_Nfrom_",pow_n_from,
-                                      "_Nto_",pow_n_to,
+write.csv(flow_from_to, file = paste0("data/Geography/GravityModel/processed/sb_estimated_flow_from_to_gravity_model_powers_Nfrom_",pow_N_from,
+                                      "_Nto_",pow_N_to,
                                       "_dist_",pow_dist,
                                       ".csv"), quote = FALSE)
 
 ### look for maximum flow
-max_flow <- max(flow_from_to, na.rm = TRUE)
-which_max_flow <- which(flow_from_to == max_flow, arr.ind = TRUE)
-dat3$country[which_max_flow[1,]]
-dat3$country[which_max_flow[2,]]
+max_flow <- max(flow_matrix, na.rm = TRUE)
+which_max_flow <- which(flow_matrix == max_flow, arr.ind = TRUE)
+adm0_centroids$country[which_max_flow[1,]]
+adm0_centroids$country[which_max_flow[2,]]
 # --> with pow_dist = 1, largest estimated flow is between China and India (here flows are symetric as we have assumed the same power parameter for both population sizes)
 # --> with pow_dist = 2, largest estimated flow is between Republic of Congo and Democratic Republic of the Congo (here flows are symetric as we have assumed the same power parameter for both population sizes)
 
 ### look for top destinations from Sierra Leone
-top_destinations_from_SL <- sort(flow_from_to[dat3$country %in% "Sierra Leone",], decreasing = TRUE)
+top_destinations_from_SL <- sort(flow_matrix[adm0_centroids$country %in% "Sierra Leone",], decreasing = TRUE)
 head(names(top_destinations_from_SL), 10)
 # --> with pow_dist = 1, top 10 desinations are
 # "India"                  "China"                  "Nigeria"                            "Guinea"           "Brazil"

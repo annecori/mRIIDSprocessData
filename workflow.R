@@ -162,15 +162,16 @@ pow_dist <- 2
 K <- 1
 
                                         # another way of calculating the flow matrix
-flow_from_to <- flow_vector(n_from, n_to, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
-flow_to_from <- flow_vector(n_to, n_from, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
-
-                                        # fill in the matrix from the vectors
 flow_matrix <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
 rownames(flow_matrix) <- adm0_centroids$country
 colnames(flow_matrix) <- adm0_centroids$country
+
+                                        # fill in the matrix from the vectors
+flow_from_to <- flow_vector(n_from, n_to, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
 flow_matrix[lower.tri(flow_matrix)] <- flow_from_to
 flow_matrix <- t(flow_matrix) # fill out the upper triangule
+
+flow_to_from <- flow_vector(n_to, n_from, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
 flow_matrix[lower.tri(flow_matrix)] <- flow_to_from # fill out the lower triangle
 
 ### write output so don't have to rerun every time

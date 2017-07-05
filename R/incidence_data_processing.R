@@ -1,0 +1,107 @@
+##' .. check if the input vector is monotonically not decreasing ..
+##' This means that seq[i] should be greater than or equal to seq[i-1] for all i
+##' .. content for \details{} ..
+##' @title
+##' @return a list of indices at which the function is not (not drecreasing). That is, return i if seq[i] <= seq[i+1]].
+##' If there is no such index, return a list of length 0.
+##' @author Sangeeta Bhatia
+is_monotonically_increasing <- function(vec){
+    differences <- diff(vec)
+    which(differences < 0) %>% return
+}
+
+make_increasing_at_end <- function(cum.incidence, t1){
+  cum.incidence[-t1, ] %>% return
+}
+
+make_increasing_at_k <- function(cum.incidence, t1){
+
+
+    t2 <- t1 + 1
+    if( nrow(cum.incidence) == t2 ) cum.incidence %<>% make_increasing_at_end(t1)
+    else {
+        cum.incidence.copy <- cum.incidence
+        cum.incidence.no.t1 <- cum.incidence.copy
+        cum.incidence.no.t1 %<>% .[-t1, ]
+        is.increasing.no.t1 <- cum.incidence.no.t1$Cases[c(t1-1, t2-1)] %>% is_monotonically_increasing %>% length
+
+        cum.incidence.no.t2 <- cum.incidence.copy
+        cum.incidence.no.t2 %<>% .[-t2, ]
+        is.increasing.no.t2 <- cum.incidence.no.t2$Cases[c(t1-1, t2-1)] %>% is_monotonically_increasing %>% length
+
+        both.worked <- is.increasing.no.t1 == 0 & is.increasing.no.t2 == 0
+        none.worked <- is.increasing.no.t1 > 0 & is.increasing.no.t2 > 0
+        if(both.worked || none.worked){
+            remove <- c(t1, t2)
+        } else if(is.increasing.no.t1 == 0){
+            remove <- t1
+        } else {
+            remove <- t2
+        }
+
+        cum.incidence <- cum.incidence[-remove,]
+     }
+     return(cum.incidence) # May still be non-increasing but we will see about that later.
+ }
+
+
+
+##' .. fixing monotonicity in a vector that returns a non-empty set of indices from is_monotonically_increasing ..
+##' @details If vec %>% is_monotonically_increasing is non-empty, it means that there are indices at which vec is
+##' decreasing. This is not desirable for instance for a vector of cumulative case counts. We fix this issue using
+##' the following rules
+##' @title
+##' @param cum.incidence a data frame containing a numeric column called 'Cases'.
+##' @return
+##' @author Sangeeta Bhatia
+make_monotonically_increasing <- function(cum.incidence){
+    not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
+    while(length(not.increasing) > 0){
+        cum.incidence %<>% make_increasing_at_k( t1=not.increasing[1] )
+        not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
+    }
+    cum.incidence %>% return
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param no.duplicates a data frame ordered by dates with no duplicated rows.
+##' @return data frame ordered by date with no missing cases count and which has strictly non-decreasing
+##' case count.
+##' @author Sangeeta Bhatia
+sb_compute.cumulative.incidence <- function(no.duplicates){
+
+    # starting one day before the first entry so that cumulative incidence on that day is zero
+    # dates.all <- seq(min(merged_dat$Date, na.rm = TRUE)-1, max(merged_dat$Date, na.rm = TRUE), 1)
+    not.na <- which(!is.na(no.duplicates$Cases))
+    cum.incidence <- no.duplicates[not.na, c('Date', 'Cases')]
+
+    first.row <- no.duplicates[1,]
+    first.row$Date <- first.row$Date - 1
+    first.row$Cases <- 0
+
+    cum.incidence %<>%
+        rbind(first.row, .) %<>%
+        make_monotonically_increasing
+
+                                        # Add the dates for which no data is available.
+    dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by=1)
+    cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y=TRUE)
+
+                                        # Finally interpolate to fill in the NAs
+
+
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param cum.incidence
+##' @return
+##' @author Sangeeta Bhatia
+interpolate.missing.incidences <- function(cum.incidence) {
+
+}

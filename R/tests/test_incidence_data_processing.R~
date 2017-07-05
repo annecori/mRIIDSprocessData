@@ -1,0 +1,5 @@
+test_that("is_monotonically_increasing works as expected", {
+    mono_inc <-  c(1,2,3,4)
+    nowhere <- mono_inc %>% is_monotonically_increasing %>% length
+    expect_equal(nowhere, 0)
+})

@@ -15,10 +15,14 @@ test_that("is_monotonically_increasing works as expected", {
 
 test_that("missing data and non increasing cumulative counts are handled correctly", {
 
-    # when the non-increasing count is at the end
     dates <- seq(from=as.Date("01/01/2017"), length.out=7, by=1)
     cases <- c(1:6, 3)
     cum.incidence <- data.frame(Date=dates, Cases=cases)
+
+                                        # Outliers at the end should be removed
+    remove.last.outliers(cum.incidence, use.last=2, k.sd=2)
+    # when the non-increasing count is at the end
+
 
     cum.incidence.fixed <- cum.incidence[-c(4, 5, 6),]
     cum.incidence.test <- make_monotonically_increasing(cum.incidence)

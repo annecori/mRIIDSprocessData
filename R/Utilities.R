@@ -1,3 +1,35 @@
+##' .. Computes the prection interval for the (n + 1)th observation given n observations ..
+##' This interval is [mu.hat - lambda.sample.var, mu.hat + lambda.sample.var] where
+##' lambda = k * sqrt((n + 1)/n)
+##' Unfortunate notation due to Saw et al ..
+##' @references \url{https://www.jstor.org/stable/pdf/2683249.pdf}
+##' @seealso \url{https://arxiv.org/pdf/1509.08398.pdf}
+##' @title
+##' @return
+##' @author Sangeeta Bhatia
+prediction.interval <- function(x, k){
+    n <- length(x)
+    mu.hat <- mean(x)
+    sd.hat <- sd(x)
+    lambda <- ((n + 1)/n) %>% sqrt %>% `*`(k)
+    c(mu.hat - (lambda * sd.hat), mu.hat + (lambda * sd.hat)) %>% return
+}
+
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. Reports the maximum percentage beyond k * sqrt((n + 1)/n) standard deviations from mean ..
+##' @title
+##' @param n
+##' @param k
+##' @return
+##' @author Sangeeta Bhatia
+chebyshev.ineq.sample <- function(n, k){
+
+    lambda <- k * sqrt((n + 1)/n)
+    tmp <- ((n + 1)*(n^2 - 1 + n*(lambda^2)))/(n^2 * lambda^2) %>% floor
+    tmp/(n + 1) %>% return
+}
+
 # Multiple plot function
 #
 # ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)

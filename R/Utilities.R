@@ -1,3 +1,32 @@
+simulate.outliers <- function(n.outliers, max.val) {
+                                        #sample(0:max.val, n.outliers, replace=TRUE) %>% return
+    rpois(n.outliers, lambda=max.val) %>% return
+}
+
+perturb.cumincid <-  function(Cases, n.perturb=10, mu.perturb){
+
+    if( length(Cases) < n.perturb){
+        stop("cannot perturb more positions than items in the input.", do.call=FALSE)
+    }
+                                        # choose random places in the input to add poisson noise
+    perturb.at <- sample(1:length(Cases), n.perturb, replace=TRUE)
+    perturb.by <- rpois(n.perturb, lambda=mu.perturb)
+    Cases[perturb.at] %<>% `+`(perturb.by)
+    return(Cases)
+}
+
+simulate.cumincid <- function(n=100, lambda, n.outliers=1){
+
+    if(n.outliers > n){
+        stop("cannot replace more items than there are in the input.", do.call=FALSE)
+    }
+    cum.incidence <- rpois(n, lambda) %>% cumsum %>% rev
+    last.few <- simulate.outliers(n.outliers, min(cum.incidence))
+    cum.incidence[1:n.outliers] <- last.few
+    cum.incidence %<>% rev
+    return(cum.incidence)
+}
+
 ##' .. Computes the prection interval for the (n + 1)th observation given n observations ..
 ##' This interval is [mu.hat - lambda.sample.var, mu.hat + lambda.sample.var] where
 ##' lambda = k * sqrt((n + 1)/n)
@@ -29,6 +58,24 @@ chebyshev.ineq.sample <- function(n, k){
     tmp <- ((n + 1)*(n^2 - 1 + n*(lambda^2)))/(n^2 * lambda^2) %>% floor
     tmp/(n + 1) %>% return
 }
+
+##' .. For sample size n, what should k be so that the p% of the data is outside
+##' k standard deviations of the sample mean ..
+##'
+##' @details if k=interval.width.for.p(n, p), then chebyshev.ineq.sample(n, k) should be p.
+##' @title
+##' @param n
+##' @param p
+##' @return
+##' @author Sangeeta Bhatia
+interval.width.for.p <- function(n, p){
+
+    lower.lim <- (n^2 - 1)/((p * n * (n + 1)) - 1)
+    upper.lim <- (n^2 - 1)/((p * n *(n + 1)) - 1 - n)
+    return(c(lower.lim, upper.lim))
+}
+
+
 
 # Multiple plot function
 #

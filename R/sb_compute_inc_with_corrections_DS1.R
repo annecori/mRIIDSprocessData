@@ -16,10 +16,11 @@ is_monotonically_increasing <- function(vec){
 ##' will be tolerated.
 ##' @seealso chebyshev.ineq.sample for the proportion *outside* a certain interval around the mean
 ##' @title
-##' @param Cases
-##' @param use.last
+##' @param Cases numeric vector
+##' @param use.last number of points preceeding the last one to be used for estimation. If this is more than
+##' the number of available data points, all points are used.
 ##' @param k.sd
-##' @return
+##' @return TRUE is the last point is outside the prediction interval, FALSE otherwise.
 ##' @author Sangeeta Bhatia
 is.outlier <- function(Cases, use.last, k.sd){
     if( length(Cases) < use.last){
@@ -32,8 +33,8 @@ is.outlier <- function(Cases, use.last, k.sd){
                   prediction.interval(k.sd)
 
     last.point <- Cases[length(Cases)]
-    if( last.point > p.interval[1] & last.point < p.interval[2]) return(FALSE)
-    else return(TRUE)
+    if( last.point < p.interval[1] || last.point > p.interval[2]) return(TRUE)
+    else return(FALSE)
 }
 
 ##' .. If the last datapoint is an outlier, remove it ..
@@ -43,11 +44,11 @@ is.outlier <- function(Cases, use.last, k.sd){
 ##' @return
 ##' @author Sangeeta Bhatia
 remove.last.outliers <- function(cum.incidence, use.last=20, k.sd=6){
-    is.outlier <- is.outlier(cum.incidence$Cases, use.last, k.sd)
-    while(is.outlier){
+    outlier <- is.outlier(cum.incidence$Cases, use.last, k.sd)
+    while(outlier){
         remove <- nrow(cum.incidence)
         cum.incidence <- cum.incidence[-remove, ]
-        is.outlier <- is.outlier(cum.incidence$Cases, use.last, k.sd)
+        outlier <- is.outlier(cum.incidence$Cases, use.last, k.sd)
     }
     return(cum.incidence)
 }

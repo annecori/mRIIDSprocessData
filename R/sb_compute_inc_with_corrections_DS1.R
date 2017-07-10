@@ -53,7 +53,8 @@ remove.last.outliers <- function(cum.incidence, use.last=20, k.sd=6){
     return(cum.incidence)
 }
 
-make_increasing_at_end <- function(cum.incidence, use.last=20, k.sd=6){
+make_increasing_at_end <- function(cum.incidence, t1){
+    cum.incidence[-t1, ]
 }
 
 make_increasing_at_k <- function(cum.incidence, t1){
@@ -83,7 +84,7 @@ make_increasing_at_k <- function(cum.incidence, t1){
 
         cum.incidence <- cum.incidence[-remove,]
      }
-     return(cum.incidence) # May still be non-increasing but we will see about that later.
+     cum.incidence # May still be non-increasing but we will see about that later.
  }
 
 
@@ -102,7 +103,7 @@ make_monotonically_increasing <- function(cum.incidence){
         cum.incidence %<>% make_increasing_at_k( t1=not.increasing[1] )
         not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
     }
-    cum.incidence %>% return
+    cum.incidence
 }
 
 ##' .. content for \description{} (no empty lines) ..
@@ -120,13 +121,21 @@ sb_compute.cumulative.incidence <- function(no.duplicates){
     not.na <- which(!is.na(no.duplicates$Cases))
     cum.incidence <- no.duplicates[not.na, c('Date', 'Cases')]
 
-    first.row <- no.duplicates[1,]
+    first.row <- no.duplicates[1, c('Date', 'Cases')]
     first.row$Date <- first.row$Date - 1
     first.row$Cases <- 0
 
+    cum.incidence %<>% rbind(first.row, .)
+
+    # params for outlier removal.
+    use.last <- 20
+    p.within.k <- 0.50
+    k.sd <- interval.width.for.p(use.last, 1 - p.within.k) %>% sqrt %>% `[`(2)
+
+
     cum.incidence %<>%
-        rbind(first.row, .) %<>%
-        make_monotonically_increasing
+       remove.last.outliers(use.last=use.last, k.sd=k.sd) %<>%
+       make_monotonically_increasing
 
                                         # Add the dates for which no data is available.
     dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by=1)

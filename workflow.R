@@ -1,11 +1,13 @@
 rm(list=ls())
 library(magrittr)
+library(ggplot2)
 #library(devtools)
 #install_github("annecori/mRIIDSprocessData")
 #library(mRIIDSprocessData)
 # For now we will source all files
 source("R/compute_inc_with_corrections_DS1.R")
 source("R/get_gravity_model_flow_DS3.R")
+source("R/incidence_data_cleanup.R")
 source("R/get_incid_DS1.R")
 source("R/merge_dup_lines_DS1.R")
 source("R/Utilities.R")

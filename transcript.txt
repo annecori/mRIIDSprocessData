@@ -1,0 +1,75 @@
+
+R version 3.4.0 (2017-04-21) -- "You Stupid Darkness"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> > if(identical(getOption('pager'), file.path(R.home('bin'), 'pager'))) # rather take the ESS one
++       options(pager='cat')
+> options(STERM='iESS', str.dendrogram.last="'", editor='emacsclient', show.error.locations=TRUE)
+> getwd()
+[1] "/Users/sbhatia/GitWorkArea/mRIIDSprocessData"
+> source("R/sb_compute_inc_with_corrections_DS1.R")
+> dates <- seq(as.Date("01/01/2017"), length.out=7)
+Error in seq.Date(as.Date("01/01/2017"), length.out = 7) : 
+  exactly two of 'to', 'by' and 'length.out' / 'along.with' must be specified
+> dates <- seq(from=as.Date("01/01/2017"), length.out=7, by=1)
+> dates
+[1] "0001-01-20" "0001-01-21" "0001-01-22" "0001-01-23" "0001-01-24"
+[6] "0001-01-25" "0001-01-26"
+> Cases <- c(1:6, 3)
+> cum.incidence <- data.frame(Date=dates, Cases=Cases)
+>     not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
+Error in cum.incidence$Cases %>% is_monotonically_increasing : 
+  could not find function "%>%"
+> library(magrittr)
+> cum.incidence <- data.frame(Date=dates, Cases=Cases)
+>     not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
+> length(not.increasing)
+[1] 1
+>         cum.incidence %>% make_increasing_at_k( t1=not.increasing[1] )
+        Date Cases
+1 0001-01-20     1
+2 0001-01-21     2
+3 0001-01-22     3
+4 0001-01-23     4
+5 0001-01-24     5
+6 0001-01-25     6
+> cum.incidence <- data.frame(Date=dates, Cases=Cases)
+>     not.increasing <- cum.incidence$Cases %>% is_monotonically_increasing
+> not.increasing
+[1] 6
+>     t2 <- t1 + 1
+Error: object 't1' not found
+> t1 <- not.increasing[1]
+>     t2 <- t1 + 1
+> nrow(cum.incidence) == t2
+[1] TRUE
+>     t2 <-  t1 + 1
+>     cum.incidence.no.t1 <-  cum.incidence
+>     cum.incidence.no.t1 <-  cum.incidence.no.t1[-t1, ]
+>     is.increasing.no.t1 <- cum.incidence.no.t1$Cases[c(t1-1, t2-1)] %>% is_monotonically_increasing %>% length
+> is.increasing.no.t1
+[1] 1
+> cum.incidence.no.t1
+        Date Cases
+1 0001-01-20     1
+2 0001-01-21     2
+3 0001-01-22     3
+4 0001-01-23     4
+5 0001-01-24     5
+7 0001-01-26     3
+> 

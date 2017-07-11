@@ -84,7 +84,7 @@ make_increasing_at_k <- function(cum.incidence, t1){
 
         cum.incidence <- cum.incidence[-remove,]
      }
-     cum.incidence # May still be non-increasing but we will see about that later.
+     cum.incidence # May still be non-increasing but we will fix that in the while loop.
  }
 
 
@@ -92,7 +92,7 @@ make_increasing_at_k <- function(cum.incidence, t1){
 ##' .. fixing monotonicity in a vector that returns a non-empty set of indices from is_monotonically_increasing ..
 ##' @details If vec %>% is_monotonically_increasing is non-empty, it means that there are indices at which vec is
 ##' decreasing. This is not desirable for instance for a vector of cumulative case counts. We fix this issue using
-##' the following rules
+##' the following rules.
 ##' @title
 ##' @param cum.incidence a data frame containing a numeric column called 'Cases'.
 ##' @return
@@ -135,24 +135,26 @@ sb_compute.cumulative.incidence <- function(no.duplicates){
 
     cum.incidence %<>%
        remove.last.outliers(use.last=use.last, k.sd=k.sd) %<>%
-       make_monotonically_increasing
+       make_monotonically_increasing %<>%
+       interpolate.missing.data
 
-                                        # Add the dates for which no data is available.
-    dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by=1)
-    cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y=TRUE)
-
-                                        # Finally interpolate to fill in the NAs
-
-
+   cum.incidence
 }
 
-##' .. content for \description{} (no empty lines) ..
+##' Pads the input data frame with interpolated count for dates for which no data are available.
 ##'
 ##' .. content for \details{} ..
 ##' @title
-##' @param cum.incidence
-##' @return
+##' @param cum.incidence a data frame containing the columns Date and Cases
+##' @return a data frame with all the dates from the first and the last and interpolated case counts for the dates for
+##' which this was missing.
 ##' @author Sangeeta Bhatia
-interpolate.missing.incidences <- function(cum.incidence) {
+interpolate.missing.data <- function(cum.incidence) {
 
+    dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by=1)
+    cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y=TRUE)
+    out <- approx(cum.incidence$Date, cum.incidence$Cases, xout=cum.incidence$Date, method="linear")
+    cum.incidence$Date <- out$x
+    cum.incidence$Cases <- out$y
+    cum.incidence
 }

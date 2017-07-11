@@ -114,7 +114,7 @@ make_monotonically_increasing <- function(cum.incidence){
 ##' @return data frame ordered by date with no missing cases count and which has strictly non-decreasing
 ##' case count.
 ##' @author Sangeeta Bhatia
-sb_compute.cumulative.incidence <- function(no.duplicates){
+compute.cumulative.incidence <- function(no.duplicates){
 
     # starting one day before the first entry so that cumulative incidence on that day is zero
     # dates.all <- seq(min(merged_dat$Date, na.rm = TRUE)-1, max(merged_dat$Date, na.rm = TRUE), 1)

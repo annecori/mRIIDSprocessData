@@ -71,7 +71,7 @@ incidence.from.DS1 <- function(case.count,
   ### order these by dates ###
   case.count <- case.count[order(as.numeric(case.count$Date)), ]
 
-  out <- compute_inc_with_corrections_DS1(no.outliers)
+  out <- compute.cumulative.incidence(case.count)
 
   return(out)
 

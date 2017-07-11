@@ -1,6 +1,7 @@
 #' Compute incidence from data stream 1
 #'
-#' This function BLABLA
+#' This function serves as a wrapper around the cleaning and processing of
+#' incidence data. The functions for these are available in ...
 #'
 #' @export
 #'

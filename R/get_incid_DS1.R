@@ -72,6 +72,7 @@ incidence.from.DS1 <- function(case.count,
   case.count <- case.count[order(as.numeric(case.count$Date)), ]
 
   out <- compute.cumulative.incidence(case.count)
+  out$incid <- c(0, diff(out$Cases))
 
   return(out)
 

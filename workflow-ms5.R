@@ -12,7 +12,7 @@ devtools::load_all()
 
 species <- "Humans"
 disease <- "Ebola"
-
+focal.location <- "Sierra Leone"
 ### for now looking at suspected and confirmed cases ###
 case.type <- "SCC"
 
@@ -53,8 +53,8 @@ T_sim  <- 7 * 7
 
 
 
-relative.risk <- function(flow.vec, risk.at){
-    flow.vec[ risk.at ]/(sum( flow.vec, na.rm = TRUE))
+relative.risk <- function(flow.to, tot.flow.from){
+    flow.to/tot.flow.from
 }
 
 p.spread <- function(p.stay, rel.risk){
@@ -99,13 +99,14 @@ lapply(by.location, function(case.count){
     new_i$timespan <- as.numeric( diff(range( new_i$dates, na.rm = TRUE))) + 1
     new_i$n <- sum( new_i$counts)
 
-    # + 1 because the first column consists of country names.
-    risk.at <- which(countries_names %in% location) + 1
-    flow.vec <- flow.matrix[, risk.at]
-    rel.risk <- relative.risk(flow.vec, risk.at)
+                                        # + 1 because the first column consists of country names.
+    from <- which(countries_names %in% focal.location) + 1
+    tot.flow.from <- flow.matrix[, from] %>% sum(na.rm=TRUE)
+    to  <-  which(countries_names %in% location)
+    flow.to <- flow.matrix[to, from]
+    rel.risk <- relative.risk( flow.to, tot.flow.from)
     if(is.na( rel.risk)) rel.risk <- 0
     p.spread <- p.spread(p.stay, rel.risk)
-    #p.spread <- 0.10
     projection <- get_projection(T_proj , T_sim  , new_i  , res, p.spread)
 
     outfile <- paste0("output/", location, "_projection.png")

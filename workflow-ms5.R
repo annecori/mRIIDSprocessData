@@ -48,7 +48,7 @@ time_window <- 7 * 7
 
 
 # projections
-T_proj <- 7 * c(21,43,64)
+T_proj <- 7 * c(21, 43, 64)
 T_sim  <- 7 * 7
 
 

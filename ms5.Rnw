@@ -1,0 +1,40 @@
+\documentclass[a4paper]{article}
+\usepackage{amsmath}
+\title{%
+  Mapping the Risk of International Infectious Disease Spread (MRIIDS): \\
+  \large Milestone 6: A model to predict the spread of infectious disease threats
+}
+\author{Sangeeta Bhatia, Anne Cori \and Pierre Nouvellet}
+\begin{document} 
+\maketitle
+
+\section{Incidence prediction}
+
+\[
+  I_{j, t} \sim \mathit{Pois}\left(\sum_{i=1}^{n}{\left(p_{i \rightarrow j}
+      R_t^i \sum_{s=1}^{t} \left( I_{i, t-s} \omega_s\right) \right)} \right)
+\]
+Thus the number of incidences at time $t$ at location $j$ is distributed according
+to a Poisson distribution with the mean given by the matrix product:
+\[
+  \lambda_{j, t} = 
+  \begin{pmatrix}
+  p_{1j} & p_{2j} \dots  p_{nj}
+  \end{pmatrix} \times
+  \begin{pmatrix}
+   R_t^1 I_{t - 1}^1 & R_t^1 I_{t - 2}^1 & \dots & R_t^1 I_{0}^1 \\
+   \dots \\
+   R_t^n I_{t - 1}^n & R_t^n I_{t - 2}^n & \dots & R_t^n I_{0}^n
+  \end{pmatrix}
+  \times
+ \begin{pmatrix}
+  \omega_1 \\
+  \dots \\
+  \omega_t 
+ \end{pmatrix},
+ \]
+ where $R_t^i$ is the instantenous reproduction number  at time $t$ at
+ location $i$ and $I_t^i$ is the incidence at time $t$ at
+ location $i$.
+\end{document}
+

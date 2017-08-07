@@ -1,4 +1,4 @@
-qd##' .. content for \description{} (no empty lines) ..
+##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
 ##' @param p_ij : row vector of length n where n is the number of locations. Each entry is the probability of flow from i to j.
@@ -26,9 +26,11 @@ lambda.j.t <- function(p_ij, r_t, i_t, w_t){
 ##' @author Sangeeta Bhatia
 project.for.location <-  function(incid, R, si, pij, n.sim = 100, n.days = 7){
 
+
     out  <- matrix(0, n.days, n.sim) %>% rbind(incid, .)
     start <- nrow(incid) + 1
     end <- nrow(out) + 1
+    si %<>% c(rep(0, end - start + 1), .)
     for(i in start:end){
         i_t      <- incid[1:i, ]
         w_t      <- utils::tail(si, i)

@@ -18,7 +18,6 @@ case.type <- "SCC"
 
 
 ## Gravity model parameters ##
-
 pow_N_from <- 1
 pow_N_to <- 1
 pow_dist <- 2
@@ -66,6 +65,13 @@ healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
 
 by.location <- split(healthmap, healthmap$Country)
 
+out <- lapply(by.location, function(case.count){
+    location <- case.count$Country[1]
+    case.count %<>%  incidence.from.DS1(species, disease,
+                                         case.type,
+                                         location,
+                                        merge_rule = "median")}) %>%
+    Reduce(function(d1, d2) left_join(d1, d2, by="Date"), .)
 
 
 lapply(by.location, function(case.count){
@@ -76,7 +82,7 @@ lapply(by.location, function(case.count){
                                          merge_rule = "median")
 
     outfile <- paste(species, disease, location, "processed", sep="_") %>%
-               paste(".pdf", sep="")
+        paste(".pdf", sep="")
 
     p <- ggplot(case.count, aes(Date, Cases)) + geom_point()
     ggsave(outfile, p)
@@ -88,8 +94,8 @@ lapply(by.location, function(case.count){
     start <- 3:(length(case.count$Date) - time_window)
     end   <- start + time_window
     res   <- EstimateR( case.count$incid , T.Start=start , T.End=end ,
-                     method="NonParametricSI", SI.Distr= SI_Distr ,
-                     plot=FALSE , CV.Posterior=1 , Mean.Prior=1 , Std.Prior=0.5)
+                       method="NonParametricSI", SI.Distr= SI_Distr ,
+                       plot=FALSE , CV.Posterior=1 , Mean.Prior=1 , Std.Prior=0.5)
     res$R <- cbind(res$R, case.count$Date[res$R$T.End])
     names(res$R) <- c(names(res$R)[1:11],'dates')
 
@@ -106,12 +112,12 @@ lapply(by.location, function(case.count){
     flow.to <- flow.matrix[to, from]
     rel.risk <- relative.risk( flow.to, tot.flow.from)
     if(is.na( rel.risk)) rel.risk <- 0
-    p.spread <- p.spread(p.stay, rel.risk)
-    projection <- get_projection(T_proj , T_sim  , new_i  , res, p.spread)
+    pspread <- p.spread(p.stay, rel.risk)
+    projection <- get_projection(T_proj , T_sim  , new_i  , res, pspread)
 
     outfile <- paste0("output/", location, "_projection.png")
     png(outfile, width=1600,height=1000,res=200)
-     get_plot_weekly(new_i, T_proj, projection, res )
+    get_plot_weekly(new_i, T_proj, projection, res )
     dev.off()
 
 

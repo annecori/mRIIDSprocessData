@@ -152,9 +152,10 @@ compute.cumulative.incidence <- function(no.duplicates){
 ##' @author Sangeeta Bhatia
 interpolate.missing.data <- function(cum.incidence) {
 
-    dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by=1)
-    cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y=TRUE)
-    out <- approx(cum.incidence$Date, cum.incidence$Cases, xout=cum.incidence$Date, method="linear")
+    dates.all <- seq(min(cum.incidence$Date) - 1, max(cum.incidence$Date), by = 1)
+    cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y = TRUE)
+    out <- approx(cum.incidence$Date, cum.incidence$Cases,
+                    xout=cum.incidence$Date, method = "linear", rule = 2)
     cum.incidence$Date <- out$x
     cum.incidence$Cases <- out$y
     cum.incidence

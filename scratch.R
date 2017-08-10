@@ -5,17 +5,6 @@ library(EpiEstim)
 source("useful.R")
 devtools::load_all()
 
-## params for estimating reproduction number
-## specify a serial interval distribution
-mean_SI <- 14.2
-# from http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf
-CV_SI <- 9.6 / 14.2
-SItrunc <- 40
-SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
-SI_Distr <- SI_Distr / sum(SI_Distr)
-
-
-
 ## Collect the incidence count for all locations
 
 species <- "Humans"
@@ -40,6 +29,12 @@ by.location <- healthmap %>%
                    return(case.count)}) %>%
                 Reduce(function(d1, d2) dplyr::left_join(d1, d2, by="Date"), .)
 
+## Even at this point we have several NAs because for any given location
+## we don't have data for all locations.
+
+by.location %<>% `[`(complete.cases(.), )
+
+## Fortunately the dates are regularly spaced even after the above step.
 
 ## Determine the flow matrix for the countries of interest only.
 adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
@@ -75,14 +70,43 @@ flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangl
 relative.risk <- flow.matrix %>%
                  apply(1, function(row) row / sum(row, na.rm=TRUE))
 
+
+## params for estimating reproduction number
+## specify a serial interval distribution
+mean_SI <- 14.2
+# from http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf
+CV_SI <- 9.6 / 14.2
+SItrunc <- 40
+SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr <- SI_Distr / sum(SI_Distr)
+
+
+
 ## Estimate the reproduction number matrix
 time_window <- 7
-start       <- 3:(length(by.location$Date) - time_window)
+start       <- 1:(length(by.location$Date) - time_window)
 end         <- start + time_window
-res         <- healthmap %>% apply(2, function(col) EstimateR(col, T.Start = start , T.End = end, method = "NonParametricSI", SI.Distr = SI_Distr, plot = FALSE , CV.Posterior = 1 , Mean.Prior = 1 , Std.Prior = 0.5)
+t.proj      <- 147
+## r.j.t contains estimates of the reproduction rate at times
+## from 1 through to the (last date - time_window)
+r.j.t <- by.location[, grep("incid", names(by.location))] %>%
+         apply(2, function(incid) {
+                  res <- EstimateR(incid, T.Start = start , T.End = end,
+                         method = "NonParametricSI",
+                         SI.Distr = SI_Distr,
+                         plot = FALSE ,
+                         CV.Posterior = 1 ,
+                         Mean.Prior = 1 ,
+                         Std.Prior = 0.5)
+                  r.t <- res$R %>% apply(1, function(r){
+                                       shape <- r["Mean(R)"]^2 / r["Std(R)"]^2
+                                       scale <- r["Std(R)"]^2 / r["Mean(R)"]
+                                       return(rgamma(1, shape = shape,
+                                                     scale = scale))})
+                  return(r.t) })
 
-by.location <- healthmap %>%
-               split(.$Country) %>%
+
+
 
 
 ## matrix characterising the population movement between geographical units

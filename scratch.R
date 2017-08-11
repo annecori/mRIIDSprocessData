@@ -44,26 +44,32 @@ names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
 
 distances <- geosphere::distm(adm0_centroids[,c('lon', 'lat')])
 distances <- distances[lower.tri(distances)] # Extract the distances vector
-pairs <-  nrow(adm0_centroids) %>% combn(2)
-n_from <- adm0_centroids[pairs[1,],'pop']
-n_to <- adm0_centroids[pairs[2,],'pop']
+pairs     <- nrow(adm0_centroids) %>% combn(2)
+n_from    <- adm0_centroids[pairs[1,],'pop']
+n_to      <- adm0_centroids[pairs[2,],'pop']
 
 ## Gravity model parameters ##
 pow_N_from <- 1
-pow_N_to <- 1
-pow_dist <- 2
-K <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
 
-flow.matrix <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
+flow.matrix           <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
 rownames(flow.matrix) <- adm0_centroids$country
 colnames(flow.matrix) <- adm0_centroids$country
 
-                                        # fill in the matrix from the vectors
-flow_from_to <- flow_vector(n_from, n_to, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
+## fill in the matrix from the vectors
+flow_from_to <- flow_vector(n_from, n_to, distances, K=K,
+                            pow_N_from=pow_N_from,
+                            pow_N_to=pow_N_to,
+                            pow_dist=pow_dist)
 flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
 flow.matrix <- t(flow.matrix) # fill out the upper triangle
 
-flow_to_from <- flow_vector(n_to, n_from, distances, K=K, pow_N_from=pow_N_from, pow_N_to=pow_N_to, pow_dist=pow_dist)
+flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
+                            pow_N_from=pow_N_from,
+                            pow_N_to=pow_N_to,
+                            pow_dist=pow_dist)
 flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
 
 ## Relative risk
@@ -75,8 +81,8 @@ relative.risk <- flow.matrix %>%
 ## specify a serial interval distribution
 mean_SI <- 14.2
 # from http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf
-CV_SI <- 9.6 / 14.2
-SItrunc <- 40
+CV_SI    <- 9.6 / 14.2
+SItrunc  <- 40
 SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
 SI_Distr <- SI_Distr / sum(SI_Distr)
 
@@ -106,7 +112,8 @@ r.j.t <- by.location[, grep("incid", names(by.location))] %>%
                   return(r.t) })
 
 
-
+## unfortunate hack to get things going
+r.j.t %<>% .[complete.cases(.), ]
 
 
 ## matrix characterising the population movement between geographical units
@@ -119,9 +126,6 @@ p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
 p.mat <- t(p.mat)
 p.mat[lower.tri(p.mat)] <- p.mat[upper.tri(p.mat)]
 diag(p.mat) <- p.stay
-
-
-
 p.movement <- relative.risk * p.mat
 
 # time to simulate for

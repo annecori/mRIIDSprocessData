@@ -165,7 +165,12 @@ incidence.proj[1 + nrow(incidence.count):t.max, ] <- lambda.j %>% t %>%
 incidence.proj$Date <- by.location$Date[common.dates] %>%
                                c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 
-ggplot() + geom_point(data = validation[, c("Date", "Mali.incid")],
-                      aes(Date, Mali.incid, color="red")) +
-    geom_point(data = incidence.proj[1 + nrow(incidence.count):t.max, c("Date", "Mali.incid")],
-               aes(Date, Mali.incid))
+projected   <- incidence.proj[1 + nrow(incidence.count):t.max, ]
+projected$provenance <- "Projected"
+validation %<>% `[`(colnames(projected))
+validation$provenance <- "Validation"
+
+validation %>%
+    rbind(projected) %>%
+    reshape2::melt(id.vars=c("Date", "provenance")) %>%
+    ggplot(aes(Date, value, color = provenance)) + geom_point() + facet_grid(variable ~ .)

@@ -2,15 +2,14 @@ library(devtools)
 library(magrittr)
 library(ggplot2)
 library(EpiEstim)
-source("useful.R")
+#source("useful.R")
 devtools::load_all()
 
 ## Collect the incidence count for all locations
 
-species <- "Humans"
-disease <- "Ebola"
+species   <- "Humans"
+disease   <- "Ebola"
 case.type <- "SCC"
-
 healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                read.csv(stringsAsFactors = FALSE)
 
@@ -31,10 +30,13 @@ by.location <- healthmap %>%
 
 ## Even at this point we have several NAs because for any given location
 ## we don't have data for all locations.
+## Fortunately the dates are regularly spaced even after the above step.
 
 by.location %<>% `[`(complete.cases(.), )
 
-## Fortunately the dates are regularly spaced even after the above step.
+## Now divide the dataset into training and validation sets.
+validation  <-   utils::tail(by.location, n = 10L)
+by.location %<>% utils::head(n = -10L)
 
 ## Determine the flow matrix for the countries of interest only.
 adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
@@ -76,6 +78,18 @@ flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangl
 relative.risk <- flow.matrix %>%
                  apply(1, function(row) row / sum(row, na.rm=TRUE))
 
+## matrix characterising the population movement between geographical units
+n.countries <- w.africa %>% length
+p.stay      <- 0.05 # this can be a vector
+p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
+p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
+                            unlist
+
+p.mat                   <- t(p.mat)
+p.mat[lower.tri(p.mat)] <- p.mat[upper.tri(p.mat)]
+diag(p.mat)             <- p.stay
+p.movement              <- relative.risk * p.mat
+diag(p.movement)        <- p.stay
 
 ## params for estimating reproduction number
 ## specify a serial interval distribution
@@ -92,7 +106,7 @@ SI_Distr <- SI_Distr / sum(SI_Distr)
 time_window <- 7
 start       <- 1:(length(by.location$Date) - time_window)
 end         <- start + time_window
-t.proj      <- 147
+
 ## r.j.t contains estimates of the reproduction rate at times
 ## from 1 through to the (last date - time_window)
 r.j.t <- by.location[, grep("incid", names(by.location))] %>%
@@ -109,30 +123,49 @@ r.j.t <- by.location[, grep("incid", names(by.location))] %>%
                                        scale <- r["Std(R)"]^2 / r["Mean(R)"]
                                        return(rgamma(1, shape = shape,
                                                      scale = scale))})
-                  return(r.t) })
+                  return(r.t) }) %>%
+           as.data.frame
 
+colnames(r.j.t) <- grep("incid", names(by.location), value=TRUE)
+r.j.t$Date      <- by.location[end, "Date"]
 
 ## unfortunate hack to get things going
-r.j.t %<>% .[complete.cases(.), ]
+r.j.t %<>%
+    .[complete.cases(.), ]
 
 
-## matrix characterising the population movement between geographical units
-n.countries <- w.africa %>% length
-p.stay      <- 0.05 # this can be a vector
-p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
-p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
-                            unlist
 
-p.mat <- t(p.mat)
-p.mat[lower.tri(p.mat)] <- p.mat[upper.tri(p.mat)]
-diag(p.mat) <- p.stay
-p.movement <- relative.risk * p.mat
+## At this point, all the pieces are in place.
+## by.location contains the incidence count
+## r.j.t contains the estimates of reproduction numbers.
+## p.movement conatins the probabilities.
+## SI_Distr is the serial interval distribution.
+## The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
+## taking care of the dimensions of course.
+n.locations     <- length(w.africa)
+common.dates    <- which(by.location$Date %in% r.j.t$Date)
+incidence.count <- by.location[common.dates, grep("incid", names(by.location))]
+date.col        <-  names(r.j.t) %in% "Date"
+incidence.count %<>% `*`(r.j.t[, !date.col])
 
-# time to simulate for
-t.sim <- 7
+n.dates.sim     <- 11
+t.max           <- nrow(incidence.count) + n.dates.sim - 1
+ws              <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
 
-for(t in 1:t.sim){
-    for(j in 1:n.countries){
+incidence.proj           <- matrix(0, nrow = n.dates.sim, ncol = n.locations)
+colnames(incidence.proj) <- grep("incid", names(by.location), value = TRUE)
+incidence.proj %<>% rbind(incidence.count)
 
-    }
-}
+
+lambda.j        <-  t(p.movement) %*% t(incidence.proj) %*% matrix(ws, ncol = length(ws), nrow = length(ws))
+incidence.proj[1 + nrow(incidence.count):t.max, ] <- lambda.j %>% t %>%
+                                                        `[`((1 + nrow(incidence.count):t.max), ) %>%
+                                                         apply(c(1, 2), function(l) rpois(1, l))
+
+incidence.proj$Date <- by.location$Date[common.dates] %>%
+                               c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+
+ggplot() + geom_point(data = validation[, c("Date", "Mali.incid")],
+                      aes(Date, Mali.incid, color="red")) +
+    geom_point(data = incidence.proj[1 + nrow(incidence.count):t.max, c("Date", "Mali.incid")],
+               aes(Date, Mali.incid))

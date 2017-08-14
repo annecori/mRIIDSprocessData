@@ -38,6 +38,11 @@ by.location %<>% `[`(complete.cases(.), )
 validation  <-   utils::tail(by.location, n = 10L)
 by.location %<>% utils::head(n = -10L)
 
+by.location[, c("Date", grep("incid", names(by.location), value = TRUE))] %>%
+    reshape2::melt(id.vars = c("Date")) %>%
+    ggplot(aes(Date, value, color = variable)) + geom_point()
+
+
 ## Determine the flow matrix for the countries of interest only.
 adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
@@ -126,14 +131,22 @@ r.j.t <- by.location[, grep("incid", names(by.location))] %>%
                   return(r.t) }) %>%
            as.data.frame
 
-colnames(r.j.t) <- grep("incid", names(by.location), value=TRUE)
+colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
+                    lapply(function(s){
+                        s %>%
+                        strsplit(split = "[.]") %>%
+                        unlist  %>%
+                       `[`(1)}) %>% unlist
+
 r.j.t$Date      <- by.location[end, "Date"]
 
 ## unfortunate hack to get things going
 r.j.t %<>%
     .[complete.cases(.), ]
 
-
+r.j.t %>% reshape2::melt(id.vars = "Date") %>%
+    dplyr::rename(Country = variable, R_t = value) %>%
+        ggplot(aes(Date, R_t)) + geom_point() + facet_grid(. ~ Country)
 
 ## At this point, all the pieces are in place.
 ## by.location contains the incidence count
@@ -158,8 +171,9 @@ incidence.proj %<>% rbind(incidence.count)
 
 
 lambda.j        <-  t(p.movement) %*% t(incidence.proj) %*% matrix(ws, ncol = length(ws), nrow = length(ws))
-incidence.proj[1 + nrow(incidence.count):t.max, ] <- lambda.j %>% t %>%
-                                                        `[`((1 + nrow(incidence.count):t.max), ) %>%
+incidence.proj[1 + nrow(incidence.count):t.max, ] <- lambda.j %>%
+                                                      t %>%
+                                                      `[`((1 + nrow(incidence.count):t.max), ) %>%
                                                          apply(c(1, 2), function(l) rpois(1, l))
 
 incidence.proj$Date <- by.location$Date[common.dates] %>%

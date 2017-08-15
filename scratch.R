@@ -121,26 +121,29 @@ time_window <- 7
 start       <- 1:(length(by.location$Date) - time_window)
 end         <- start + time_window
 t.proj      <- 21
+r.estim     <- by.location[, grep("incid", names(by.location))] %>%
+                   plyr::alply(2, function(incid) {
+                         res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
+                                            method = "NonParametricSI",
+                                            SI.Distr = SI_Distr,
+                                            plot = FALSE ,
+                                            CV.Posterior = 1 ,
+                                            Mean.Prior = 1 ,
+                                          Std.Prior = 0.5)
+                         res$R$Date      <- by.location[end, "Date"]
+                         return(res$R)})
 
 ## r.j.t contains estimates of the reproduction rate at times
 ## from 1 through to the (last date - time_window)
-r.j.t <- by.location[, grep("incid", names(by.location))] %>%
-         apply(2, function(incid) {
-                  res <- EstimateR(incid, T.Start = start , T.End = end,
-                         method = "NonParametricSI",
-                         SI.Distr = SI_Distr,
-                         plot = FALSE ,
-                         CV.Posterior = 1 ,
-                         Mean.Prior = 1 ,
-                         Std.Prior = 0.5)
-                  r.t <- res$R %>% stabilise.r.t(t.proj) %>%
-                                    apply(1, function(r){
-                                       shape <- r["Mean(R)"]^2 / r["Std(R)"]^2
-                                       scale <- r["Std(R)"]^2 / r["Mean(R)"]
-                                       return(rgamma(1, shape = shape,
-                                                     scale = scale))})
-                  return(r.t) }) %>%
-           as.data.frame
+r.j.t <- r.estim %>%
+         lapply(function(res){
+                  stabilise.r.t(res, t.proj) %>%
+                  apply(1, function(r){
+                     shape <- r["Mean(R)"]^2 / r["Std(R)"]^2
+                     scale <- r["Std(R)"]^2 / r["Mean(R)"]
+                     return(rgamma(1, shape = shape,
+                                      scale = scale))})}) %>% data.frame
+
 
 colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
                     lapply(function(s){

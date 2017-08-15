@@ -130,7 +130,6 @@ r.estim     <- by.location[, grep("incid", names(by.location))] %>%
                                             CV.Posterior = 1 ,
                                             Mean.Prior = 1 ,
                                           Std.Prior = 0.5)
-                         res$R$Date      <- by.location[end, "Date"]
                          return(res$R)})
 
 ## r.j.t contains estimates of the reproduction rate at times

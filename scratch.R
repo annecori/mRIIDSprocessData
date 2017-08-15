@@ -106,11 +106,21 @@ SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
 SI_Distr <- SI_Distr / sum(SI_Distr)
 
 
+## Replacing the instantaneous update of r_t with
+## a stable estimate. r.t is a vector of reproduction
+## numbers. r.t[1:t.proj] will be replaced by r.t[t.proj]
+stabilise.r.t <-  function(r.t, t.proj){
+
+    stable <- seq(from = t.proj, to = nrow(r.t), by = t.proj)
+    for(i in stable) r.t[(i - t.proj + 1):i, ] <- r.t[i, ]
+    return(r.t)
+}
 
 ## Estimate the reproduction number matrix
 time_window <- 7
 start       <- 1:(length(by.location$Date) - time_window)
 end         <- start + time_window
+t.proj      <- 21
 
 ## r.j.t contains estimates of the reproduction rate at times
 ## from 1 through to the (last date - time_window)
@@ -123,7 +133,8 @@ r.j.t <- by.location[, grep("incid", names(by.location))] %>%
                          CV.Posterior = 1 ,
                          Mean.Prior = 1 ,
                          Std.Prior = 0.5)
-                  r.t <- res$R %>% apply(1, function(r){
+                  r.t <- res$R %>% stabilise.r.t(t.proj) %>%
+                                    apply(1, function(r){
                                        shape <- r["Mean(R)"]^2 / r["Std(R)"]^2
                                        scale <- r["Std(R)"]^2 / r["Mean(R)"]
                                        return(rgamma(1, shape = shape,

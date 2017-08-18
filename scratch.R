@@ -5,19 +5,45 @@ library(EpiEstim)
 #source("useful.R")
 devtools::load_all()
 
+## Parameters for incidence data stream processing
 ## Collect the incidence count for all locations
-
 species   <- "Humans"
 disease   <- "Ebola"
 case.type <- "SCC"
+
+## Parameters needed for projection.
+## The time from which we will project forward.
+t.proj      <- 147L
+n.sim       <- 2L   # Number of simulations to run
+n.dates.sim <- 2L  # The time period over which projection will be made.
+
+
+## Parameters for estimating reproduction number
+## specify a serial interval distribution
+# from http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7
+
+## Parameters for processing the spatial data.
+## Gravity model parameters
+pow_N_from <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
+
+
 healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                read.csv(stringsAsFactors = FALSE)
 
-w.africa <- healthmap$Country %>% unique
+w.africa  <- healthmap$Country %>% unique
 
 by.location <- healthmap %>%
-               split(.$Country) %>%
-              lapply(function(case.count){
+                split(.$Country) %>%
+                lapply(function(case.count){
                    location <- case.count$Country[1]
                    case.count %<>%  incidence.from.DS1(species, disease,
                                                       case.type,
@@ -34,13 +60,49 @@ by.location <- healthmap %>%
 
 by.location %<>% `[`(complete.cases(.), )
 
-## Now divide the dataset into training and validation sets.
-validation  <-   utils::tail(by.location, n = 10L)
-by.location %<>% utils::head(n = -10L)
-
 by.location[, c("Date", grep("incid", names(by.location), value = TRUE))] %>%
     reshape2::melt(id.vars = c("Date")) %>%
     ggplot(aes(Date, value, color = variable)) + geom_point()
+
+## Using incidence count to estimate reproduction number.
+start     <- 1:(length(by.location$Date) - time_window)
+end       <- start + time_window
+end.dates <- by.location[end, "Date"]
+r.estim   <- by.location[, grep("incid", names(by.location))] %>%
+                   plyr::alply(2, function(incid) {
+                         res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
+                                            method = "NonParametricSI",
+                                            SI.Distr = SI_Distr,
+                                            plot = FALSE ,
+                                            CV.Posterior = 1 ,
+                                            Mean.Prior = 1 ,
+                                          Std.Prior = 0.5)
+                         res$R %<>% cbind(Date = end.dates)
+                         return(res$R)})
+
+## We assume that the reproduction number remains unchanged for the time
+## period over which we wish to project. For each location, distribution of
+## r_t at t.proj is r_t over the next n.days.sim.
+r.j.t <- r.estim %>%
+           lapply(function(R){
+                     cutoff <- which(R$Date %in% by.location[t.proj, "Date"])
+                     shape  <- R[cutoff, "Mean(R)"]^2 / R[t.proj, "Std(R)"]^2
+                     scale  <- R[cutoff, "Std(R)"]^2 / R[t.proj, "Mean(R)"]
+                     return(rgamma(n.sim, shape = shape,
+                                      scale = scale))}) %>% data.frame
+
+colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
+                    lapply(function(s){
+                        s %>%
+                        strsplit(split = "[.]") %>%
+                        unlist  %>%
+                       `[`(1)}) %>% unlist
+
+
+r.j.t %>% cbind(Index = 1:n.sim, .) %>%
+    reshape2::melt(id.vars = "Index") %>%
+    dplyr::rename(Country = variable, R_t = value) %>%
+        ggplot(aes(Index, R_t)) + geom_point() + facet_grid(. ~ Country)
 
 
 ## Determine the flow matrix for the countries of interest only.
@@ -55,11 +117,6 @@ pairs     <- nrow(adm0_centroids) %>% combn(2)
 n_from    <- adm0_centroids[pairs[1,],'pop']
 n_to      <- adm0_centroids[pairs[2,],'pop']
 
-## Gravity model parameters ##
-pow_N_from <- 1
-pow_N_to   <- 1
-pow_dist   <- 2
-K          <- 1
 
 flow.matrix           <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
 rownames(flow.matrix) <- adm0_centroids$country
@@ -96,70 +153,6 @@ diag(p.mat)             <- p.stay
 p.movement              <- relative.risk * p.mat
 diag(p.movement)        <- p.stay
 
-## params for estimating reproduction number
-## specify a serial interval distribution
-mean_SI <- 14.2
-# from http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf
-CV_SI    <- 9.6 / 14.2
-SItrunc  <- 40
-SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
-SI_Distr <- SI_Distr / sum(SI_Distr)
-
-
-## Replacing the instantaneous update of r_t with
-## a stable estimate. r.t is a vector of reproduction
-## numbers. r.t[1:t.proj] will be replaced by r.t[t.proj]
-stabilise.r.t <-  function(r.t, t.proj){
-
-    stable <- seq(from = t.proj, to = nrow(r.t), by = t.proj)
-    for(i in stable) r.t[(i - t.proj + 1):i, ] <- r.t[i, ]
-    return(r.t)
-}
-
-## Estimate the reproduction number matrix
-time_window <- 7
-start       <- 1:(length(by.location$Date) - time_window)
-end         <- start + time_window
-t.proj      <- 21
-r.estim     <- by.location[, grep("incid", names(by.location))] %>%
-                   plyr::alply(2, function(incid) {
-                         res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
-                                            method = "NonParametricSI",
-                                            SI.Distr = SI_Distr,
-                                            plot = FALSE ,
-                                            CV.Posterior = 1 ,
-                                            Mean.Prior = 1 ,
-                                          Std.Prior = 0.5)
-                         return(res$R)})
-
-## r.j.t contains estimates of the reproduction rate at times
-## from 1 through to the (last date - time_window)
-r.j.t <- r.estim %>%
-         lapply(function(res){
-                  stabilise.r.t(res, t.proj) %>%
-                  apply(1, function(r){
-                     shape <- r["Mean(R)"]^2 / r["Std(R)"]^2
-                     scale <- r["Std(R)"]^2 / r["Mean(R)"]
-                     return(rgamma(1, shape = shape,
-                                      scale = scale))})}) %>% data.frame
-
-
-colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
-                    lapply(function(s){
-                        s %>%
-                        strsplit(split = "[.]") %>%
-                        unlist  %>%
-                       `[`(1)}) %>% unlist
-
-r.j.t$Date      <- by.location[end, "Date"]
-
-## unfortunate hack to get things going
-r.j.t %<>%
-    .[complete.cases(.), ]
-
-r.j.t %>% reshape2::melt(id.vars = "Date") %>%
-    dplyr::rename(Country = variable, R_t = value) %>%
-        ggplot(aes(Date, R_t)) + geom_point() + facet_grid(. ~ Country)
 
 ## At this point, all the pieces are in place.
 ## by.location contains the incidence count
@@ -168,36 +161,36 @@ r.j.t %>% reshape2::melt(id.vars = "Date") %>%
 ## SI_Distr is the serial interval distribution.
 ## The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
 ## taking care of the dimensions of course.
+## Now divide the dataset into training and validation sets.
+validation      <- by.location %>%
+                      utils::tail(n = nrow(.) - t.proj)
 n.locations     <- length(w.africa)
-common.dates    <- which(by.location$Date %in% r.j.t$Date)
-incidence.count <- by.location[common.dates, grep("incid", names(by.location))]
-date.col        <-  names(r.j.t) %in% "Date"
-incidence.count %<>% `*`(r.j.t[, !date.col])
-
-n.dates.sim     <- 11
+incidence.count <- by.location[1:t.proj, grep("incid", names(by.location))]
+dates.all       <- by.location[1:t.proj, "Date"] %>%
+                       c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
 ws              <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
 
-incidence.proj           <- matrix(0, nrow = n.dates.sim, ncol = n.locations)
-colnames(incidence.proj) <- grep("incid", names(by.location), value = TRUE)
-incidence.proj %<>% rbind(incidence.count)
-
-
-lambda.j        <-  t(p.movement) %*% t(incidence.proj) %*% matrix(ws, ncol = length(ws), nrow = length(ws))
-incidence.proj[1 + nrow(incidence.count):t.max, ] <- lambda.j %>%
-                                                      t %>%
-                                                      `[`((1 + nrow(incidence.count):t.max), ) %>%
-                                                         apply(c(1, 2), function(l) rpois(1, l))
-
-incidence.proj$Date <- by.location$Date[common.dates] %>%
-                               c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
-
-projected   <- incidence.proj[1 + nrow(incidence.count):t.max, ]
-projected$provenance <- "Projected"
-validation %<>% `[`(colnames(projected))
-validation$provenance <- "Validation"
-
-validation %>%
-    rbind(projected) %>%
-    reshape2::melt(id.vars=c("Date", "provenance")) %>%
-    ggplot(aes(Date, value, color = provenance)) + geom_point() + facet_grid(variable ~ .)
+make.projection.matrix <- function(){
+   incidence.proj           <- matrix(0, nrow = n.dates.sim, ncol = n.locations)
+   colnames(incidence.proj) <- grep("incid", names(by.location), value = TRUE)
+   incidence.proj %<>% rbind(incidence.count, .)
+#   incidence.proj %<>% cbind(sim.counter = sim.counter)
+   return(incidence.proj)
+}
+## Each row of r.j.t is a set of reproduction numbers at each
+## location for one simulation.
+projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                       incidence.proj <- make.projection.matrix()
+                                       for(i in (nrow(incidence.count) + 1):t.max){
+                                           for(j in 1:n.locations){
+                                               incidence.proj[i, j] <-
+                                                   (ws[1:i] %*% as.matrix(incidence.proj[1:i, ])) %>%
+                                                       `*`(r.t) %>%
+                                                       `*`(p.movement[j, ]) %>%
+                                                           sum %>%
+                                                           rpois(1, .)
+                                           }
+                                       }
+                                       incidence.proj %<>% cbind(Date = dates.all)
+                                       return(incidence.proj)})

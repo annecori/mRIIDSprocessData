@@ -14,8 +14,8 @@ case.type <- "SCC"
 ## Parameters needed for projection.
 ## The time from which we will project forward.
 t.proj      <- 147L
-n.sim       <- 2L   # Number of simulations to run
-n.dates.sim <- 2L  # The time period over which projection will be made.
+n.sim       <- 100L   # Number of simulations to run
+n.dates.sim <- 12L    # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -39,13 +39,29 @@ K          <- 1
 healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                read.csv(stringsAsFactors = FALSE)
 
-w.africa  <- healthmap$Country %>% unique
+## Before we do anything else, we will plot the raw data.
+healthmap.raw <- healthmap %>%
+                 dplyr::filter(Species == species, Disease == disease) %>%
+                 dplyr::select(Issue.Date, SC, SD, CC, CD, Country)
+
+healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
+healthmap.raw %>%
+    split(.$Country) %>%
+    lapply(function(case.count){
+        out <- paste(case.count$Country[1], "raw.pdf", sep = "-")
+        p   <- case.count %>%
+                reshape2::melt(id.vars = c("Issue.Date", "Country")) %>%
+                dplyr::rename(Case.Type = variable, Count = value) %>%
+                ggplot(aes(Issue.Date, Count, color = Case.Type)) + geom_point() + theme_minimal()
+        ggsave(out, p)})
+## End of plotting raw data
+w.africa    <- healthmap$Country %>% unique
 
 by.location <- healthmap %>%
                 split(.$Country) %>%
                 lapply(function(case.count){
-                   location <- case.count$Country[1]
-                   case.count %<>%  incidence.from.DS1(species, disease,
+                    location <- case.count$Country[1]
+                    case.count %<>%  incidence.from.DS1(species, disease,
                                                       case.type,
                                                       location,
                                                      merge_rule = "median")
@@ -54,9 +70,9 @@ by.location <- healthmap %>%
                    return(case.count)}) %>%
                 Reduce(function(d1, d2) dplyr::left_join(d1, d2, by="Date"), .)
 
-## Even at this point we have several NAs because for any given location
+## Even at this point we have several NAs because for a given date,
 ## we don't have data for all locations.
-## Fortunately the dates are regularly spaced even after the above step.
+## Fortunately the dates are regularly spaced even after the step below.
 
 by.location %<>% `[`(complete.cases(.), )
 
@@ -180,7 +196,7 @@ make.projection.matrix <- function(){
 }
 ## Each row of r.j.t is a set of reproduction numbers at each
 ## location for one simulation.
-projections <- plyr::alply(r.j.t, 1, function(r.t){
+daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                        incidence.proj <- make.projection.matrix()
                                        for(i in (nrow(incidence.count) + 1):t.max){
                                            for(j in 1:n.locations){
@@ -194,3 +210,14 @@ projections <- plyr::alply(r.j.t, 1, function(r.t){
                                        }
                                        incidence.proj %<>% cbind(Date = dates.all)
                                        return(incidence.proj)})
+
+daily.to.weekly    <- function(daily){
+    weeks  <- cut(daily$Date, breaks="1 week")
+    weekly <- split(daily, weeks) %>%
+        plyr::ldply(function(d) colSums(d[, names(d) != "Date"]))
+    return(weekly)
+
+}
+
+weekly.projections <- lapply(daily.projections, daily.to.weekly)
+

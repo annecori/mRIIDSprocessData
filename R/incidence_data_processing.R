@@ -118,25 +118,41 @@ compute.cumulative.incidence <- function(no.duplicates){
 
     # starting one day before the first entry so that cumulative incidence on that day is zero
     # dates.all <- seq(min(merged_dat$Date, na.rm = TRUE)-1, max(merged_dat$Date, na.rm = TRUE), 1)
-    not.na <- which(!is.na(no.duplicates$Cases))
+    not.na        <- which(!is.na(no.duplicates$Cases))
     cum.incidence <- no.duplicates[not.na, c('Date', 'Cases')]
 
-    first.row <- no.duplicates[1, c('Date', 'Cases')]
-    first.row$Date <- first.row$Date - 1
+    first.row       <- no.duplicates[1, c('Date', 'Cases')]
+    first.row$Date  <- first.row$Date - 1
     first.row$Cases <- 0
 
     cum.incidence %<>% rbind(first.row, .)
 
     # params for outlier removal.
-    use.last <- 20
+    use.last   <- 20
     p.within.k <- 0.50
-    k.sd <- interval.width.for.p(use.last, 1 - p.within.k) %>% sqrt %>% `[`(2)
+    k.sd       <- interval.width.for.p(use.last, 1 - p.within.k) %>% sqrt %>% `[`(2)
 
 
-    cum.incidence %<>%
-       remove.last.outliers(use.last=use.last, k.sd=k.sd) %<>%
-       make_monotonically_increasing %<>%
-       interpolate.missing.data
+    cum.incidence %<>% remove.last.outliers(use.last=use.last, k.sd=k.sd)
+    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
+                  no.duplicates$Country[1],
+                   "outliers-removed.pdf", sep = "-")
+    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
+    ggsave(out, p)
+
+    cum.incidence %<>%  make_monotonically_increasing
+    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
+                  no.duplicates$Country[1],
+                   "monotonically-increasing.pdf", sep = "-")
+    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
+    ggsave(out, p)
+
+    cum.incidence %<>% interpolate.missing.data
+    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
+                  no.duplicates$Country[1],
+                   "missing-interpolated.pdf", sep = "-")
+    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
+    ggsave(out, p)
 
 
     cum.incidence
@@ -156,7 +172,7 @@ interpolate.missing.data <- function(cum.incidence) {
     cum.incidence %<>%  merge(data.frame(Date=dates.all), all.y = TRUE)
     out <- approx(cum.incidence$Date, cum.incidence$Cases,
                     xout=cum.incidence$Date, method = "linear", rule = 2)
-    cum.incidence$Date <- out$x
+    cum.incidence$Date  <- out$x
     cum.incidence$Cases <- out$y
     cum.incidence
 }

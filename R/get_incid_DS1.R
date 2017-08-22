@@ -67,12 +67,14 @@ incidence.from.DS1 <- function(case.count,
     update.cases.column(case.type) %<>%
     merge.duplicates(cols.to.keep)
 
+  p   <- ggplot(case.count, aes(Date, Cases)) + geom_point() + theme_minimal()
+  out <- paste(species, disease, location, "duplicates.merged.pdf", sep = "-")
+  ggsave(out, p)
 
   ### order these by dates ###
   case.count <- case.count[order(as.numeric(case.count$Date)), ]
-
-  out <- compute.cumulative.incidence(case.count)
-  out$incid <- c(0, diff(out$Cases))
+  out        <- compute.cumulative.incidence(case.count)
+  out$incid  <- c(0, diff(out$Cases))
 
   return(out)
 

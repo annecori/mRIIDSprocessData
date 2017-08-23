@@ -85,17 +85,22 @@ start     <- 1:(length(by.location$Date) - time_window)
 end       <- start + time_window
 end.dates <- by.location[end, "Date"]
 r.estim   <- by.location[, grep("incid", names(by.location))] %>%
-                   plyr::alply(2, function(incid) {
-                         res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
-                                            method = "NonParametricSI",
-                                            SI.Distr = SI_Distr,
-                                            plot = FALSE ,
-                                            CV.Posterior = 1 ,
-                                            Mean.Prior = 1 ,
-                                          Std.Prior = 0.5)
-                         res$R %<>% cbind(Date = end.dates)
-                         return(res$R)})
+                   plyr::alply(2, .dims = TRUE, function(incid) {
+                                                 res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
+                                                                  method = "NonParametricSI",
+                                                                  SI.Distr = SI_Distr,
+                                                                  plot = FALSE ,
+                                                                  CV.Posterior = 1 ,
+                                                                  Mean.Prior = 1 ,
+                                                                  Std.Prior = 0.5)
+                                                 res$R %<>% cbind(Date = end.dates)
+                                                 return(res$R)})
 
+## Plotting estimate of R for each country
+r.estim %>%
+    dplyr::bind_rows(.id = 'Location') %>%
+    ggplot(aes(Date, `Mean(R)`, color = Location)) + geom_point() + theme_minimal()
+## End of plotting R
 ## We assume that the reproduction number remains unchanged for the time
 ## period over which we wish to project. For each location, distribution of
 ## r_t at t.proj is r_t over the next n.days.sim.
@@ -109,8 +114,7 @@ r.j.t <- r.estim %>%
 
 colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
                     lapply(function(s){
-                        s %>%
-                        strsplit(split = "[.]") %>%
+                        strsplit(s, split = "[.]") %>%
                         unlist  %>%
                        `[`(1)}) %>% unlist
 

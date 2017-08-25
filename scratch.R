@@ -14,8 +14,8 @@ case.type <- "SCC"
 ## Parameters needed for projection.
 ## The time from which we will project forward.
 t.proj      <- 147L
-n.sim       <- 100L   # Number of simulations to run
-n.dates.sim <- 12L    # The time period over which projection will be made.
+n.sim       <- 10L    # Number of simulations to run
+n.dates.sim <- 21L    # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -26,7 +26,7 @@ CV_SI       <- 9.6 / 14.2
 SItrunc     <- 40
 SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
 SI_Distr    <- SI_Distr / sum(SI_Distr)
-time_window <- 7
+time_window <- 7 * 7
 
 ## Parameters for processing the spatial data.
 ## Gravity model parameters
@@ -55,6 +55,7 @@ healthmap.raw %>%
                 ggplot(aes(Issue.Date, Count, color = Case.Type)) + geom_point() + theme_minimal()
         ggsave(out, p)})
 ## End of plotting raw data
+
 w.africa    <- healthmap$Country %>% unique
 
 by.location <- healthmap %>%
@@ -101,6 +102,7 @@ r.estim %>%
     dplyr::bind_rows(.id = 'Location') %>%
     ggplot(aes(Date, `Mean(R)`, color = Location)) + geom_point() + theme_minimal()
 ## End of plotting R
+
 ## We assume that the reproduction number remains unchanged for the time
 ## period over which we wish to project. For each location, distribution of
 ## r_t at t.proj is r_t over the next n.days.sim.
@@ -213,15 +215,50 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                            }
                                        }
                                        incidence.proj %<>% cbind(Date = dates.all)
-                                       return(incidence.proj)})
+                                       return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
+
+
 
 daily.to.weekly    <- function(daily){
     weeks  <- cut(daily$Date, breaks="1 week")
     weekly <- split(daily, weeks) %>%
-        plyr::ldply(function(d) colSums(d[, names(d) != "Date"]))
+                 plyr::ldply(function(d) colSums(d[, names(d) != "Date"])) %>%
+                dplyr::rename(Date = .id)
     return(weekly)
 
 }
 
-weekly.projections <- lapply(daily.projections, daily.to.weekly)
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>%
+                       dplyr::bind_rows(.)
+
+
+## For each country, we want to plot the training data, the validation data
+## and a polygon spanned by the 2.5% and 97.5% quantiles.
+cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>% c("Date")
+weekly.available <- c(training   = list(by.location[1:t.proj, cols.to.keep]),
+                       validation = list(by.location[(t.proj + 1):nrow(by.location), cols.to.keep])) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
+
+
+plot.weekly <- function(available, predicted){
+    avaialble$Date %<>% as.Date
+    p     <- ggplot(available, aes_string(colnames(available)[1],
+                                          colnames(available)[3],
+                                          color = "Category")) + geom_point()
+    ci.95 <- predicted      %>%
+              split(.$Date) %>%
+              plyr::ldply(. %>% `[`(, 2)
+                            %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
+                                dplyr::rename(Date = .id)
+    x <- ci.95$Date %>% c(rev(.))
+    y <- c(ci.95[, 3], rev(ci.95[ , 4]))
+    x %<>% as.Date
+    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, color = red))
+    p   <- p + theme_minimal()
+    out <- paste0(colnames(available)[3], ".pdf")
+    ggsave(out, p)
+}
+
+
 

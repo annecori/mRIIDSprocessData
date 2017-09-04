@@ -159,12 +159,11 @@ flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
 flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
 
 ## Relative risk
-relative.risk <- flow.matrix %>%
-                 apply(1, function(row) row / sum(row, na.rm=TRUE))
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
 n.countries <- w.africa %>% length
-p.stay      <- 0.05 # this can be a vector
+p.stay      <- 0.01 # this can be a vector
 p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
 p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
                             unlist

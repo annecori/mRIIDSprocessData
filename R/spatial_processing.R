@@ -12,7 +12,7 @@
 ##' @author Sangeeta Bhatia
 
 flow_vector <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, pow_dist=1, model=c("gravity")) {
-    if(model=="gravity") gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist) %>% return
+    if(model=="gravity") gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist)
     else if(model=="radiation") stop("Model not yet implemented")
     else stop("Model not yet implemented")
 }
@@ -33,7 +33,7 @@ flow_vector <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, 
 ##' @export
 gravity_model_flow <- function(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist){
 
-   K * (N_from^pow_N_from) * (N_to^pow_N_to) / (distance^pow_dist) %>% return
+   K * (N_from^pow_N_from) * (N_to^pow_N_to) / (distance^pow_dist)
 
 }
 

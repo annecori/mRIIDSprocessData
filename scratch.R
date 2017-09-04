@@ -15,7 +15,7 @@ case.type <- "SCC"
 ## The time from which we will project forward.
 t.proj      <- 147L
 n.sim       <- 10L    # Number of simulations to run
-n.dates.sim <- 21L    # The time period over which projection will be made.
+n.dates.sim <- 14L    # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -146,16 +146,16 @@ colnames(flow.matrix) <- adm0_centroids$country
 
 ## fill in the matrix from the vectors
 flow_from_to <- flow_vector(n_from, n_to, distances, K=K,
-                            pow_N_from=pow_N_from,
-                            pow_N_to=pow_N_to,
-                            pow_dist=pow_dist)
+                            pow_N_from = pow_N_from,
+                            pow_N_to = pow_N_to,
+                            pow_dist = pow_dist)
 flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
 flow.matrix <- t(flow.matrix) # fill out the upper triangle
 
 flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
-                            pow_N_from=pow_N_from,
-                            pow_N_to=pow_N_to,
-                            pow_dist=pow_dist)
+                            pow_N_from = pow_N_from,
+                            pow_N_to = pow_N_to,
+                            pow_dist = pow_dist)
 flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
 
 ## Relative risk
@@ -228,8 +228,7 @@ daily.to.weekly    <- function(daily){
 
 }
 
-weekly.projections <- lapply(daily.projections, daily.to.weekly) %>%
-                       dplyr::bind_rows(.)
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
 
 
 ## For each country, we want to plot the training data, the validation data
@@ -241,12 +240,12 @@ weekly.available <- c(training   = list(by.location[1:t.proj, cols.to.keep]),
                        dplyr::bind_rows(.id = "Category")
 
 
-plot.weekly <- function(available, predicted){
-    avaialble$Date %<>% as.Date
-    p     <- ggplot(available, aes_string(colnames(available)[1],
+plot.weekly <- function(available, projection){
+    available$Date %<>% as.Date
+    p     <- ggplot(available, aes_string("Date",
                                           colnames(available)[3],
                                           color = "Category")) + geom_point()
-    ci.95 <- predicted      %>%
+    ci.95 <- projection      %>%
               split(.$Date) %>%
               plyr::ldply(. %>% `[`(, 2)
                             %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
@@ -254,11 +253,16 @@ plot.weekly <- function(available, predicted){
     x <- ci.95$Date %>% c(rev(.))
     y <- c(ci.95[, 3], rev(ci.95[ , 4]))
     x %<>% as.Date
-    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, color = red))
+    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, color = "red"))
     p   <- p + theme_minimal()
     out <- paste0(colnames(available)[3], ".pdf")
     ggsave(out, p)
 }
 
-
+cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>%
+                    gsub(" ", "", ., fixed = TRUE)
+lapply(cols.to.keep, function(location){
+                        available  <- weekly.available[, c("Date", "Category", location)]
+                        projection <- weekly.projections[, c("Date", location)]
+                        plot.weekly(available, projection)})
 

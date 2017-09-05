@@ -8,38 +8,39 @@
 ##' @title
 ##' @return the mean of the Poisson distribution determining the distribution of incidences at location j at time t.
 ##' @author Sangeeta Bhatia
-lambda.j.t <- function(p_ij, r_t, i_t, w_t){
-    pij %*% (rt * incidence) %*% omega
+lambda.j.t <- function(p.movement, r.t, incidence, ws){
+    ws %*% incidence   %>%
+       `*`(r.t)        %>%
+       `*`(p.movement) %>% sum
 }
+
 ##' Project future incidence at a location
 ##' Simulates future incidence based on past incidence data at a
 ##' given set of locations, the Reproduction numbers at each location and the distribution of the serial interval.
+##' Runs a single simulation.
 ##' @export
-##' @param incid A n x t matrix of incidence counts where n is the
-##' number of locations and t is the time.
-##' @param R A positive matrix of reproduction numbers
+##' @param incid A data frame of incidence counts for n locations and t days.
+##' Dates run down the rows and locations are across columns. Must contain a column called Date.
+##' @param R A positive vector of reproduction numbers for each location.
 ##' @param si A vector
-##' @param pij a n x n matrix of probabilities
-##' @param n.sim number of simulations
+##' @param pij a n x n matrix of probabilities where n is the number of locations.
 ##' @param n.days number of days for which each simulation should be run.
-##' @return
+##' @return data frame containing projected incidence count with n.days rows and n columns.
 ##' @author Sangeeta Bhatia
-project.for.location <-  function(incid, R, si, pij, n.sim = 100, n.days = 7){
+project <-  function(incid, R, si, pij, n.days = 7){
 
-
-    out  <- matrix(0, n.days, n.sim) %>% rbind(incid, .)
+    n.loc <- ncol(incid)
+    out   <- matrix(0, nrow = n.days, ncol = n.loc) %>% rbind(incid, .)
     start <- nrow(incid) + 1
-    end <- nrow(out) + 1
-    si %<>% c(rep(0, end - start + 1), .)
+    end   <- nrow(out)   + 1
+    ws    <- c(si, rep(0, end - length(si) + 1)) %>% rev
     for(i in start:end){
         i_t      <- incid[1:i, ]
-        w_t      <- utils::tail(si, i)
-        r_t      <- R[1:i, ]
-        p_ij     <- pij[1:i, ]
-        lamda    <- lambda.j.t(p_ij, r_t, i_t, w_t)
-        out[i, ] <- stats::rpois(n.sim, lamda)
+        w_t      <- ws[1:i]
+        for(j in 1:n.loc){
+            p_ij      <- pij[j, ]
+            out[i, j] <- lambda.j.t(p_ij, r_t, i_t, w_t) %>% rpois(1, .)
+        }
     }
-
-    out
-
+    return(out[start:nrow(out), ])
 }

@@ -163,7 +163,7 @@ relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
 n.countries <- w.africa %>% length
-p.stay      <- 0.01 # this can be a vector
+p.stay      <- 0.0001 # this can be a vector
 p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
 p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
                             unlist
@@ -264,4 +264,3 @@ lapply(cols.to.keep, function(location){
                         available  <- weekly.available[, c("Date", "Category", location)]
                         projection <- weekly.projections[, c("Date", location)]
                         plot.weekly(available, projection)})
-

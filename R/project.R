@@ -9,9 +9,9 @@
 ##' @return the mean of the Poisson distribution determining the distribution of incidences at location j at time t.
 ##' @author Sangeeta Bhatia
 lambda.j.t <- function(p.movement, r.t, incidence, ws){
-    ws %*% incidence   %>%
-       `*`(r.t)        %>%
-       `*`(p.movement) %>% sum
+    out <- (ws  %*% incidence) %>% `*`(r.t)
+    out <-  out %*% p.movement
+    out
 }
 
 ##' Project future incidence at a location

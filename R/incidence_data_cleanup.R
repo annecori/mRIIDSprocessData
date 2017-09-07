@@ -1,3 +1,11 @@
+##' Duplicate records in the case count are merged according to the following rules.
+##' Details
+##' @title Merge dulplicate records in the incidence count.
+##' @param case.count
+##' @param cols.to.keep
+##' @param merge_rule
+##' @return
+##' @author Sangeeta Bhatia
 merge.duplicates <- function(case.count, cols.to.keep, merge_rule=c("median"))
 {
   ####################################
@@ -29,7 +37,17 @@ merge.duplicates <- function(case.count, cols.to.keep, merge_rule=c("median"))
   return(duplicates.free)
 }
 
-# Filters the input data on species, disease and location
+
+##' Filters the input data on species, disease and location
+##'
+##' .. content for \details{} ..
+##' @title Filter the case count for parameters of interest.
+##' @param case.count
+##' @param species
+##' @param disease
+##' @param location
+##' @return
+##' @author Sangeeta Bhatia
 filter.case.count <- function(case.count, species, disease, location)
 {
 
@@ -41,8 +59,17 @@ filter.case.count <- function(case.count, species, disease, location)
    return(case.count)
 }
 
-# adds a column "Cases" with appropriate case definition.
-# adds a column "Date" with date extracted from timestamp
+
+
+##' adds a column "Cases" with appropriate case definition and
+##' a column "Date" with date extracted from timestamp
+##' .. content for \details{} ..
+##' @title Update the case count with a column for dates and a column for the
+##' appropriate case definition.
+##' @param case.count
+##' @param case_type
+##' @return
+##' @author Sangeeta Bhatia
 update.cases.column <- function(case.count,case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"))
 {
 
@@ -143,9 +170,10 @@ prediction.interval <- function(x, k){
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. Reports the maximum percentage beyond k * sqrt((n + 1)/n) standard deviations from mean ..
-##' @title
-##' @param n
-##' @param k
+##' @title Chebyshev Inequality with sample mean.
+##' Utilizes Chebyshev inequality with sample mean.
+##' @param n Sample size
+##' @param k Number of standard deviations.
 ##' @return
 ##' @author Sangeeta Bhatia
 chebyshev.ineq.sample <- function(n, k){
@@ -160,7 +188,7 @@ chebyshev.ineq.sample <- function(n, k){
 ##' k standard deviations of the sample mean ..
 ##'
 ##' @details if k=interval.width.for.p(n, p), then chebyshev.ineq.sample(n, k) should be p.
-##' @title
+##' @title Interval width for Chebysev Inequality with sample mean.
 ##' @param n
 ##' @param p
 ##' @return

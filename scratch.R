@@ -14,7 +14,7 @@ case.type <- "SCC"
 ## Parameters needed for projection.
 ## The time from which we will project forward.
 t.proj      <- 147L
-n.sim       <- 10L    # Number of simulations to run
+n.sim       <- 1L    # Number of simulations to run
 n.dates.sim <- 14L    # The time period over which projection will be made.
 
 
@@ -163,7 +163,7 @@ relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
 n.countries <- w.africa %>% length
-p.stay      <- 0.0001 # this can be a vector
+p.stay      <- 0.99 # this can be a vector
 p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
 p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
                             unlist
@@ -190,29 +190,16 @@ incidence.count <- by.location[1:t.proj, grep("incid", names(by.location))]
 dates.all       <- by.location[1:t.proj, "Date"] %>%
                        c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
-ws              <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
+##ws              <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
 
-make.projection.matrix <- function(){
-   incidence.proj           <- matrix(0, nrow = n.dates.sim, ncol = n.locations)
-   colnames(incidence.proj) <- grep("incid", names(by.location), value = TRUE)
-   incidence.proj %<>% rbind(incidence.count, .)
-#   incidence.proj %<>% cbind(sim.counter = sim.counter)
-   return(incidence.proj)
-}
 ## Each row of r.j.t is a set of reproduction numbers at each
 ## location for one simulation.
 daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
-                                       incidence.proj <- make.projection.matrix()
-                                       for(i in (nrow(incidence.count) + 1):t.max){
-                                           for(j in 1:n.locations){
-                                               incidence.proj[i, j] <-
-                                                   (ws[1:i] %*% as.matrix(incidence.proj[1:i, ])) %>%
-                                                       `*`(r.t) %>%
-                                                       `*`(p.movement[j, ]) %>%
-                                                           sum %>%
-                                                           rpois(1, .)
-                                           }
-                                       }
+                                       incid <- as.matrix(incidence.count)
+                                       r.t   <- as.matrix(r.t)
+                                       out   <- project(incid, r.t, SI_Distr, p.movement, n.dates.sim)
+                                       colnames(incid) <- colnames(incidence.count)
+                                       incidence.proj  <- rbind(incidence.count, out)
                                        incidence.proj %<>% cbind(Date = dates.all)
                                        return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
 

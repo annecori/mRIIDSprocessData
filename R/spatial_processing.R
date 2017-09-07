@@ -7,7 +7,6 @@
 ##' @param beta
 ##' @param gamma
 ##' @param model
-##' @importFrom geosphere
 ##' @return
 ##' @author Sangeeta Bhatia
 

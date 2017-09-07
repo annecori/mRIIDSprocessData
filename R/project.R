@@ -9,7 +9,7 @@
 ##' @return the mean of the Poisson distribution determining the distribution of incidences at location j at time t.
 ##' @author Sangeeta Bhatia
 lambda.j.t <- function(p.movement, r.t, incidence, ws){
-    out <- (ws  %*% incidence) %>% `*`(r.t)
+    out <- (ws  %*% incidence) * r.t
     out <-  out %*% p.movement
     out
 }
@@ -32,15 +32,13 @@ project <-  function(incid, R, si, pij, n.days = 7){
     n.loc <- ncol(incid)
     out   <- matrix(0, nrow = n.days, ncol = n.loc) %>% rbind(incid, .)
     start <- nrow(incid) + 1
-    end   <- nrow(out)   + 1
-    ws    <- c(si, rep(0, end - length(si) + 1)) %>% rev
+    end   <- nrow(out)
+    ws    <- c(si, rep(0, end - length(si))) %>% rev
     for(i in start:end){
-        i_t      <- incid[1:i, ]
-        w_t      <- ws[1:i]
-        for(j in 1:n.loc){
-            p_ij      <- pij[j, ]
-            out[i, j] <- lambda.j.t(p_ij, r_t, i_t, w_t) %>% rpois(1, .)
-        }
+        i_t      <- out[1:i, ]
+        w_t      <- utils::tail(ws, i)
+        out[i, ] <- lambda.j.t(pij, R, i_t, w_t) %>% rpois(n.loc, .)
+
     }
     return(out[start:nrow(out), ])
 }

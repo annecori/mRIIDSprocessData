@@ -14,8 +14,8 @@ case.type <- "SCC"
 ## Parameters needed for projection.
 ## The time from which we will project forward.
 t.proj      <- 147L
-n.sim       <- 1L    # Number of simulations to run
-n.dates.sim <- 14L    # The time period over which projection will be made.
+n.sim       <- 1000L    # Number of simulations to run
+n.dates.sim <- 28L    # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -109,10 +109,10 @@ r.estim %>%
 r.j.t <- r.estim %>%
            lapply(function(R){
                      cutoff <- which(R$Date %in% by.location[t.proj, "Date"])
-                     shape  <- R[cutoff, "Mean(R)"]^2 / R[t.proj, "Std(R)"]^2
-                     scale  <- R[cutoff, "Std(R)"]^2 / R[t.proj, "Mean(R)"]
+                     shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
+                     scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
                      return(rgamma(n.sim, shape = shape,
-                                      scale = scale))}) %>% data.frame
+                                          scale = scale))}) %>% data.frame
 
 colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
                     lapply(function(s){
@@ -136,8 +136,8 @@ names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
 distances <- geosphere::distm(adm0_centroids[,c('lon', 'lat')])
 distances <- distances[lower.tri(distances)] # Extract the distances vector
 pairs     <- nrow(adm0_centroids) %>% combn(2)
-n_from    <- adm0_centroids[pairs[1,],'pop']
-n_to      <- adm0_centroids[pairs[2,],'pop']
+n_from    <- adm0_centroids[pairs[1,], 'pop']
+n_to      <- adm0_centroids[pairs[2,], 'pop']
 
 
 flow.matrix           <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
@@ -231,7 +231,7 @@ plot.weekly <- function(available, projection){
     p     <- ggplot(available, aes_string("Date",
                                           colnames(available)[3],
                                           color = "Category")) + geom_point()
-    ci.95 <- projection      %>%
+    ci.95 <- projection     %>%
               split(.$Date) %>%
               plyr::ldply(. %>% `[`(, 2)
                             %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
@@ -239,7 +239,7 @@ plot.weekly <- function(available, projection){
     x <- ci.95$Date %>% c(rev(.))
     y <- c(ci.95[, 3], rev(ci.95[ , 4]))
     x %<>% as.Date
-    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, color = "red"))
+    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01, color = "red"))
     p   <- p + theme_minimal()
     out <- paste0(colnames(available)[3], ".pdf")
     ggsave(out, p)

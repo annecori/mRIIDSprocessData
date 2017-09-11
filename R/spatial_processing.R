@@ -35,4 +35,26 @@ gravity_model_flow <- function(N_from, N_to, distance, K, pow_N_from, pow_N_to, 
    K * (N_from^pow_N_from) * (N_to^pow_N_to) / (distance^pow_dist)
 
 }
-
+##' Probability of moving from location i to j
+##'
+##' the probability of moving from location i to location j is given by
+##' (1 - p_stay_at_i) * (flow_from_i_to_j/(total outward flow from i))
+##' @title
+##' @param relative.risk n * n matrix where n = n.locations
+##' @param p.stay a vector of length n where the ith entry specifies the probability of
+##' staying at location i. If length of p.stay is less than n, elements will be recycled.
+##' @return a n * n matrix specifying the population flow between n locations
+##' @author Sangeeta Bhatia
+probability_movement <- function(relative.risk, p.stay){
+    if(nrow(relative.risk) != ncol(relative.risk)){
+        stop("relative.risk should be a square matrix.")
+    }
+    n.countries      <- nrow(relative.risk)
+    p.mat            <- matrix(rep(p.stay, each = n.countries,
+                                   length.out = n.countries^2),
+                               nrow = n.countries, byrow = TRUE)
+    p.mat            <- 1 - p.mat
+    p.movement       <- relative.risk * p.mat
+    diag(p.movement) <- rep(p.stay, each = 1, length.out = n.countries)
+    p.movement
+}

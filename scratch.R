@@ -13,9 +13,9 @@ case.type <- "SCC"
 
 ## Parameters needed for projection.
 ## The time from which we will project forward.
-t.proj      <- 147L
+t.proj      <- 133L
 n.sim       <- 1000L    # Number of simulations to run
-n.dates.sim <- 28L    # The time period over which projection will be made.
+n.dates.sim <- 14L      # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -66,7 +66,7 @@ by.location <- healthmap %>%
                                                       case.type,
                                                       location,
                                                      merge_rule = "median")
-                    colnames(case.count) <- c("Date", paste0(location,".Cases"),
+                    colnames(case.count) <- c("Date", paste0(location, ".Cases"),
                                       paste0(location, ".incid"))
                    return(case.count)}) %>%
                 Reduce(function(d1, d2) dplyr::left_join(d1, d2, by="Date"), .)
@@ -74,18 +74,33 @@ by.location <- healthmap %>%
 ## Even at this point we have several NAs because for a given date,
 ## we don't have data for all locations.
 ## Fortunately the dates are regularly spaced even after the step below.
-
+before.removal <- nrow(by.location)
 by.location %<>% `[`(complete.cases(.), )
+after.removal <- nrow(by.location)
 
-by.location[, c("Date", grep("incid", names(by.location), value = TRUE))] %>%
-    reshape2::melt(id.vars = c("Date")) %>%
-    ggplot(aes(Date, value, color = variable)) + geom_point()
+print(paste0("Number of rows before completing cases ", before.removal))
+print(paste0("Number of rows after completing cases ", after.removal))
+
+##by.location[, c("Date", grep("incid", names(by.location), value = TRUE))] %>%
+#    reshape2::melt(id.vars = c("Date")) %>%
+#    ggplot(aes(Date, value, color = variable)) + geom_point()
+
+## Subset the incidence counts. we are not going to use any other column
+## except date which we will grab from by.location data frame
+by.location.incidence <- by.location[, grep("incid", names(by.location))]
+colnames(by.location.incidence) %<>%
+                          lapply(function(s){
+                                       strsplit(s, split = "[.]") %>%
+                                       unlist  %>%
+                                       `[`(1)}) %>% unlist %>%
+                                       gsub(" ", "", ., fixed = TRUE)
+# by.location.incidence %<>% cbind(Date = by.location$Date, .)
 
 ## Using incidence count to estimate reproduction number.
 start     <- 1:(length(by.location$Date) - time_window)
 end       <- start + time_window
 end.dates <- by.location[end, "Date"]
-r.estim   <- by.location[, grep("incid", names(by.location))] %>%
+r.estim   <- by.location.incidence  %>%
                    plyr::alply(2, .dims = TRUE, function(incid) {
                                                  res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
                                                                   method = "NonParametricSI",
@@ -114,12 +129,7 @@ r.j.t <- r.estim %>%
                      return(rgamma(n.sim, shape = shape,
                                           scale = scale))}) %>% data.frame
 
-colnames(r.j.t) <- grep("incid", names(by.location), value = TRUE) %>%
-                    lapply(function(s){
-                        strsplit(s, split = "[.]") %>%
-                        unlist  %>%
-                       `[`(1)}) %>% unlist
-
+colnames(r.j.t) <- colnames(by.location.incidence)
 
 r.j.t %>% cbind(Index = 1:n.sim, .) %>%
     reshape2::melt(id.vars = "Index") %>%
@@ -186,7 +196,7 @@ diag(p.movement)        <- p.stay
 validation      <- by.location %>%
                       utils::tail(n = nrow(.) - t.proj)
 n.locations     <- length(w.africa)
-incidence.count <- by.location[1:t.proj, grep("incid", names(by.location))]
+incidence.count <- by.location.incidence[1:t.proj, ]
 dates.all       <- by.location[1:t.proj, "Date"] %>%
                        c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
@@ -219,9 +229,12 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind
 
 ## For each country, we want to plot the training data, the validation data
 ## and a polygon spanned by the 2.5% and 97.5% quantiles.
-cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>% c("Date")
-weekly.available <- c(training   = list(by.location[1:t.proj, cols.to.keep]),
-                       validation = list(by.location[(t.proj + 1):nrow(by.location), cols.to.keep])) %>%
+##cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>% c("Date")
+training         <- cbind(Date = by.location$Date[1:t.proj], by.location.incidence[1:t.proj, ])
+validation       <- cbind(Date = by.location$Date[(t.proj + 1):nrow(by.location.incidence)],
+                          by.location.incidence[(t.proj + 1):nrow(by.location.incidence), ])
+weekly.available <- c(training    = list(training),
+                       validation = list(validation)) %>%
                        lapply(daily.to.weekly) %>%
                        dplyr::bind_rows(.id = "Category")
 
@@ -240,14 +253,25 @@ plot.weekly <- function(available, projection){
     y <- c(ci.95[, 3], rev(ci.95[ , 4]))
     x %<>% as.Date
     p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01, color = "red"))
-    p   <- p + theme_minimal()
-    out <- paste0(colnames(available)[3], ".pdf")
-    ggsave(out, p)
+    p   <- p + theme_minimal() + theme(legend.position="none")
+    return(p)
+#    out <- paste0(colnames(available)[3], ".pdf")
+#    ggsave(out, p)
 }
 
-cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>%
-                    gsub(" ", "", ., fixed = TRUE)
-lapply(cols.to.keep, function(location){
+cols.to.keep <- grep("incid", names(by.location), value = TRUE) %>%
+                                 gsub(" ", "", ., fixed = TRUE)
+colnames(weekly.available)   %<>% gsub(" ", "", ., fixed = TRUE)
+colnames(weekly.projections) %<>% gsub(" ", "", ., fixed = TRUE)
+plots.list   <- lapply(colnames(by.location.incidence), function(location){
                         available  <- weekly.available[, c("Date", "Category", location)]
                         projection <- weekly.projections[, c("Date", location)]
                         plot.weekly(available, projection)})
+
+cowplot::plot_grid(plots.list[[1]],
+                   plots.list[[2]],
+                   plots.list[[3]],
+                   plots.list[[4]],
+                   plots.list[[5]],
+                   plots.list[[6]])
+

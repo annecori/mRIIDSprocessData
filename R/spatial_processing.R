@@ -1,4 +1,5 @@
-##' .. Given the populations at two places and the distances between them, returns the flow matrix under the specified model ..
+##' .. Given the populations at two places and the distances between them, returns the flow
+##' vector under the specified model ..
 ##' .. The models are : gravity and radiation ..
 ##'
 ##' @title
@@ -34,6 +35,43 @@ gravity_model_flow <- function(N_from, N_to, distance, K, pow_N_from, pow_N_to, 
 
    K * (N_from^pow_N_from) * (N_to^pow_N_to) / (distance^pow_dist)
 
+}
+##' .. content for \description{} (no empty lines) ..
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param
+##' @return
+##' @author Sangeeta Bhatia
+flow_matrix <-  function(longitude, latitude, population, place.names,
+                          N_from, N_to, distance, K=1, pow_N_from=1,
+                          pow_N_to=1, pow_dist=1, model=c("gravity")){
+
+    distances <- geosphere::distm(longitude, latitude)
+    distances <- distances[lower.tri(distances)] # Extract the distances vector
+    pairs     <- length(latitude) %>% combn(2)
+    n_from    <- population[pairs[1, ]]
+    n_to      <- population[pairs[2, ]]
+
+
+    flow.matrix           <- matrix(NA, length(latitude), length(latitude))
+    rownames(flow.matrix) <- place.names
+    colnames(flow.matrix) <- place.names
+
+    ## fill in the matrix from the vectors
+    flow_from_to <- flow_vector(n_from, n_to, distances, K=K,
+                                pow_N_from = pow_N_from,
+                                pow_N_to = pow_N_to,
+                                pow_dist = pow_dist)
+    flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
+    flow.matrix <- t(flow.matrix) # fill out the upper triangle
+
+    flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
+                                pow_N_from = pow_N_from,
+                                pow_N_to = pow_N_to,
+                                pow_dist = pow_dist)
+    flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
+    flow.matrix
 }
 ##' Probability of moving from location i to j
 ##'

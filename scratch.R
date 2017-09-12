@@ -1,4 +1,3 @@
-library(devtools)
 library(magrittr)
 library(ggplot2)
 library(EpiEstim)
@@ -15,7 +14,7 @@ case.type <- "SCC"
 ## The time from which we will project forward.
 t.proj      <- 133L
 n.sim       <- 1000L    # Number of simulations to run
-n.dates.sim <- 14L      # The time period over which projection will be made.
+n.dates.sim <- 28L      # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -32,7 +31,7 @@ time_window <- 7 * 7
 ## Gravity model parameters
 pow_N_from <- 1
 pow_N_to   <- 1
-pow_dist   <- 2
+pow_dist   <- 1
 K          <- 1
 
 
@@ -143,46 +142,14 @@ adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
                    dplyr::filter(V1 %in% w.africa)
 names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
 
-distances <- geosphere::distm(adm0_centroids[,c('lon', 'lat')])
-distances <- distances[lower.tri(distances)] # Extract the distances vector
-pairs     <- nrow(adm0_centroids) %>% combn(2)
-n_from    <- adm0_centroids[pairs[1,], 'pop']
-n_to      <- adm0_centroids[pairs[2,], 'pop']
-
-
-flow.matrix           <-  matrix(NA, nrow(adm0_centroids), nrow(adm0_centroids))
-rownames(flow.matrix) <- adm0_centroids$country
-colnames(flow.matrix) <- adm0_centroids$country
-
-## fill in the matrix from the vectors
-flow_from_to <- flow_vector(n_from, n_to, distances, K=K,
-                            pow_N_from = pow_N_from,
-                            pow_N_to = pow_N_to,
-                            pow_dist = pow_dist)
-flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
-flow.matrix <- t(flow.matrix) # fill out the upper triangle
-
-flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
-                            pow_N_from = pow_N_from,
-                            pow_N_to = pow_N_to,
-                            pow_dist = pow_dist)
-flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
-n.countries <- w.africa %>% length
 p.stay      <- 0.99 # this can be a vector
-p.mat       <- matrix(0, nrow = n.countries, ncol = n.countries)
-p.mat[lower.tri(p.mat)] <- mapply(rep, 1 - p.stay, (n.countries - 1):1) %>%
-                            unlist
-
-p.mat                   <- t(p.mat)
-p.mat[lower.tri(p.mat)] <- p.mat[upper.tri(p.mat)]
-diag(p.mat)             <- p.stay
-p.movement              <- relative.risk * p.mat
-diag(p.movement)        <- p.stay
+p.movement  <- probability_movement(relative.risk, p.stay)
+#n.countries <- w.africa %>% length
 
 
 ## At this point, all the pieces are in place.
@@ -268,10 +235,11 @@ plots.list   <- lapply(colnames(by.location.incidence), function(location){
                         projection <- weekly.projections[, c("Date", location)]
                         plot.weekly(available, projection)})
 
-cowplot::plot_grid(plots.list[[1]],
+p <- cowplot::plot_grid(plots.list[[1]],
                    plots.list[[2]],
                    plots.list[[3]],
                    plots.list[[4]],
                    plots.list[[5]],
                    plots.list[[6]])
 
+cowplot::save_plot("project-28-111.png", p)

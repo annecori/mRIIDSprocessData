@@ -14,7 +14,7 @@ case.type <- "SCC"
 ## The time from which we will project forward.
 t.proj      <- 133L
 n.sim       <- 1000L    # Number of simulations to run
-n.dates.sim <- 28L      # The time period over which projection will be made.
+n.dates.sim <- 35L      # The time period over which projection will be made.
 
 
 ## Parameters for estimating reproduction number
@@ -31,7 +31,7 @@ time_window <- 7 * 7
 ## Gravity model parameters
 pow_N_from <- 1
 pow_N_to   <- 1
-pow_dist   <- 1
+pow_dist   <- 2
 K          <- 1
 
 
@@ -76,7 +76,6 @@ by.location <- healthmap %>%
 
 by.location %<>% `[`(complete.cases(.), )
 
-
 ## Subset the incidence counts. we are not going to use any other column
 ## except date which we will grab from by.location data frame
 by.location.incidence <- by.location[, grep("incid", names(by.location))]
@@ -86,7 +85,15 @@ colnames(by.location.incidence) %<>%
                                        unlist  %>%
                                        `[`(1)}) %>% unlist %>%
                                        gsub(" ", "", ., fixed = TRUE)
-# by.location.incidence %<>% cbind(Date = by.location$Date, .)
+
+## We will now split our data into training and validation sets.
+training         <- cbind(Date = by.location$Date[1:t.proj], by.location.incidence[1:t.proj, ])
+validation       <- cbind(Date = by.location$Date[(t.proj + 1):nrow(by.location.incidence)],
+                          by.location.incidence[(t.proj + 1):nrow(by.location.incidence), ])
+weekly.available <- c(training    = list(training),
+                       validation = list(validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
 
 ## Using incidence count to estimate reproduction number.
 start     <- 1:(length(by.location$Date) - time_window)
@@ -147,8 +154,8 @@ flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
-p.stay      <- 0.99 # this can be a vector
-p.movement  <- probability_movement(relative.risk, p.stay)
+# p.stay      <- 0.99 # this can be a vector
+# p.movement  <- probability_movement(relative.risk, p.stay)
 
 
 
@@ -160,10 +167,9 @@ p.movement  <- probability_movement(relative.risk, p.stay)
 ## The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
 ## taking care of the dimensions of course.
 ## Now divide the dataset into training and validation sets.
-validation      <- by.location %>%
-                      utils::tail(n = nrow(.) - t.proj)
-n.locations     <- length(w.africa)
+
 incidence.count <- by.location.incidence[1:t.proj, ]
+incid           <- as.matrix(incidence.count)
 dates.all       <- by.location[1:t.proj, "Date"] %>%
                        c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
@@ -171,75 +177,56 @@ t.max           <- nrow(incidence.count) + n.dates.sim - 1
 
 ## Each row of r.j.t is a set of reproduction numbers at each
 ## location for one simulation.
-daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
-                                       incid <- as.matrix(incidence.count)
-                                       r.t   <- as.matrix(r.t)
-                                       out   <- project(incid, r.t, SI_Distr, p.movement, n.dates.sim)
-                                       colnames(incid) <- colnames(incidence.count)
-                                       incidence.proj  <- rbind(incidence.count, out)
-                                       incidence.proj %<>% cbind(Date = dates.all)
-                                       return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
+library(shiny)
+ui <- fluidPage(
+
+    titlePanel("Projected Incidences at various locations"),
+
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput("p.stay",
+                        "Probability of staying at i",
+                        min = 0,
+                        max = 1,
+                        value = 0.99)),
+
+        mainPanel(
+            plotOutput("distPlot")
+        )
+    )
+)
+
+                                        # Define server logic
+
+server <- function(input, output) {
+
+    output$distPlot <- renderPlot({
+        p.stay <- input$p.stay
+        p.movement  <- probability_movement(relative.risk, p.stay)
+        daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                                    r.t   <- as.matrix(r.t)
+                                                    out   <- project(incid, r.t, SI_Distr,
+                                                                     p.movement, n.dates.sim)
+                                                    colnames(incid) <- colnames(incidence.count)
+                                                    incidence.proj  <- rbind(incidence.count, out)
+                                                    incidence.proj %<>% cbind(Date = dates.all)
+                                                    return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
 
 
 
-daily.to.weekly    <- function(daily){
-    weeks  <- cut(daily$Date, breaks="1 week")
-    weekly <- split(daily, weeks) %>%
-                 plyr::ldply(function(d) colSums(d[, names(d) != "Date"])) %>%
-                dplyr::rename(Date = .id)
-    return(weekly)
 
+        weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+        plots.list         <- lapply(colnames(by.location.incidence), function(location){
+                                                   available  <- weekly.available[, c("Date", "Category", location)]
+                                                   projection <- weekly.projections[, c("Date", location)]
+                                                   plot.weekly(available, projection)})
+
+        cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
+                           plots.list[[4]], plots.list[[5]], plots.list[[6]])
+
+    })
 }
 
-weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+                                        # Run the application
+shinyApp(ui = ui, server = server)
 
-
-## For each country, we want to plot the training data, the validation data
-## and a polygon spanned by the 2.5% and 97.5% quantiles.
-##cols.to.keep     <- grep("incid", names(by.location), value = TRUE) %>% c("Date")
-training         <- cbind(Date = by.location$Date[1:t.proj], by.location.incidence[1:t.proj, ])
-validation       <- cbind(Date = by.location$Date[(t.proj + 1):nrow(by.location.incidence)],
-                          by.location.incidence[(t.proj + 1):nrow(by.location.incidence), ])
-weekly.available <- c(training    = list(training),
-                       validation = list(validation)) %>%
-                       lapply(daily.to.weekly) %>%
-                       dplyr::bind_rows(.id = "Category")
-
-
-plot.weekly <- function(available, projection){
-    available$Date %<>% as.Date
-    p     <- ggplot(available, aes_string("Date",
-                                          colnames(available)[3],
-                                          color = "Category")) + geom_point()
-    ci.95 <- projection     %>%
-              split(.$Date) %>%
-              plyr::ldply(. %>% `[`(, 2)
-                            %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
-                                dplyr::rename(Date = .id)
-    x <- ci.95$Date %>% c(rev(.)) %>% as.Date
-    y <- c(ci.95[, 3], rev(ci.95[ , 4]))
-
-    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01, color = "red"))
-    p   <- p + theme_minimal() + theme(legend.position="none")
-    return(p)
-
-}
-
-## cols.to.keep <- grep("incid", names(by.location), value = TRUE) %>%
-##                                  gsub(" ", "", ., fixed = TRUE)
-## colnames(weekly.available)   %<>% gsub(" ", "", ., fixed = TRUE)
-## colnames(weekly.projections) %<>% gsub(" ", "", ., fixed = TRUE)
-
-plots.list   <- lapply(colnames(by.location.incidence), function(location){
-                        available  <- weekly.available[, c("Date", "Category", location)]
-                        projection <- weekly.projections[, c("Date", location)]
-                        plot.weekly(available, projection)})
-
-p <- cowplot::plot_grid(plots.list[[1]],
-                        plots.list[[2]],
-                        plots.list[[3]],
-                        plots.list[[4]],
-                        plots.list[[5]],
-                        plots.list[[6]])
-
-cowplot::save_plot("project-28-111.png", p)

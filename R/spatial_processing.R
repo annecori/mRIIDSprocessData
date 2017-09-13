@@ -11,9 +11,15 @@
 ##' @return
 ##' @author Sangeeta Bhatia
 
-flow_vector <-  function(N_from, N_to, distance, K=1, pow_N_from=1, pow_N_to=1, pow_dist=1, model=c("gravity")) {
-    if(model=="gravity") gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist)
-    else if(model=="radiation") stop("Model not yet implemented")
+flow_vector <-  function(N_from, N_to, distance,model=c("gravity"), ...) {
+    params      <- list(...)
+    if(model == "gravity"){
+        K          <- params$K
+        pow_N_from <- params$pow_N_from
+        pow_N_to   <- params$pow_N_to
+        pow_dist   <- params$pow_dist
+        gravity_model_flow(N_from, N_to, distance, K, pow_N_from, pow_N_to, pow_dist)
+    } else if(model=="radiation") stop("Model not yet implemented")
     else stop("Model not yet implemented")
 }
 
@@ -44,10 +50,9 @@ gravity_model_flow <- function(N_from, N_to, distance, K, pow_N_from, pow_N_to, 
 ##' @return
 ##' @author Sangeeta Bhatia
 flow_matrix <-  function(longitude, latitude, population, place.names,
-                          N_from, N_to, distance, K=1, pow_N_from=1,
-                          pow_N_to=1, pow_dist=1, model=c("gravity")){
+                           model=c("gravity"), ...){
 
-    distances <- geosphere::distm(longitude, latitude)
+    distances <- geosphere::distm(cbind(longitude, latitude))
     distances <- distances[lower.tri(distances)] # Extract the distances vector
     pairs     <- length(latitude) %>% combn(2)
     n_from    <- population[pairs[1, ]]
@@ -57,19 +62,12 @@ flow_matrix <-  function(longitude, latitude, population, place.names,
     flow.matrix           <- matrix(NA, length(latitude), length(latitude))
     rownames(flow.matrix) <- place.names
     colnames(flow.matrix) <- place.names
-
     ## fill in the matrix from the vectors
-    flow_from_to <- flow_vector(n_from, n_to, distances, K=K,
-                                pow_N_from = pow_N_from,
-                                pow_N_to = pow_N_to,
-                                pow_dist = pow_dist)
+    flow_from_to <- flow_vector(n_from, n_to, distances, model, ...)
     flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
     flow.matrix <- t(flow.matrix) # fill out the upper triangle
 
-    flow_to_from <- flow_vector(n_to, n_from, distances, K=K,
-                                pow_N_from = pow_N_from,
-                                pow_N_to = pow_N_to,
-                                pow_dist = pow_dist)
+    flow_to_from <- flow_vector(n_to, n_from, distances, model, ...)
     flow.matrix[lower.tri(flow.matrix)] <- flow_to_from # fill out the lower triangle
     flow.matrix
 }

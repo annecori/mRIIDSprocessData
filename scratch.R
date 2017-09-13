@@ -39,21 +39,21 @@ healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                read.csv(stringsAsFactors = FALSE)
 
 ## Before we do anything else, we will plot the raw data.
-healthmap.raw <- healthmap %>%
-                 dplyr::filter(Species == species, Disease == disease) %>%
-                 dplyr::select(Issue.Date, SC, SD, CC, CD, Country)
-
-healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
-healthmap.raw %>%
-    split(.$Country) %>%
-    lapply(function(case.count){
-        out <- paste(case.count$Country[1], "raw.pdf", sep = "-")
-        p   <- case.count %>%
-                reshape2::melt(id.vars = c("Issue.Date", "Country")) %>%
-                dplyr::rename(Case.Type = variable, Count = value) %>%
-                ggplot(aes(Issue.Date, Count, color = Case.Type)) + geom_point() + theme_minimal()
-        ggsave(out, p)})
-## End of plotting raw data
+## healthmap.raw <- healthmap %>%
+##                  dplyr::filter(Species == species, Disease == disease) %>%
+##                  dplyr::select(Issue.Date, SC, SD, CC, CD, Country)
+##
+## healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
+## healthmap.raw %>%
+##     split(.$Country) %>%
+##     lapply(function(case.count){
+##         out <- paste(case.count$Country[1], "raw.pdf", sep = "-")
+##         p   <- case.count %>%
+##                 reshape2::melt(id.vars = c("Issue.Date", "Country")) %>%
+##                 dplyr::rename(Case.Type = variable, Count = value) %>%
+##                 ggplot(aes(Issue.Date, Count, color = Case.Type)) + geom_point() + theme_minimal()
+##         ggsave(out, p)})
+## ## End of plotting raw data
 
 w.africa    <- healthmap$Country %>% unique
 
@@ -73,16 +73,9 @@ by.location <- healthmap %>%
 ## Even at this point we have several NAs because for a given date,
 ## we don't have data for all locations.
 ## Fortunately the dates are regularly spaced even after the step below.
-before.removal <- nrow(by.location)
+
 by.location %<>% `[`(complete.cases(.), )
-after.removal <- nrow(by.location)
 
-print(paste0("Number of rows before completing cases ", before.removal))
-print(paste0("Number of rows after completing cases ", after.removal))
-
-##by.location[, c("Date", grep("incid", names(by.location), value = TRUE))] %>%
-#    reshape2::melt(id.vars = c("Date")) %>%
-#    ggplot(aes(Date, value, color = variable)) + geom_point()
 
 ## Subset the incidence counts. we are not going to use any other column
 ## except date which we will grab from by.location data frame
@@ -141,6 +134,13 @@ adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
                    dplyr::filter(V1 %in% w.africa)
 names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
+flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
+                                     latitude  = adm0_centroids[, "lat"],
+                                     population = adm0_centroids[, "pop"],
+                                     place.names = adm0_centroids[, "country"],
+                                     model = "gravity",
+                                     K = K, pow_N_from = pow_N_from,
+                                     pow_N_to = pow_N_to, pow_dist = pow_dist)
 
 
 ## Relative risk
@@ -149,7 +149,7 @@ relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 ## matrix characterising the population movement between geographical units
 p.stay      <- 0.99 # this can be a vector
 p.movement  <- probability_movement(relative.risk, p.stay)
-#n.countries <- w.africa %>% length
+
 
 
 ## At this point, all the pieces are in place.
@@ -167,7 +167,7 @@ incidence.count <- by.location.incidence[1:t.proj, ]
 dates.all       <- by.location[1:t.proj, "Date"] %>%
                        c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
-##ws              <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
+##ws            <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
 
 ## Each row of r.j.t is a set of reproduction numbers at each
 ## location for one simulation.
@@ -216,30 +216,30 @@ plot.weekly <- function(available, projection){
               plyr::ldply(. %>% `[`(, 2)
                             %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
                                 dplyr::rename(Date = .id)
-    x <- ci.95$Date %>% c(rev(.))
+    x <- ci.95$Date %>% c(rev(.)) %>% as.Date
     y <- c(ci.95[, 3], rev(ci.95[ , 4]))
-    x %<>% as.Date
+
     p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01, color = "red"))
     p   <- p + theme_minimal() + theme(legend.position="none")
     return(p)
-#    out <- paste0(colnames(available)[3], ".pdf")
-#    ggsave(out, p)
+
 }
 
-cols.to.keep <- grep("incid", names(by.location), value = TRUE) %>%
-                                 gsub(" ", "", ., fixed = TRUE)
-colnames(weekly.available)   %<>% gsub(" ", "", ., fixed = TRUE)
-colnames(weekly.projections) %<>% gsub(" ", "", ., fixed = TRUE)
+## cols.to.keep <- grep("incid", names(by.location), value = TRUE) %>%
+##                                  gsub(" ", "", ., fixed = TRUE)
+## colnames(weekly.available)   %<>% gsub(" ", "", ., fixed = TRUE)
+## colnames(weekly.projections) %<>% gsub(" ", "", ., fixed = TRUE)
+
 plots.list   <- lapply(colnames(by.location.incidence), function(location){
                         available  <- weekly.available[, c("Date", "Category", location)]
                         projection <- weekly.projections[, c("Date", location)]
                         plot.weekly(available, projection)})
 
 p <- cowplot::plot_grid(plots.list[[1]],
-                   plots.list[[2]],
-                   plots.list[[3]],
-                   plots.list[[4]],
-                   plots.list[[5]],
-                   plots.list[[6]])
+                        plots.list[[2]],
+                        plots.list[[3]],
+                        plots.list[[4]],
+                        plots.list[[5]],
+                        plots.list[[6]])
 
 cowplot::save_plot("project-28-111.png", p)

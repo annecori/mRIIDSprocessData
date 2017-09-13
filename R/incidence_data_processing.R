@@ -138,21 +138,21 @@ compute.cumulative.incidence <- function(no.duplicates){
                   no.duplicates$Country[1],
                    "outliers-removed.pdf", sep = "-")
     p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    ggsave(out, p)
+    # ggsave(out, p)
 
     cum.incidence %<>%  make_monotonically_increasing
     out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
                   no.duplicates$Country[1],
                    "monotonically-increasing.pdf", sep = "-")
     p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    ggsave(out, p)
+    # ggsave(out, p)
 
     cum.incidence %<>% interpolate.missing.data
     out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
                   no.duplicates$Country[1],
                    "missing-interpolated.pdf", sep = "-")
     p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    ggsave(out, p)
+    # ggsave(out, p)
 
 
     cum.incidence

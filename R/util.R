@@ -22,7 +22,10 @@ plot.weekly <- function(available, projection){
     x <- ci.95$Date %>% c(rev(.)) %>% as.Date
     y <- c(ci.95[, 3], rev(ci.95[ , 4]))
 
-    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01), color = "red", size = 0.3)
+    p   <- p + geom_polygon(data = data.frame(x = x, y = y), aes(x, y, alpha = 0.01),
+                            color = "red",
+                            size = 0.3,
+                            linetype = "blank")
     p   <- p + geom_line(data = data.frame(x = as.Date(ci.95$Date), y = ci.95[, 2]),
                          aes(x, y), size = 0.3, color = "red", inherit.aes = FALSE)
     p   <- p + theme_minimal() + theme(legend.position="none")

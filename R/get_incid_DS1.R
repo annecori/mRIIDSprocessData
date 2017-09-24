@@ -35,7 +35,7 @@
 incidence.from.DS1 <- function(case.count,
                        species,
                        disease,
-                       case.type = c("SCC", "SC", "CC", "SCD", "SD", "CD"),
+                       case.type = c("SCC", "SC", "CC", "SCD", "SD", "CD", "ALL"),
                        location,
                        merge_rule = c("median"))
 {

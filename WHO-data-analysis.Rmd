@@ -1,0 +1,121 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Analysis of Ebola data from WHO
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+```{r, echo = FALSE}
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+devtools::load_all()
+```
+# Data clean-up
+Epidemiological case definition of probable and suspected cases
+differed across countries while confirmed cases were the ones
+confirmed through lab report. For the purpose of the current analysis,
+one approach could be to lump them together. The inferred date of
+onset (rather than the date reported) would be used for estimation.
+Extract the columns relevant for analysis.
+
+```{r}
+who_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv")
+who_raw$DateOnsetInferred %<>% as.Date
+```
+
+For each district in a country, add the number of records for each date to get
+incidence count.
+```{r}
+who_incidence <- who_raw %>% 
+                  dplyr::group_by(Country, DateOnsetInferred, CL_DistrictRes) %>% 
+                  dplyr::summarise(count = n())
+
+ggplot(who_incidence, aes(DateOnsetInferred, count)) +
+    geom_point() +
+    facet_grid(Country~.) +
+    xlab("Date of onset") + theme_minimal()
+```
+
+# Comparison with the data from Health Map.
+
+First read in and clean up the data from Health Map. Since these data
+are at national level, we will also aggregate the WHO data at country
+level. HealthMap collects and curates data on the cumulative number
+of cases (C) and deaths (D) stratified by status (suspected, SC/SD, or
+confirmed CC/CD). For data from the WHO, the case status could be
+confirmed, probable or suspected. The final clinical outcome (alive/dead)
+for each case is also recorded. In comparing the two data sets, we sum
+across all four categories in Healthmap and derive incidence data from
+cumulative data.
+
+```{r, echo = FALSE}
+species   <- "Humans"
+disease   <- "Ebola"
+case.type <- "ALL"
+
+healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
+               read.csv(stringsAsFactors = FALSE) %>%
+               dplyr::filter(species == species,
+                             disease == disease,
+                             case.type == case.type,
+                             Country %in% unique(who_incidence$Country) )
+healthmap$Issue.Date %<>% lubridate::mdy_hm(.) %>%
+                          lubridate::date(.)
+by.location <- healthmap %>%
+                split(.$Country) %>%
+                lapply(function(case.count){
+                        location <- case.count$Country[1]
+                        case.count %<>%  incidence.from.DS1(species, disease,
+                                                            case.type,
+                                                            location,
+                                                            merge_rule = "median")
+                        return(case.count)}) %>%
+    dplyr::bind_rows(.id = "Country")
+
+who_country <- who_incidence %>%
+                  dplyr::group_by(Country, DateOnsetInferred) %>% 
+                  dplyr::summarise(count = n()) %>%
+                  dplyr::rename(incid = count, Date = DateOnsetInferred)
+
+
+list( WHO = who_country,
+      HealthMap = by.location[, c("Country", "Date", "incid")]) %>%
+    dplyr::bind_rows(.id = "Source") %>%
+    ggplot(aes(Date, incid, color = Source)) + geom_point(size = 0.2) + facet_grid(Country ~.) + theme_minimal()
+```
+
+HealthMap numbers (after data clean-up) appear to be much bigger than
+the numbers from WHO, particularly in the middle of the
+epidemic. 
+
+OK, so here is another way of comparing them : for WHO data, ignore
+the final clinical outcome and treat each (probable, suspected and
+confirmed) record as a case. Derive cumulative data from WHO data and
+compare it with raw Healthmap data i.e., without any of the
+preprocessing steps.
+```{r}
+tmp <- plyr::adply(healthmap, 1, function(row) sum(row[, c("SC", "SD", "CC", "CD")], na.rm = TRUE))
+tmp %<>%
+    dplyr::rename(Date = Issue.Date, CumulativeCaseCount = V1) %<>%
+    dplyr::select(Country, Date, CumulativeCaseCount)
+
+who_country$CumulativeCaseCount <- cumsum(who_country$incid) 
+list( WHO = who_country[, c("Country", "Date", "CumulativeCaseCount")],
+      HealthMap = tmp) %>%
+    dplyr::bind_rows(.id = "Source") %>%
+    ggplot(aes(Date, CumulativeCaseCount, color = Source)) + geom_point(size = 0.2) + facet_grid(Country ~.) + theme_minimal()
+
+```

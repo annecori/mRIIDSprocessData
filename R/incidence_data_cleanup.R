@@ -70,7 +70,7 @@ filter.case.count <- function(case.count, species, disease, location)
 ##' @param case_type
 ##' @return
 ##' @author Sangeeta Bhatia
-update.cases.column <- function(case.count,case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"))
+update.cases.column <- function(case.count,case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD", "ALL"))
 {
 
   ####################################
@@ -113,7 +113,7 @@ sum_only_na_stays_na <- function(x)
 #
 
 get_cases <- function(dat,
-                      case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD"))
+                      case_type = c("SCC", "SC", "CC", "SCD", "SD", "CD", "ALL"))
 {
 
   case_type <- match.arg(case_type)
@@ -136,6 +136,8 @@ get_cases <- function(dat,
   }else if(case_type %in% "CD")
   {
     col <- dat$CD
+  }else if(case_type %in% "ALL"){
+      col <- apply(dat[, c("SC", "CC", "SD", "CD")], 1, sum_only_na_stays_na)
   }
 
   return(col)

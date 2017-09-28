@@ -171,7 +171,7 @@ prediction.interval <- function(x, k){
 
 ##' .. content for \description{} (no empty lines) ..
 ##'
-##' .. Reports the maximum percentage beyond k * sqrt((n + 1)/n) standard deviations from mean ..
+#' .. Reports the maximum percentage beyond k * sqrt((n + 1)/n) standard deviations from mean ..
 ##' @title Chebyshev Inequality with sample mean.
 ##' Utilizes Chebyshev inequality with sample mean.
 ##' @param n Sample size

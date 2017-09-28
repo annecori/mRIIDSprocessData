@@ -48,7 +48,7 @@ incidence.from.DS1 <- function(case.count,
   ### if a column name does not exist and is not needed apart from merging, it is ignored.
   ####################################
 
-  cols.to.keep = c("Location", "Country", "Disease", "Species",
+  cols.to.keep <- c("Location", "Country", "Disease", "Species",
                    "HealthMap.Alert.ID", "Headline", "URL",
                    "Alert.Tag", "Feed.Name", "Lon", "Lat")
   cols.to.keep <- c(cols.to.keep, "Date", "Cases") # these are columns we generate ourselves later on
@@ -67,9 +67,6 @@ incidence.from.DS1 <- function(case.count,
     update.cases.column(case.type) %<>%
     merge.duplicates(cols.to.keep)
 
-  p   <- ggplot(case.count, aes(Date, Cases)) + geom_point() + theme_minimal()
-  out <- paste(species, disease, location, "duplicates.merged.pdf", sep = "-")
-  ggsave(out, p)
 
   ### order these by dates ###
   case.count <- case.count[order(as.numeric(case.count$Date)), ]

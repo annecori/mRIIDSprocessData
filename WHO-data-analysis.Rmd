@@ -21,6 +21,7 @@ endnote: no
 library(magrittr)
 library(ggplot2)
 library(dplyr)
+library(EpiEstim)
 devtools::load_all()
 ```
 # Data clean-up
@@ -72,17 +73,18 @@ healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                              case.type == case.type,
                              Country %in% unique(who_incidence$Country) )
 
-healthmap_weekly <- healthmap %>%
-                    split(.$Country) %>%
-                    lapply(function(case.count){
-                            location <- case.count$Country[1]
-                            case.count %<>%
-                                incidence.from.DS1(species, disease,
+healthmap_bycountry <- split(healthmap, healthmap$Country) 
+
+healthmap_weekly    <- healthmap_bycountry %>%
+                       lapply(function(case.count){
+                               location <- case.count$Country[1]
+                               case.count %<>%
+                                  incidence.from.DS1(species, disease,
                                                    case.type,
                                                    location,
                                                    merge_rule = "median") %<>%
-                                daily.to.weekly }) %>%
-                   dplyr::bind_rows(.id = "Country")
+                                 daily.to.weekly }) %>%
+                        dplyr::bind_rows(.id = "Country")
 
 who_country <- who_incidence %>%
                   dplyr::group_by(Country, DateOnsetInferred) %>% 
@@ -113,28 +115,67 @@ HealthMap numbers (after data clean-up) appear to be much bigger than
 the numbers from WHO, particularly in the middle of the
 epidemic. 
 
-OK, so here is another way of comparing them : for WHO data, ignore
-the final clinical outcome and treat each (probable, suspected and
-confirmed) record as a case. Derive cumulative data from WHO data and
-compare it with raw Healthmap data i.e., without any of the
-preprocessing steps.
+
+# Estimating Reproduction number from WHO and Healthmap Data
 
 ```{r}
-tmp <- plyr::adply(healthmap, 1, function(row)
-                                   sum(row[, c("SC", "SD", "CC", "CD")],
-                                   na.rm = TRUE))
-tmp %<>%
-    dplyr::rename(Date = Issue.Date, CumulativeCaseCount = V1) %<>%
-    dplyr::select(Country, Date, CumulativeCaseCount)
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7 * 7
+healthmap_R <- healthmap_bycountry %>%
+               lapply(function(case.count){
+                        location <- case.count$Country[1]
+                        case.count %<>%
+                        incidence.from.DS1(species, disease,
+                                           case.type,
+                                           location,
+                                           merge_rule = "median")
+                        start     <- 1:(length(case.count$Date) - time_window)
+                        end       <- start + time_window
+                        end.dates <- case.count$Date[end] 
+                        res       <- EstimateR(case.count$incid,
+                                               T.Start  = start ,
+                                               T.End    = end,
+                                               method   = "NonParametricSI",
+                                               SI.Distr = SI_Distr,
+                                               plot     = FALSE ,
+                                               CV.Posterior = 1 ,
+                                               Mean.Prior   = 1 ,
+                                               Std.Prior    = 0.5)
+                        res$R %<>% cbind(Date = end.dates)
+                        return(res$R)}) %>%
+              bind_rows(.id = "Country")
 
-who_country$CumulativeCaseCount <- cumsum(who_country$incid) 
-list( WHO = who_country[, c("Country", "Date", "CumulativeCaseCount")],
-      HealthMap = tmp) %>%
+WHO_R <- who_country      %>%
+         split(.$Country) %>%
+         lapply(function(case.count){
+                  location  <- case.count$Country[1]
+                  start     <- 1:(length(case.count$Date) - time_window)
+                  end       <- start + time_window
+                  end.dates <- case.count$Date[end] 
+                  res       <- EstimateR(case.count$incid,
+                                         T.Start  = start ,
+                                         T.End    = end,
+                                         method   = "NonParametricSI",
+                                         SI.Distr = SI_Distr,
+                                         plot     = FALSE ,
+                                         CV.Posterior = 1 ,
+                                         Mean.Prior   = 1 ,
+                                         Std.Prior    = 0.5)
+                  res$R %<>% cbind(Date = end.dates)
+                  return(res$R)}) %>%
+           bind_rows(.id = "Country")
+
+
+list( WHO = WHO_R, HealthMap = healthmap_R) %>%
     dplyr::bind_rows(.id = "Source") %>%
-    ggplot(aes(Date, CumulativeCaseCount, color = Source)) + geom_point(size = 0.2) + facet_grid(Country ~.) + theme_minimal()
+    ggplot(aes(Date, `Mean(R)`, color = Source)) +
+    geom_line() +
+    facet_grid(Country ~.) +
+    scale_x_date(date_labels="%d-%m-%y",date_breaks = "2 weeks") +
+    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-```
-## Prediction from WHO data
-
-```
 ```

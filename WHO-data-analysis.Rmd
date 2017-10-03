@@ -33,22 +33,46 @@ onset (rather than the date reported) is used for estimation.
 
 
 ```{r}
-who_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv")
-who_raw$DateOnsetInferred %<>% as.Date
+WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv")
+WHO_raw$DateOnsetInferred %<>% as.Date
 ```
 
 For each district in a country, add the number of records for each date to get
 incidence count.
 ```{r}
-who_incidence <- who_raw %>% 
-                  dplyr::group_by(Country, DateOnsetInferred, CL_DistrictRes) %>% 
-                  dplyr::summarise(count = n())
+WHO_bydistricts <- WHO_raw %>% 
+                   dplyr::group_by(Country,
+                                   DateOnsetInferred, CL_DistrictRes) %>%                           dplyr::summarise(count = n())
 
-ggplot(who_incidence, aes(DateOnsetInferred, count)) +
+ggplot(WHO_bydistricts, aes(DateOnsetInferred, count)) +
     geom_point() +
     facet_grid(Country~.) +
     xlab("Date of onset") + theme_minimal()
 ```
+
+There is some missing data - the incidence time series is not a daily
+time series. We will need to interpolate as the R estimation module
+expects a daily time series. We do this interpolation at the district
+level.
+
+```{r}
+WHO_bydistricts          %<>%
+  split(.$CL_DistrictRes) %>%
+  lapply(function(district){
+      district %<>% na.omit
+      country <- unique(district$Country)
+      dis     <- unique(district$CL_DistrictRes)
+      district$Cases <- cumsum(district$count)
+      district %<>%
+          rename(Date = DateOnsetInferred, incid = count) %<>%
+          interpolate.missing.data
+
+      district$Country        <- country
+      district$CL_DistrictRes <- dis
+      district$incid          <- c(0, diff(district$Cases))
+      return(district) }) %>% bind_rows
+```
+
 
 # Comparison with the data from Health Map.
 
@@ -71,7 +95,7 @@ healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                dplyr::filter(species == species,
                              disease == disease,
                              case.type == case.type,
-                             Country %in% unique(who_incidence$Country) )
+                             Country %in% unique(WHO_incidence$Country) )
 
 healthmap_bycountry <- split(healthmap, healthmap$Country) 
 
@@ -86,29 +110,31 @@ healthmap_weekly    <- healthmap_bycountry %>%
                                  daily.to.weekly }) %>%
                         dplyr::bind_rows(.id = "Country")
 
-who_country <- who_incidence %>%
-                  dplyr::group_by(Country, DateOnsetInferred) %>% 
+WHO_bycountry <- WHO_bydistricts %>%
+                  dplyr::group_by(Country, Date) %>% 
                   dplyr::summarise(count = n()) %>%
-                  dplyr::rename(incid = count, Date = DateOnsetInferred) 
+                  dplyr::rename(incid = count)
 
 
-who_weekly <- split(who_country, who_country$Country) %>%
+
+WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
               lapply(function(df){
                       df      %>%
                       ungroup %>%
                       select(Date, incid) %>%
                       daily.to.weekly}) %>%
                 dplyr::bind_rows(.id = "Country")    
-who_weekly$Date       %<>% as.Date
+WHO_weekly$Date       %<>% as.Date
 healthmap_weekly$Date %<>% as.Date
-list( WHO = who_weekly,
+list( WHO = WHO_weekly,
       HealthMap = healthmap_weekly[, c("Country", "Date", "incid")]) %>%
     dplyr::bind_rows(.id = "Source") %>%
     ggplot(aes(Date, incid, color = Source)) +
     geom_point() +
     facet_grid(Country ~.) +
-    scale_x_date(date_labels="%d-%m-%y",date_breaks = "2 weeks") +
-    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 HealthMap numbers (after data clean-up) appear to be much bigger than
@@ -149,7 +175,7 @@ healthmap_R <- healthmap_bycountry %>%
                         return(res$R)}) %>%
               bind_rows(.id = "Country")
 
-WHO_R <- who_country      %>%
+WHO_R <- WHO_bycountry    %>%
          split(.$Country) %>%
          lapply(function(case.count){
                   location  <- case.count$Country[1]
@@ -175,7 +201,45 @@ list( WHO = WHO_R, HealthMap = healthmap_R) %>%
     ggplot(aes(Date, `Mean(R)`, color = Source)) +
     geom_line() +
     facet_grid(Country ~.) +
-    scale_x_date(date_labels="%d-%m-%y",date_breaks = "2 weeks") +
-    theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+# Projection using WHO data
+## Projection within a country 
+```{r}
+WHO_guinea <- WHO_bydistricts %>%
+              filter(Country == "Guinea") %>%
+              select(-c(Country, Cases))  %>%
+              na.omit
+
+guinea_districts  <- unique(WHO_guinea$CL_DistrictRes)
+guinea_bydistrict <- tidyr::spread(WHO_guinea, CL_DistrictRes, incid)
+
+```
+We will ignore the districts in estimating the reproduction number
+because there is very little data for each district. 
+
+```{r}
+apply(guinea_bydistrict, 2, function(col) sum(!is.na(col)))
+```
+I think it might be reasonable to assume that the reproduction number
+would not vary very much across districts. So we will proceed as we
+did with HealthMap data - split the data set into training and
+validation sets, set up the parameters and press play.
+
+```{r}
+t.proj      <- 133L
+n.sim       <- 1000L    # Number of simulations to run
+n.dates.sim <- 35L      # The time period over which projection will be made.
+
+guinea_R          <- filter(WHO_R, Country == "Guinea")
+guinea_training   <- guinea_bydistrict[1:t.proj, ]
+guinea_validation <- guinea_bydistrict[(1 + t.proj):nrow(guinea_bydistrict), ]
+
+cutoff <- which(guinea_R$Date %in%  guinea_bydistrict[t.proj, "Date"])
+shape  <- guinea_R[cutoff, "Mean(R)"]^2 / guinea_R[cutoff, "Std(R)"]^2
+scale  <- guinea_R[cutoff, "Std(R)"]^2 /  guinea_R[cutoff, "Mean(R)"]
+restim <- rgamma(n.sim, shape = shape, scale = scale))
 ```

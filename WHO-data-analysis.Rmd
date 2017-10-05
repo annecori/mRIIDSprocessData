@@ -218,6 +218,39 @@ guinea_districts  <- unique(WHO_guinea$CL_DistrictRes)
 guinea_bydistrict <- tidyr::spread(WHO_guinea, CL_DistrictRes, incid)
 
 ```
+Guinea is divided into 8 regions whereas the incidence data is
+recorded at a finer scale (prefectures). The relation between
+prefectures and regions can be scraped from Wikipedia.
+
+```{r}
+prefectures <- "https://en.wikipedia.org/wiki/Prefectures_of_Guinea" %>%
+               rvest::html(.) %>%
+               rvest::html_nodes("table") %>%
+               `[[`(2) %>%
+               rvest::html_table(.)
+
+prefectures$Region <- NA
+tmp <- which(is.na(prefectures[, 1]))
+for(i in 1:(length(tmp) - 1)){
+    prefectures$Region[tmp[i]:(tmp[i+1] - 1)] <- prefectures$Name[tmp[i]]
+}
+
+prefectures <- prefectures[-tmp,  c("Name", "Region")]
+prefectures %<>% apply(c(1, 2), function(n){
+                                   n %<>%
+                                   chartr("áéó", "aeo", .)   %<>%
+                                   gsub("Region de ", "", .) %<>%    
+                                   toupper
+                                   return(n)}) %>% data.frame
+
+```
+We will add a column for the Region so that we can later use this for
+analysis.
+```{r}
+WHO_guinea$CL_DistrictRes %<>% plyr::mapvalues(from = "N'ZEREKORE", to = "NZEREKORE")
+
+
+```
 We will ignore the districts in estimating the reproduction number
 because there is very little data for each district. 
 
@@ -242,4 +275,26 @@ cutoff <- which(guinea_R$Date %in%  guinea_bydistrict[t.proj, "Date"])
 shape  <- guinea_R[cutoff, "Mean(R)"]^2 / guinea_R[cutoff, "Std(R)"]^2
 scale  <- guinea_R[cutoff, "Std(R)"]^2 /  guinea_R[cutoff, "Mean(R)"]
 restim <- rgamma(n.sim, shape = shape, scale = scale))
+```
+# Population flow matrix
+
+```{r}
+adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids.tsv" %>%
+                   read.csv(stringsAsFactors = FALSE,
+                            sep = "\t",
+                            header = TRUE) %>%
+                    filter(ADM0 == "Guinea")
+
+flow.matrix           <- flow_matrix(longitude   = adm1_centroids[, "lon"],
+                                     latitude    = adm1_centroids[, "lat"],
+                                     population  = adm1_centroids[, "pop"],
+                                     place.names = adm1_centroids[, "country"],
+                                     model = "gravity",
+                                     K = K, pow_N_from = pow_N_from,
+                                     pow_N_to = pow_N_to, pow_dist = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+
 ```

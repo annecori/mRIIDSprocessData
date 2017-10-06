@@ -56,7 +56,7 @@ expects a daily time series. We do this interpolation at the district
 level.
 
 ```{r}
-WHO_bydistricts          %<>%
+WHO_bydistricts           %<>%
   split(.$CL_DistrictRes) %>%
   lapply(function(district){
       district %<>% na.omit
@@ -214,8 +214,6 @@ WHO_guinea <- WHO_bydistricts %>%
               select(-c(Country, Cases))  %>%
               na.omit
 
-guinea_districts  <- unique(WHO_guinea$CL_DistrictRes)
-guinea_bydistrict <- tidyr::spread(WHO_guinea, CL_DistrictRes, incid)
 
 ```
 Guinea is divided into 8 regions whereas the incidence data is
@@ -244,22 +242,34 @@ prefectures %<>% apply(c(1, 2), function(n){
                                    return(n)}) %>% data.frame
 
 ```
+
 We will add a column for the Region so that we can later use this for
 analysis.
-```{r}
-WHO_guinea$CL_DistrictRes %<>% plyr::mapvalues(from = "N'ZEREKORE", to = "NZEREKORE")
-
-
-```
-We will ignore the districts in estimating the reproduction number
-because there is very little data for each district. 
 
 ```{r}
-apply(guinea_bydistrict, 2, function(col) sum(!is.na(col)))
+WHO_guinea$CL_DistrictRes %<>% plyr::mapvalues(from = c("N'ZEREKORE", "KISSIDOUGO"),                                                 to  = c("NZEREKORE", "KISSIDOUGOU"))
+WHO_guinea %<>%
+    dplyr::left_join(prefectures, by = c("CL_DistrictRes" = "Name"))
+
 ```
-I think it might be reasonable to assume that the reproduction number
-would not vary very much across districts. So we will proceed as we
-did with HealthMap data - split the data set into training and
+For now, we will ignore the  variation in reproduction number across
+regions and use the same estimate for all regions.
+
+
+```{r}
+
+guinea_byregion <- WHO_guinea %>%
+                     select(-CL_DistrictRes) %>%
+                     group_by(Region, Date)  %>% 
+                     summarise(count = n())  %>%
+                     rename(incid = count)
+guinea_regions  <- unique(WHO_guinea$Region)
+
+tmp <- tidyr::spread(guinea_byregion, Region, incid)
+
+apply(tmp, 2, function(col) sum(!is.na(col)))
+```
+We will proceed as we did with HealthMap data - split the data set into training and
 validation sets, set up the parameters and press play.
 
 ```{r}
@@ -279,22 +289,34 @@ restim <- rgamma(n.sim, shape = shape, scale = scale))
 # Population flow matrix
 
 ```{r}
-adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids.tsv" %>%
+pow_N_from <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
+
+adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
                    read.csv(stringsAsFactors = FALSE,
                             sep = "\t",
                             header = TRUE) %>%
                     filter(ADM0 == "Guinea")
 
-flow.matrix           <- flow_matrix(longitude   = adm1_centroids[, "lon"],
-                                     latitude    = adm1_centroids[, "lat"],
-                                     population  = adm1_centroids[, "pop"],
-                                     place.names = adm1_centroids[, "country"],
-                                     model = "gravity",
-                                     K = K, pow_N_from = pow_N_from,
-                                     pow_N_to = pow_N_to, pow_dist = pow_dist)
+adm1_centroids$ADM1       %<>%
+  chartr("áéó", "aeo", .) %<>%
+  toupper
+ 
+flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
+                            latitude    = adm1_centroids[, "Centroid_Lat"],
+                            population  = adm1_centroids[, "Pop"],
+                            place.names = adm1_centroids[, "ADM1"],
+                            model = "gravity", K = K,
+                            pow_N_from = pow_N_from,
+                            pow_N_to   = pow_N_to,
+                            pow_dist   = pow_dist)
 
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
+p.stay     <- 0.99 
+p.movement <- probability_movement(relative.risk, p.stay)
 ```

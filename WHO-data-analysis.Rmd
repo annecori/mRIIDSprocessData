@@ -37,6 +37,74 @@ WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv")
 WHO_raw$DateOnsetInferred %<>% as.Date
 ```
 
+## Availability of data for overlapping periods
+
+An implicit assumption in our model is that we have incidence data for
+the same dates for different locations. For data from HealthMap, even
+after discarding the dates for which data for some countries were
+missing, we had sufficient records to carry forward the
+analysis. Since the data from WHO have been collected at a more
+granular scale, this might not be true.
+
+```{r, echo = FALSE}
+daterange_wide <- function(df){
+    rownames(df) <- c("MinDate", "MaxDate")
+    df %>%
+        tibble::rownames_to_column(var = "Variable") %>%
+        tidyr::gather(Country, Dates, -Variable)     %>%
+        tidyr::spread(key = Variable, value = Dates)
+}
+tmp <- WHO_raw %>%
+       split(.$Country) %>%
+       lapply(function(df) range(df$DateOnsetInferred, na.rm = TRUE)) %>%
+       data.frame %>%
+       daterange_wide
+tmp$Country %<>% as.factor
+yaxis <- seq(from = min(tmp$MinDate), to = max(tmp$MaxDate), length.out = nrow(tmp))
+
+ggplot(tmp, aes(Country, yaxis)) +
+    geom_linerange(aes(ymin = MinDate, ymax = MaxDate)) +
+    ggtitle("Dates for which data are available for each country") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Similarly for the districts within a country.
+```{r, fig.height = 9}
+tmp <- WHO_raw %>%
+       split(.$CL_DistrictRes) %>%
+       lapply(function(df) range(df$DateOnsetInferred, na.rm = TRUE)) %>%
+       data.frame
+rownames(tmp) <- c("MinDate", "MaxDate")
+tmp %<>%
+     tibble::rownames_to_column(var = "Variable")    %<>%
+     tidyr::gather(CL_DistrictRes, Dates, -Variable) %<>%
+     tidyr::spread(key = Variable, value = Dates)    
+
+
+districts_countries <- unique(WHO_raw[, c("CL_DistrictRes", "Country")]) %>% .[complete.cases(.), ]
+tmp$CL_DistrictRes %<>%
+        as.factor  %<>%
+        plyr::mapvalues(from = levels(.), to = levels(districts_countries$CL_DistrictRes))
+
+tmp %<>% dplyr::left_join(districts_countries)
+
+tmp$Country %<>% as.factor
+yaxis <- seq(from = min(tmp$MinDate), to = max(tmp$MaxDate), length.out = nrow(tmp)) 
+ggplot(tmp, aes(CL_DistrictRes, yaxis)) +
+     geom_linerange(aes(ymin = MinDate, ymax = MaxDate)) +
+     facet_wrap(~Country, scales = "free_x", nrow = 3) +
+     theme(axis.text.x=element_text(angle = -40, hjust = 0)) +
+     ylab("") + xlab("Districts") +
+     ggtitle("Dates for which data are available for districts within each country") +
+     theme(plot.title = element_text(hjust = 0.5))
+
+          
+
+
+```
+
+## Grouping by districts and interpolating missing data
 For each district in a country, add the number of records for each date to get
 incidence count.
 ```{r}
@@ -95,7 +163,7 @@ healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                dplyr::filter(species == species,
                              disease == disease,
                              case.type == case.type,
-                             Country %in% unique(WHO_incidence$Country) )
+                             Country %in% unique(WHO_raw$Country) )
 
 healthmap_bycountry <- split(healthmap, healthmap$Country) 
 
@@ -278,13 +346,13 @@ n.sim       <- 1000L    # Number of simulations to run
 n.dates.sim <- 35L      # The time period over which projection will be made.
 
 guinea_R          <- filter(WHO_R, Country == "Guinea")
-guinea_training   <- guinea_bydistrict[1:t.proj, ]
-guinea_validation <- guinea_bydistrict[(1 + t.proj):nrow(guinea_bydistrict), ]
+guinea_training   <- guinea_byregion[1:t.proj, ]
+guinea_validation <- guinea_byregion[(1 + t.proj):nrow(guinea_byregion), ]
 
-cutoff <- which(guinea_R$Date %in%  guinea_bydistrict[t.proj, "Date"])
+cutoff <- which(guinea_R$Date %in%  guinea_byregion[t.proj, "Date"])
 shape  <- guinea_R[cutoff, "Mean(R)"]^2 / guinea_R[cutoff, "Std(R)"]^2
 scale  <- guinea_R[cutoff, "Std(R)"]^2 /  guinea_R[cutoff, "Mean(R)"]
-restim <- rgamma(n.sim, shape = shape, scale = scale))
+restim <- rgamma(n.sim, shape = shape, scale = scale)
 ```
 # Population flow matrix
 

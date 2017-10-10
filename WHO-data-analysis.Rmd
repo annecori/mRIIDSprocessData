@@ -380,12 +380,6 @@ r.j.t <- r.estim %>%
 ```
 
 
-```{r}
-n.dates.sim <- 35L      # The time period over which projection will be made.
-SL_training   <- SL_byprovince_wide[1:t.proj, ]
-SL_validation <- SL_byprovince_wide[(1 + t.proj):nrow(SL_byprovince_wide), ]
-
-```
 # Population flow matrix
 
 ```{r}
@@ -413,7 +407,65 @@ flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-
 p.stay     <- 0.99 
 p.movement <- probability_movement(relative.risk, p.stay)
+
+```
+
+At this point, all the pieces are in place.
+SL_training contains the incidence count we will use for projecting.
+Estimate of R is in the data frame r.j.t with a row for each
+simulation we want to run. p.movement conatins the probabilities.
+
+```{r}
+n.dates.sim   <- 35L      # The time period over which projection will be made.
+SL_training   <- SL_byprovince_wide[1:t.proj, ]
+SL_validation <- SL_byprovince_wide[(1 + t.proj):nrow(SL_byprovince_wide), ]
+
+incid     <- as.matrix(select(SL_training, -Date))
+dates.all <- SL_training[1:t.proj, ] %>%
+             pull(Date) %>%
+             c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+t.max     <- t.proj + n.dates.sim - 1
+
+
+daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                    r.t   <- as.matrix(r.t)
+                                    out   <- project(incid, r.t, SI_Distr,
+                                                     p.movement, n.dates.sim) 
+                                    incidence.proj <- rbind(incid, out)
+                                    incidence.proj %<>% data.frame
+                                    incidence.proj %<>% cbind(Date = dates.all)
+                                    return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
+
+
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+```
+At the same time, we will also obtain the weekly incidence count from
+available data.
+```{r}
+weekly.available <- c(training    = list(SL_training),
+                       validation = list(SL_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
+
+
+plots.list <- SL_training %>%
+                 select(-Date) %>%
+                 colnames %>%
+                 lapply(function(location){
+                         available  <- weekly.available %>%
+                                       `[`(, c("Date", "Category", location))
+                         projection <- weekly.projections %>%
+                                       `[`(, c("Date", location))
+                         plot.weekly(available, projection)})
+
+p <- cowplot::plot_grid(plots.list[[1]],
+                        plots.list[[2]],
+                        plots.list[[3]],
+                        plots.list[[4]])
+
+cowplot::save_plot("SL-Regionwise.png", p,
+                    base_aspect_ratio = 1.3)
+
 ```

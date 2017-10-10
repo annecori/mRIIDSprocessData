@@ -99,18 +99,19 @@ ggplot(tmp, aes(CL_DistrictRes, yaxis)) +
      ggtitle("Dates for which data are available for districts within each country") +
      theme(plot.title = element_text(hjust = 0.5))
 
-          
-
-
 ```
+It seems that the data for Sierra Leone are less patchy. It might be a
+good idea to start analysis with Sierra Leone.
 
 ## Grouping by districts and interpolating missing data
-For each district in a country, add the number of records for each date to get
-incidence count.
+For each district in a country, add the number of records for each
+date to get incidence count.
 ```{r}
 WHO_bydistricts <- WHO_raw %>% 
                    dplyr::group_by(Country,
-                                   DateOnsetInferred, CL_DistrictRes) %>%                           dplyr::summarise(count = n())
+                                   DateOnsetInferred,
+                                   CL_DistrictRes) %>%
+                   dplyr::summarise(count = n())
 
 ggplot(WHO_bydistricts, aes(DateOnsetInferred, count)) +
     geom_point() +
@@ -182,8 +183,6 @@ WHO_bycountry <- WHO_bydistricts %>%
                   dplyr::group_by(Country, Date) %>% 
                   dplyr::summarise(count = n()) %>%
                   dplyr::rename(incid = count)
-
-
 
 WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
               lapply(function(df){
@@ -277,82 +276,115 @@ list( WHO = WHO_R, HealthMap = healthmap_R) %>%
 # Projection using WHO data
 ## Projection within a country 
 ```{r}
-WHO_guinea <- WHO_bydistricts %>%
-              filter(Country == "Guinea") %>%
+WHO_SL <- WHO_bydistricts %>%
+              filter(Country == "Sierra Leone") %>%
               select(-c(Country, Cases))  %>%
               na.omit
 
-
+ggplot(WHO_SL, aes(Date, incid)) + geom_point() + facet_wrap(~CL_DistrictRes, ncol = 3) + theme_minimal()
 ```
-Guinea is divided into 8 regions whereas the incidence data is
-recorded at a finer scale (prefectures). The relation between
-prefectures and regions can be scraped from Wikipedia.
+Sierra Leone is divided into 4 provinces (ADM1). We will append
+information about provinces to the above data frame since the spatial
+information is available at this scale (for now, that is).
 
 ```{r}
-prefectures <- "https://en.wikipedia.org/wiki/Prefectures_of_Guinea" %>%
-               rvest::html(.) %>%
-               rvest::html_nodes("table") %>%
-               `[[`(2) %>%
-               rvest::html_table(.)
+SL_provinces <- list(Eastern  = data.frame(District = c("KAILAHUN",
+                                                        "KENEMA",
+                                                        "KONO")),
+                     Northern = data.frame(District = c("BOMBALI",
+                                                        "KAMBIA",
+                                                        "KOINADUGU",
+                                                        "PORT LOKO",
+                                                        "TONKOLILI")),
+                     Southern = data.frame(District = c("BO",
+                                                         "BONTHE",
+                                                         "MOYAMBA",
+                                                        "PUJEHUN")),
+                  Western = data.frame(District = c("WESTERN"))) %>%
+               bind_rows(.id = "Province")
 
-prefectures$Region <- NA
-tmp <- which(is.na(prefectures[, 1]))
-for(i in 1:(length(tmp) - 1)){
-    prefectures$Region[tmp[i]:(tmp[i+1] - 1)] <- prefectures$Name[tmp[i]]
-}
+SL_provinces$Province %<>% as.factor
+SL_provinces$District %<>% as.factor
 
-prefectures <- prefectures[-tmp,  c("Name", "Region")]
-prefectures %<>% apply(c(1, 2), function(n){
-                                   n %<>%
-                                   chartr("áéó", "aeo", .)   %<>%
-                                   gsub("Region de ", "", .) %<>%    
-                                   toupper
-                                   return(n)}) %>% data.frame
-
+WHO_SL %<>% left_join(SL_provinces, by = c("CL_DistrictRes" = "District"))
 ```
 
-We will add a column for the Region so that we can later use this for
-analysis.
-
-```{r}
-WHO_guinea$CL_DistrictRes %<>% plyr::mapvalues(from = c("N'ZEREKORE", "KISSIDOUGO"),                                                 to  = c("NZEREKORE", "KISSIDOUGOU"))
-WHO_guinea %<>%
-    dplyr::left_join(prefectures, by = c("CL_DistrictRes" = "Name"))
-
-```
 For now, we will ignore the  variation in reproduction number across
-regions and use the same estimate for all regions.
+provices and use the same estimate for all provinces.
 
 
 ```{r}
 
-guinea_byregion <- WHO_guinea %>%
+SL_byprovince <- WHO_SL %>%
                      select(-CL_DistrictRes) %>%
-                     group_by(Region, Date)  %>% 
+                     group_by(Province, Date)  %>% 
                      summarise(count = n())  %>%
                      rename(incid = count)
-guinea_regions  <- unique(WHO_guinea$Region)
+SL_provinces  <- unique(WHO_SL$Province)
 
-tmp <- tidyr::spread(guinea_byregion, Region, incid)
+daterange <- SL_byprovince %>% split(.$Province) %>% 
+    lapply(function(df) range(df$Date)) %>%
+    data.frame
 
-apply(tmp, 2, function(col) sum(!is.na(col)))
+
+
+
 ```
-We will proceed as we did with HealthMap data - split the data set into training and
+We extract the interval for which data are available for all provinces
+and then work with this set. We will proceed as we did with HealthMap data - split the data set into training and
 validation sets, set up the parameters and press play.
 
 ```{r}
-t.proj      <- 133L
-n.sim       <- 1000L    # Number of simulations to run
+SL_byprovince_wide <-  SL_byprovince %>% 
+                       filter(Date > "2014-04-20" &
+                              Date < "2015-08-22") %>%
+                       tidyr::spread(Province, incid)
+```
+
+We are now ready to estimate R and move forward with the projection
+exactly as we did for HealthMap data.
+```{r}
+t.proj    <- 133L
+start     <- 1:(length(SL_byprovince_wide$Date) - time_window)
+end       <- start + time_window
+end.dates <- SL_byprovince_wide[end, "Date"]
+r.estim   <- SL_byprovince_wide  %>%
+                   select(-Date) %>%
+    plyr::alply(2, .dims = TRUE, function(incid) {
+                                   I   <- pull(incid, 1) 
+                                   res <- EstimateR(I, T.Start = start , T.End = end,
+                                                    method = "NonParametricSI",
+                                                    SI.Distr = SI_Distr,
+                                                    plot = FALSE ,
+                                                    CV.Posterior = 1 ,
+                                                    Mean.Prior = 1 ,
+                                                    Std.Prior = 0.5)
+                                   res$R %<>% cbind(Date = end.dates)
+                                   return(res$R)})
+r.estim %>%
+    bind_rows(r.estim, .id = "Province") %>%
+    ggplot(aes(Date, `Mean(R)`)) +
+    geom_point() +
+    facet_wrap(~Province) +
+    ggtitle("Mean R for each province")
+
+n.sim <- 1000L    # Number of simulations to run
+r.j.t <- r.estim %>%
+           lapply(function(R){
+                    cutoff <- which(R$Date %in% SL_byprovince_wide[t.proj, "Date"])
+                    shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
+                    scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
+                    return(rgamma(n.sim, shape = shape,
+                                         scale = scale))}) %>% data.frame
+
+```
+
+
+```{r}
 n.dates.sim <- 35L      # The time period over which projection will be made.
+SL_training   <- SL_byprovince_wide[1:t.proj, ]
+SL_validation <- SL_byprovince_wide[(1 + t.proj):nrow(SL_byprovince_wide), ]
 
-guinea_R          <- filter(WHO_R, Country == "Guinea")
-guinea_training   <- guinea_byregion[1:t.proj, ]
-guinea_validation <- guinea_byregion[(1 + t.proj):nrow(guinea_byregion), ]
-
-cutoff <- which(guinea_R$Date %in%  guinea_byregion[t.proj, "Date"])
-shape  <- guinea_R[cutoff, "Mean(R)"]^2 / guinea_R[cutoff, "Std(R)"]^2
-scale  <- guinea_R[cutoff, "Std(R)"]^2 /  guinea_R[cutoff, "Mean(R)"]
-restim <- rgamma(n.sim, shape = shape, scale = scale)
 ```
 # Population flow matrix
 
@@ -366,11 +398,8 @@ adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
                    read.csv(stringsAsFactors = FALSE,
                             sep = "\t",
                             header = TRUE) %>%
-                    filter(ADM0 == "Guinea")
+                    filter(ADM0 == "Sierra Leone")
 
-adm1_centroids$ADM1       %<>%
-  chartr("áéó", "aeo", .) %<>%
-  toupper
  
 flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
                             latitude    = adm1_centroids[, "Centroid_Lat"],

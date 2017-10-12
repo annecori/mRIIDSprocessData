@@ -326,7 +326,7 @@ daterange <- SL_byprovince %>% split(.$Province) %>%
     lapply(function(df) range(df$Date)) %>%
     data.frame
 
-
+ggplot(SL_byprovince, aes(Date, incid)) + geom_point() + facet_wrap(~ Province)
 
 
 ```
@@ -344,7 +344,7 @@ SL_byprovince_wide <-  SL_byprovince %>%
 We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
 ```{r}
-t.proj    <- 133L
+t.proj    <- 147L
 start     <- 1:(length(SL_byprovince_wide$Date) - time_window)
 end       <- start + time_window
 end.dates <- SL_byprovince_wide[end, "Date"]
@@ -418,7 +418,7 @@ Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
 ```{r}
-n.dates.sim   <- 35L      # The time period over which projection will be made.
+n.dates.sim   <- 42L      # The time period over which projection will be made.
 SL_training   <- SL_byprovince_wide[1:t.proj, ]
 SL_validation <- SL_byprovince_wide[(1 + t.proj):nrow(SL_byprovince_wide), ]
 
@@ -460,12 +460,11 @@ plots.list <- SL_training %>%
                                        `[`(, c("Date", location))
                          plot.weekly(available, projection)})
 
-p <- cowplot::plot_grid(plots.list[[1]],
+cowplot::plot_grid(plots.list[[1]],
                         plots.list[[2]],
                         plots.list[[3]],
                         plots.list[[4]])
 
-cowplot::save_plot("SL-Regionwise.png", p,
-                    base_aspect_ratio = 1.3)
+
 
 ```

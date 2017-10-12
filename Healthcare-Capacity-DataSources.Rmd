@@ -1,0 +1,107 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Comparison of data sources for healthcare capacity
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+# World Bank
+## [Hospital Beds per 1000 people](https://data.worldbank.org/indicator/SH.MED.BEDS.ZS)
+
+Hospital beds include inpatient beds available in public, private,
+general, and specialized hospitals and rehabilitation centers. In most
+cases beds for both acute and chronic care are included. Annual.
+
+```{r}
+num_beds <- read.csv("data/HealthCareCapacity/API_SH.MED.BEDS.ZS_DS2_en_csv_v2.csv",
+                      skip = 4)
+colnames(num_beds)[5:61] <- 1960:2016
+apply(num_beds[, 5:62], 2, function(col) sum(!is.na(col)))
+
+```
+Quite patchy. Out of the 264 countries for which data are recorded,
+the most complete record is for the year 1990 when data for 187
+countries are available. For 2012, only 70 countries have complete
+records. In particular for West Africa, we have non-null records for
+all countries for 1960 and for 5 of the 6 for 1975.
+
+```{r}
+w.africa <- c("Sierra Leone", "Guinea", "Liberia", "Mali", "Nigeria", "Ghana")
+num_beds %>%
+    filter(Country.Name %in% w.africa) %>%
+    `[`(, 5:62) %>%
+    apply(2, function(col) sum(!is.na(col)))
+
+```
+## [Number of physicians per 1000 people](https://data.worldbank.org/indicator/SH.MED.PHYS.ZS)
+
+Physicians include generalist and specialist medical
+practitioners. The WHO estimates that at least 2.5 medical staff
+(physicians, nurses and midwives) per 1,000 people are needed to
+provide adequate coverage with primary care interventions (WHO, World
+Health Report 2006).
+
+```{r}
+physicians <- "data/HealthCareCapacity/NumberOfPhysicians/API_SH.MED.PHYS.ZS_DS2_en_csv_v2.csv" %>% read.csv(skip = 4)
+
+colnames(physicians)[5:61] <- 1960:2016
+apply(physicians[, 5:62], 2, function(col) sum(!is.na(col))) 
+
+physicians %>%
+    filter(Country.Name %in% w.africa) %>%
+    `[`(, 5:62) %>%
+    apply(2, function(col) sum(!is.na(col)))
+```
+Pretty much the same comments as before except that we have data for 5
+    of the 6 countries for 2008.
+	
+# [IHR Core Capacities](http://apps.who.int/gho/data/node.main.IHR00ALLN?lang=en)
+	
+## [Hospital Beds Density](http://apps.who.int/gho/data/view.main.HS07v)
+```{r}
+ihr_beds <- "data/HealthCareCapacity/NumberOfBeds/WHS6_102.csv" %>%
+             read.csv(skip = 1)
+colnames(ihr_beds)[2:12] %<>% gsub("X.", "", .)
+ihr_beds %>% apply(2, function(col) sum(!is.na(col)))
+ihr_beds %>% filter(Country %in% w.africa)
+
+```
+Only Ghana and Guinea have data for 2011.
+
+##[Physician Desnity](http://apps.who.int/gho/data/node.main.A1444?lang=en)
+
+Grouped by the category of staff i.e., physicians, midwives etc. Also
+quite complete for West Africa. For instance, the number of physicians
+per 1000 people is available for all West African countries for all
+years except for Nigeria in 2004 and 2011.
+
+```{r}
+ihr_physicians <- "data/HealthCareCapacity/NumberOfPhysicians/HRH_26,HRH_33,HRH_28,HRH_25,HRH_27,HRH_31,HRH_29,HRH_30,HRH_32.csv" %>% read.csv
+ihr_physicians %>%
+    filter(Country %in% w.africa) %>%
+    apply(2, function(col) sum(!is.na(col)))
+
+```
+
+# Institute of Health Metrics and Evaluation
+http://www.healthdata.org/results/country-profiles/haq
+http://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)30818-8/abstract
+
+# Health Data Collaborative
+https://www.healthdatacollaborative.org

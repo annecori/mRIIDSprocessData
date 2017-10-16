@@ -25,123 +25,74 @@ library(EpiEstim)
 devtools::load_all()
 ```
 # Data clean-up
+The current data set ahs three possible values for the epidemiological
+case definition - confirmed, probable and suspected.
 Epidemiological case definition of probable and suspected cases
 differed across countries while confirmed cases were the ones
 confirmed through lab report. For the purpose of the current analysis,
-one approach could be to lump them together. The inferred date of
+one approach could be to lump all of them together. The inferred date of
 onset (rather than the date reported) is used for estimation.
+The columns we use are : Country, EpiCaseDef (probably),
+DateOnsetInferred and CL_DistrictRes. 
 
 
 ```{r}
-WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv")
+WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv") %>%
+           select(Country, EpiCaseDef,
+                  DateOnsetInferred,CL_DistrictRes) %>%
+           na.omit
+
+WHO_raw$Country    %<>% factor
+WHO_raw$EpiCaseDef %<>% factor
+WHO_raw$CL_DistrictRes %<>% factor
 WHO_raw$DateOnsetInferred %<>% as.Date
+ 
 ```
 
-## Availability of data for overlapping periods
-
-An implicit assumption in our model is that we have incidence data for
-the same dates for different locations. For data from HealthMap, even
-after discarding the dates for which data for some countries were
-missing, we had sufficient records to carry forward the
-analysis. Since the data from WHO have been collected at a more
-granular scale, this might not be true.
-
-```{r, echo = FALSE}
-daterange_wide <- function(df){
-    rownames(df) <- c("MinDate", "MaxDate")
-    df %>%
-        tibble::rownames_to_column(var = "Variable") %>%
-        tidyr::gather(Country, Dates, -Variable)     %>%
-        tidyr::spread(key = Variable, value = Dates)
-}
-tmp <- WHO_raw %>%
-       split(.$Country) %>%
-       lapply(function(df) range(df$DateOnsetInferred, na.rm = TRUE)) %>%
-       data.frame %>%
-       daterange_wide
-tmp$Country %<>% as.factor
-yaxis <- seq(from = min(tmp$MinDate), to = max(tmp$MaxDate), length.out = nrow(tmp))
-
-ggplot(tmp, aes(Country, yaxis)) +
-    geom_linerange(aes(ymin = MinDate, ymax = MaxDate)) +
-    ggtitle("Dates for which data are available for each country") +
-    theme(plot.title = element_text(hjust = 0.5))
-
-```
-
-Similarly for the districts within a country.
-```{r, fig.height = 9}
-tmp <- WHO_raw %>%
-       split(.$CL_DistrictRes) %>%
-       lapply(function(df) range(df$DateOnsetInferred, na.rm = TRUE)) %>%
-       data.frame
-rownames(tmp) <- c("MinDate", "MaxDate")
-tmp %<>%
-     tibble::rownames_to_column(var = "Variable")    %<>%
-     tidyr::gather(CL_DistrictRes, Dates, -Variable) %<>%
-     tidyr::spread(key = Variable, value = Dates)    
-
-
-districts_countries <- unique(WHO_raw[, c("CL_DistrictRes", "Country")]) %>% .[complete.cases(.), ]
-tmp$CL_DistrictRes %<>%
-        as.factor  %<>%
-        plyr::mapvalues(from = levels(.), to = levels(districts_countries$CL_DistrictRes))
-
-tmp %<>% dplyr::left_join(districts_countries)
-
-tmp$Country %<>% as.factor
-yaxis <- seq(from = min(tmp$MinDate), to = max(tmp$MaxDate), length.out = nrow(tmp)) 
-ggplot(tmp, aes(CL_DistrictRes, yaxis)) +
-     geom_linerange(aes(ymin = MinDate, ymax = MaxDate)) +
-     facet_wrap(~Country, scales = "free_x", nrow = 3) +
-     theme(axis.text.x=element_text(angle = -40, hjust = 0)) +
-     ylab("") + xlab("Districts") +
-     ggtitle("Dates for which data are available for districts within each country") +
-     theme(plot.title = element_text(hjust = 0.5))
-
-```
-It seems that the data for Sierra Leone are less patchy. It might be a
-good idea to start analysis with Sierra Leone.
 
 ## Grouping by districts and interpolating missing data
 For each district in a country, add the number of records for each
 date to get incidence count.
 ```{r}
 WHO_bydistricts <- WHO_raw %>% 
-                   dplyr::group_by(Country,
-                                   DateOnsetInferred,
-                                   CL_DistrictRes) %>%
-                   dplyr::summarise(count = n())
+                   group_by(Country, CL_DistrictRes,
+                                   DateOnsetInferred) %>%
+                   summarise(incid = n())
 
-ggplot(WHO_bydistricts, aes(DateOnsetInferred, count)) +
-    geom_point() +
-    facet_grid(Country~.) +
-    xlab("Date of onset") + theme_minimal()
+
 ```
-
-There is some missing data - the incidence time series is not a daily
-time series. We will need to interpolate as the R estimation module
-expects a daily time series. We do this interpolation at the district
-level.
+Within each district, if there is a date on which no cases are
+recorded, we assume that there were no cases on that date and add this
+to the record. At the end of this step, the incidence time series for
+each district should be a daily time series.
 
 ```{r}
-WHO_bydistricts           %<>%
-  split(.$CL_DistrictRes) %>%
-  lapply(function(district){
-      district %<>% na.omit
-      country <- unique(district$Country)
-      dis     <- unique(district$CL_DistrictRes)
-      district$Cases <- cumsum(district$count)
-      district %<>%
-          rename(Date = DateOnsetInferred, incid = count) %<>%
-          interpolate.missing.data
 
-      district$Country        <- country
-      district$CL_DistrictRes <- dis
-      district$incid          <- c(0, diff(district$Cases))
-      return(district) }) %>% bind_rows
+add_0incid <- function(df){
+    df    %<>% arrange(DateOnsetInferred)
+    start <- min(df$DateOnsetInferred)
+    end   <- max(df$DateOnsetInferred)
+    
+    dates.all <- seq(from = start, to = end, by = "1 day")
+    ndays     <- length(dates.all)
+    country   <- rep(df$Country[1], ndays)
+    district  <- rep(df$CL_DistrictRes[1], ndays)
+    dummy     <- data.frame(DateOnsetInferred = dates.all,
+                            Country = country,
+                            CL_DistrictRes = district)
+    df %<>% right_join(dummy)
+    df$incid %<>% ifelse(is.na(.), 0, . )
+    return(df)    
+}
+
+WHO_bydistricts %<>%
+    split(.$CL_DistrictRes) %<>%
+    lapply(add_0incid) %<>%
+    bind_rows
+
+WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
+
 ```
-
 
 # Comparison with the data from Health Map.
 
@@ -161,7 +112,7 @@ disease   <- "Ebola"
 case.type <- "SCC"
 healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                read.csv(stringsAsFactors = FALSE) %>%
-               dplyr::filter(species == species,
+               filter(species == species,
                              disease == disease,
                              case.type == case.type,
                              Country %in% unique(WHO_raw$Country) )
@@ -177,12 +128,12 @@ healthmap_weekly    <- healthmap_bycountry %>%
                                                    location,
                                                    merge_rule = "median") %<>%
                                  daily.to.weekly }) %>%
-                        dplyr::bind_rows(.id = "Country")
+                        bind_rows(.id = "Country")
 
-WHO_bycountry <- WHO_bydistricts %>%
-                  dplyr::group_by(Country, Date) %>% 
-                  dplyr::summarise(count = n()) %>%
-                  dplyr::rename(incid = count)
+WHO_bycountry <-WHO_bydistricts %>%
+                 group_by(Country,Date) %>%
+                 summarise(incid = sum(incid)) 
+
 
 WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
               lapply(function(df){
@@ -190,12 +141,13 @@ WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
                       ungroup %>%
                       select(Date, incid) %>%
                       daily.to.weekly}) %>%
-                dplyr::bind_rows(.id = "Country")    
+                bind_rows(.id = "Country")    
 WHO_weekly$Date       %<>% as.Date
 healthmap_weekly$Date %<>% as.Date
+
 list( WHO = WHO_weekly,
       HealthMap = healthmap_weekly[, c("Country", "Date", "incid")]) %>%
-    dplyr::bind_rows(.id = "Source") %>%
+    bind_rows(.id = "Source") %>%
     ggplot(aes(Date, incid, color = Source)) +
     geom_point() +
     facet_grid(Country ~.) +
@@ -264,7 +216,7 @@ WHO_R <- WHO_bycountry    %>%
 
 
 list( WHO = WHO_R, HealthMap = healthmap_R) %>%
-    dplyr::bind_rows(.id = "Source") %>%
+    bind_rows(.id = "Source") %>%
     ggplot(aes(Date, `Mean(R)`, color = Source)) +
     geom_line() +
     facet_grid(Country ~.) +
@@ -344,7 +296,7 @@ SL_byprovince_wide <-  SL_byprovince %>%
 We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
 ```{r}
-t.proj    <- 147L
+t.proj    <- 175L
 start     <- 1:(length(SL_byprovince_wide$Date) - time_window)
 end       <- start + time_window
 end.dates <- SL_byprovince_wide[end, "Date"]
@@ -439,7 +391,7 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
 
 
-weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
 ```
 At the same time, we will also obtain the weekly incidence count from
 available data.
@@ -447,7 +399,7 @@ available data.
 weekly.available <- c(training    = list(SL_training),
                        validation = list(SL_validation)) %>%
                        lapply(daily.to.weekly) %>%
-                       dplyr::bind_rows(.id = "Category")
+                       bind_rows(.id = "Category")
 
 
 plots.list <- SL_training %>%
@@ -465,6 +417,32 @@ cowplot::plot_grid(plots.list[[1]],
                         plots.list[[3]],
                         plots.list[[4]])
 
+
+```
+Daily incidence data are worth looking at although they might be
+noisy.
+
+```{r}
+daily.available <- c(training    = list(SL_training),
+                      validation = list(SL_validation)) %>%
+                    bind_rows(.id = "Category")
+
+daily.projections %<>% bind_rows(.)
+
+plots.list <- SL_training %>%
+                 select(-Date) %>%
+                 colnames %>%
+                 lapply(function(location){
+                         available  <- daily.available %>%
+                                       `[`(, c("Date", "Category", location))
+                         projection <- daily.projections %>%
+                                       `[`(, c("Date", location))
+                         plot.weekly(available, projection)})
+
+cowplot::plot_grid(plots.list[[1]],
+                        plots.list[[2]],
+                        plots.list[[3]],
+                        plots.list[[4]])
 
 
 ```

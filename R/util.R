@@ -1,7 +1,14 @@
 daily.to.weekly    <- function(daily){
-    weeks  <- cut(daily$Date, breaks="1 week")
+    extra <- nrow(daily) %% 7
+    if( extra != 0){
+        warning("Number of rows is not a multiple of 7.")
+        warning(paste("Ignoring last", extra, "days."))
+        daily  <- utils::head(daily, -extra)
+    }
+
+    weeks  <- cut(daily$Date, breaks = "7 days")
     weekly <- split(daily, weeks) %>%
-                 plyr::ldply(function(d) colSums(d[, names(d) != "Date"])) %>%
+                 plyr::ldply(function(d) d %>% select(-Date) %>% colSums ) %>%
                 dplyr::rename(Date = .id)
     return(weekly)
 
@@ -13,7 +20,7 @@ plot.weekly <- function(available, projection){
     available$Date %<>% as.Date
     p     <- ggplot(available, aes_string("Date",
                                           colnames(available)[3],
-                                          color = "Category")) + geom_point(size = 0.1)
+                                          color = "Category")) + geom_point()
     ci.95 <- projection     %>%
               split(.$Date) %>%
               plyr::ldply(. %>% `[`(, 2)
@@ -29,7 +36,7 @@ plot.weekly <- function(available, projection){
     p   <- p + geom_line(data = data.frame(x = as.Date(ci.95$Date), y = ci.95[, 2]),
                          aes(x, y), size = 0.3, color = "red", inherit.aes = FALSE)
     p   <- p + theme_minimal() + theme(legend.position="none")
-    p   <- p + xlab("")
+    p   <- p + xlab("") + theme(axis.text.x = element_text(angle = 45, vjust = 0.2))
     return(p)
 
 }

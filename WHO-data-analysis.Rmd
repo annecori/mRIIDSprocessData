@@ -17,15 +17,20 @@ bibliography:
 biblio-style: apsr
 endnote: no
 ---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE)
+```
+
 ```{r, echo = FALSE}
 library(magrittr)
 library(ggplot2)
 library(dplyr)
 library(EpiEstim)
 devtools::load_all()
+
 ```
 # Data clean-up
-The current data set ahs three possible values for the epidemiological
+The current data set has three possible values for the epidemiological
 case definition - confirmed, probable and suspected.
 Epidemiological case definition of probable and suspected cases
 differed across countries while confirmed cases were the ones
@@ -44,9 +49,9 @@ WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv") %>%
 
 WHO_raw$Country    %<>% factor
 WHO_raw$EpiCaseDef %<>% factor
-WHO_raw$CL_DistrictRes %<>% factor
+WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
 WHO_raw$DateOnsetInferred %<>% as.Date
- 
+
 ```
 
 
@@ -58,7 +63,6 @@ WHO_bydistricts <- WHO_raw %>%
                    group_by(Country, CL_DistrictRes,
                                    DateOnsetInferred) %>%
                    summarise(incid = n())
-
 
 ```
 Within each district, if there is a date on which no cases are
@@ -91,6 +95,25 @@ WHO_bydistricts %<>%
     bind_rows
 
 WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
+
+WHO_bycountry <- WHO_bydistricts %>%
+                  group_by(Country,Date) %>%
+                  summarise(incid = sum(incid)) 
+
+
+ggplot(WHO_bydistricts, aes(Date, incid)) +
+    geom_point() +
+    facet_wrap(~CL_DistrictRes) +
+    theme_minimal() +
+    ggtitle("Incidence in each district") +
+    xlab("") + theme(axis.text.x = element_text(angle = 45, vjust = 0.2))
+
+ggplot(WHO_bycountry, aes(Date, incid)) +
+    geom_point() +
+    facet_wrap(~Country) +
+    theme_minimal() +
+    ggtitle("Incidence in each country") +
+    xlab("") + theme(axis.text.x = element_text(angle = 45, vjust = 0.2))
 
 ```
 
@@ -130,10 +153,6 @@ healthmap_weekly    <- healthmap_bycountry %>%
                                  daily.to.weekly }) %>%
                         bind_rows(.id = "Country")
 
-WHO_bycountry <-WHO_bydistricts %>%
-                 group_by(Country,Date) %>%
-                 summarise(incid = sum(incid)) 
-
 
 WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
               lapply(function(df){
@@ -154,6 +173,7 @@ list( WHO = WHO_weekly,
     scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 ```
 
 
@@ -221,18 +241,41 @@ list( WHO = WHO_R, HealthMap = healthmap_R) %>%
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+The graphs show that the estimates from the two different sources
+closely track each other. Here's another way to visualise this.
+
+```{r}
+
+HM_vs_WHO <- list( WHO = WHO_R, HealthMap = healthmap_R) %>%
+              bind_rows(.id = "Source") %>%
+              select(Country, Source, Date, `Mean(R)`)
+
+HM_vs_WHO %<>%
+    tidyr::spread(Source, `Mean(R)`) %<>%
+    filter(complete.cases(.))
+
+ggplot(HM_vs_WHO, aes(HealthMap, WHO)) +
+    geom_point() +
+    facet_wrap(~Country, nrow = 3) +
+    xlab("R estimated from HealthMap data") +
+    ylab("R estimated from WHO data") +
+    geom_abline(slope = 1)
+
+```
+
 # Projection using WHO data
 ## Projection within a country 
 
 ```{r}
 WHO_SL <- WHO_bydistricts %>%
               filter(Country == "Sierra Leone") %>%
-              na.omit
+              droplevels %>% na.omit
 
 ggplot(WHO_SL, aes(Date, incid)) +
     geom_point() +
     facet_wrap(~CL_DistrictRes, ncol = 3) +
-    theme_minimal()
+    theme_minimal() +
+    ggtitle("Incidence in the districts of Sierra Leone")
 
 ```
 
@@ -252,8 +295,15 @@ SL_wide <-  WHO_SL %>%
 We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
 ```{r}
-t.proj    <- 175L
-start     <- 1:(length(SL_wide$Date) - time_window)
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7 * 7
+
+
+start     <- 2:(length(SL_wide$Date) - time_window)
 end       <- start + time_window
 end.dates <- SL_wide[end, "Date"]
 r.estim   <- SL_wide  %>%
@@ -270,20 +320,22 @@ r.estim   <- SL_wide  %>%
                                    res$R %<>% cbind(Date = end.dates)
                                    return(res$R)})
 r.estim %>%
-    bind_rows(r.estim, .id = "District") %>%
+    bind_rows(.id = "District") %>%
     ggplot(aes(Date, `Mean(R)`)) +
     geom_point() +
     facet_wrap(~District) +
     ggtitle("Mean R for each district in Sierra Leone")
 
-n.sim <- 1000L    # Number of simulations to run
-r.j.t <- r.estim %>%
+n.sim  <- 1000L    # Number of simulations to run
+t.proj <- 300L
+r.j.t  <- r.estim %>%
            lapply(function(R){
                     cutoff <- which(R$Date %in% SL_wide[t.proj, "Date"])
                     shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
                     scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
                     return(rgamma(n.sim, shape = shape,
-                                         scale = scale))}) %>% data.frame
+                                  scale = scale))}) %>%
+            data.frame(check.names = F)
 
 ```
 
@@ -296,26 +348,26 @@ pow_N_to   <- 1
 pow_dist   <- 2
 K          <- 1
 
-adm1_centroids <- "data/Geography/GravityModel/raw/adm2.txt" %>%
+adm2_centroids <- "data/Geography/GravityModel/raw/adm2.txt" %>%
                    read.csv(stringsAsFactors = FALSE,
                             sep = "\t",
                             header = TRUE) %>%
                    filter(ADM0 == "Sierra Leone")  %>%
                    filter(ADM2 != "Western Rural") 
 
-adm1_centroids$ADM2 %<>% gsub("Western Urban", "Western", .)
-adm1_centroids$ADM2  %<>%
+adm2_centroids$ADM2 %<>% gsub("Western Urban", "Western", .)
+adm2_centroids$ADM2  %<>%
     gsub(' ', '', .) %<>%
     toupper %<>%
     factor
 
-levels(adm1_centroids$ADM2) <- levels(WHO_SL$CL_DistrictRes)
-adm1_centroids %<>% arrange(ADM2)
+levels(adm2_centroids$ADM2) <- levels(WHO_SL$CL_DistrictRes)
+adm2_centroids %<>% arrange(ADM2)
  
-flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
-                            latitude    = adm1_centroids[, "Centroid_Lat"],
-                            population  = adm1_centroids[, "Pop"],
-                            place.names = adm1_centroids[, "ADM2"],
+flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
+                            latitude    = adm2_centroids[, "Centroid_Lat"],
+                            population  = adm2_centroids[, "Pop"],
+                            place.names = adm2_centroids[, "ADM2"],
                             model = "gravity", K = K,
                             pow_N_from = pow_N_from,
                             pow_N_to   = pow_N_to,
@@ -334,8 +386,8 @@ SL_training contains the incidence count we will use for projecting.
 Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
-```{r}
-n.dates.sim   <- 42L      # The time period over which projection will be made.
+```{r, warning=FALSE}
+n.dates.sim   <- 49L      # The time period over which projection will be made.
 SL_training   <- SL_wide[1:t.proj, ]
 SL_validation <- SL_wide[(1 + t.proj):nrow(SL_wide), ]
 
@@ -351,21 +403,22 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     out   <- project(incid, r.t, SI_Distr,
                                                      p.movement, n.dates.sim) 
                                     incidence.proj <- rbind(incid, out)
-                                    incidence.proj %<>% data.frame
+                                    incidence.proj %<>% data.frame(check.names = F)
                                     incidence.proj %<>% cbind(Date = dates.all)
                                     return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
 
 
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
+
 ```
 At the same time, we will also obtain the weekly incidence count from
 available data.
-```{r}
+
+```{r, warning=FALSE}
 weekly.available <- c(training    = list(SL_training),
                        validation = list(SL_validation)) %>%
                        lapply(daily.to.weekly) %>%
                        bind_rows(.id = "Category")
-
 
 plots.list <- SL_training %>%
                  select(-Date) %>%
@@ -380,8 +433,17 @@ plots.list <- SL_training %>%
 cowplot::plot_grid(plots.list[[1]],
                         plots.list[[2]],
                         plots.list[[3]],
-                        plots.list[[4]])
-
+                        plots.list[[4]],
+                        plots.list[[5]],
+                        plots.list[[6]],
+                        plots.list[[7]],
+                        plots.list[[8]],
+                        plots.list[[9]],
+                        plots.list[[10]],
+                        plots.list[[11]],
+                        plots.list[[12]],
+                        plots.list[[13]])                   
+ 
 
 ```
 Daily incidence data are worth looking at although they might be
@@ -407,7 +469,17 @@ plots.list <- SL_training %>%
 cowplot::plot_grid(plots.list[[1]],
                         plots.list[[2]],
                         plots.list[[3]],
-                        plots.list[[4]])
+                        plots.list[[4]],
+                        plots.list[[5]],
+                        plots.list[[6]],
+                        plots.list[[7]],
+                        plots.list[[8]],
+                        plots.list[[9]],
+                        plots.list[[10]],
+                        plots.list[[11]],
+                        plots.list[[12]],
+                        plots.list[[13]])                   
 
 
 ```
+

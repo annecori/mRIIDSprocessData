@@ -40,3 +40,20 @@ plot.weekly <- function(available, projection){
     return(p)
 
 }
+
+add_0incid <- function(df){
+    df    %<>% arrange(DateOnsetInferred)
+    start <- min(df$DateOnsetInferred)
+    end   <- max(df$DateOnsetInferred)
+
+    dates.all <- seq(from = start, to = end, by = "1 day")
+    ndays     <- length(dates.all)
+    country   <- rep(df$Country[1], ndays)
+    district  <- rep(df$CL_DistrictRes[1], ndays)
+    dummy     <- data.frame(DateOnsetInferred = dates.all,
+                            Country = country,
+                            CL_DistrictRes = district)
+    df %<>% right_join(dummy)
+    df$incid %<>% ifelse(is.na(.), 0, . )
+    return(df)
+}

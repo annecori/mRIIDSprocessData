@@ -103,5 +103,7 @@ ihr_physicians %>%
 http://www.healthdata.org/results/country-profiles/haq
 http://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)30818-8/abstract
 
+This looks very good.
+
 # Health Data Collaborative
 https://www.healthdatacollaborative.org

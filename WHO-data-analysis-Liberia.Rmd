@@ -1,0 +1,304 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Analysis of WHO Ebola data for Liberia
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r, echo = FALSE}
+
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+library(EpiEstim)
+devtools::load_all()
+
+```
+
+# Data clean-up
+Epidemiological case definition of probable and suspected cases
+differed across countries while confirmed cases were the ones
+confirmed through lab report. For the purpose of the current analysis,
+one approach could be to lump them together. The inferred date of
+onset (rather than the date reported) is used for estimation.
+
+
+```{r}
+
+WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv",
+                    colClasses = c(Country = "factor",
+                                   EpiCaseDef = "character",
+                                   DateOnsetInferred = "Date",
+                                   CL_DistrictRes = "factor")) %>%
+           select(Country, EpiCaseDef,
+                  DateOnsetInferred,CL_DistrictRes) %>%
+           na.omit
+
+WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
+
+
+```
+
+## Grouping by districts and interpolating missing data
+For each district in a country, add the number of records for each
+date to get incidence count.
+```{r}
+WHO_bydistricts <- WHO_raw %>% 
+                   dplyr::group_by(Country,
+                                   DateOnsetInferred,
+                                   CL_DistrictRes) %>%
+                   dplyr::summarise(incid = n())
+
+ggplot(WHO_bydistricts, aes(DateOnsetInferred, incid)) +
+    geom_point() +
+    facet_grid(Country~.) +
+    xlab("Date of onset") + theme_minimal()
+```
+
+Within each district, if there is a date on which no cases are
+recorded, we assume that there were no cases on that date and add this
+to the record. At the end of this step, the incidence time series for
+each district should be a daily time series.
+
+```{r}
+
+WHO_bydistricts %<>%
+    split(.$CL_DistrictRes) %<>%
+    lapply(add_0incid) %<>%
+    bind_rows
+
+
+WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
+
+```
+
+# Projection using WHO data within Liberia
+
+```{r}
+WHO_Liberia <- WHO_bydistricts %>%
+               filter(Country == "Liberia") %>%
+               droplevels %>%
+               na.omit
+
+ggplot(WHO_Liberia, aes(Date, incid)) +
+    geom_point() +
+    facet_wrap(~CL_DistrictRes, ncol = 3) +
+    theme_minimal() +
+    ggtitle("Incidence in districts of Liberia")
+
+```
+
+Clean up the names of the districts because they will become column
+names further down. Remove all spaces, make them upper case.
+
+```{r}
+
+WHO_Liberia$CL_DistrictRes %<>%
+    gsub(' ', '', .)
+
+WHO_Liberia$CL_DistrictRes %<>% factor
+
+WHO_Liberia_wide <- WHO_Liberia %>%
+                    ungroup %>%
+                    select(-Country) %>%
+                    tidyr::spread(CL_DistrictRes, incid, fill = 0)
+
+
+```
+
+We are now ready to estimate R and move forward with the projection
+exactly as we did for HealthMap data.
+```{r}
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7 * 2
+
+t.proj    <- 147L
+start     <- 2:(length(WHO_Liberia_wide$Date) - time_window)
+end       <- start + time_window
+end.dates <- WHO_Liberia_wide[end, "Date"]
+r.estim   <- WHO_Liberia_wide  %>%
+                   select(-Date) %>%
+    plyr::alply(2, .dims = TRUE, function(incid) {
+                                   I   <- pull(incid, 1) 
+                                   res <- EstimateR(I, T.Start = start , T.End = end,
+                                                    method = "NonParametricSI",
+                                                    SI.Distr = SI_Distr,
+                                                    plot = FALSE ,
+                                                    CV.Posterior = 1 ,
+                                                    Mean.Prior = 1 ,
+                                                    Std.Prior = 0.5)
+                                   res$R %<>% cbind(Date = end.dates)
+                                   return(res$R)})
+r.estim %>%
+    bind_rows(.id = "County") %>%
+    ggplot(aes(Date, `Mean(R)`)) +
+    geom_point() +
+    facet_wrap(~County) +
+    ggtitle("Mean R for each county in Liberia")
+
+n.sim <- 1000L    # Number of simulations to run
+r.j.t <- r.estim %>%
+           lapply(function(R){
+                    cutoff <- which(R$Date %in% WHO_Liberia_wide[t.proj, "Date"])
+                    shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
+                    scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
+                    return(rgamma(n.sim, shape = shape,
+                                         scale = scale))}) %>% data.frame
+
+```
+
+
+# Population flow matrix
+
+```{r}
+pow_N_from <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
+
+adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
+                   read.csv(stringsAsFactors = FALSE,
+                            sep = "\t",
+                            header = TRUE) %>%
+                   filter(ADM0 == "Liberia")  
+
+
+adm1_centroids$ADM1  %<>%
+    gsub(' ', '', .) %<>%
+    toupper %<>%
+    factor
+
+levels(adm1_centroids$ADM1) <- levels(WHO_Liberia$CL_DistrictRes)
+adm1_centroids %<>% arrange(ADM1)
+flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
+                            latitude    = adm1_centroids[, "Centroid_Lat"],
+                            population  = adm1_centroids[, "Pop"],
+                            place.names = adm1_centroids[, "ADM1"],
+                            model = "gravity", K = K,
+                            pow_N_from = pow_N_from,
+                            pow_N_to   = pow_N_to,
+                            pow_dist   = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+p.stay        <- 0.99 
+p.movement    <- probability_movement(relative.risk, p.stay)
+
+```
+
+At this point, all the pieces are in place.
+Liberia_training contains the incidence count we will use for projecting.
+Estimate of R is in the data frame r.j.t with a row for each
+simulation we want to run. p.movement conatins the probabilities.
+
+```{r}
+n.dates.sim        <- 49L      # The time period over which projection will be made.
+Liberia_training   <- WHO_Liberia_wide[1:t.proj, ]
+Liberia_validation <- WHO_Liberia_wide[(1 + t.proj):nrow(WHO_Liberia_wide), ]
+
+incid     <- as.matrix(select(Liberia_training, -Date))
+dates.all <- Liberia_training[1:t.proj, ] %>%
+             pull(Date) %>%
+             c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+t.max     <- t.proj + n.dates.sim - 1
+
+
+daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                    r.t   <- as.matrix(r.t)
+                                    out   <- project(incid, r.t, SI_Distr,
+                                                     p.movement, n.dates.sim) 
+                                    incidence.proj <- rbind(incid, out)
+                                    incidence.proj %<>% data.frame
+                                    incidence.proj %<>% cbind(Date = dates.all, .)
+                                    colnames(incidence.proj) <- colnames(Liberia_training)
+                                    return(incidence.proj[(nrow(Liberia_training) + 1):t.max, ])})
+
+
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+
+```
+
+At the same time, we will also obtain the weekly incidence count from
+available data.
+
+```{r}
+weekly.available <- c(training    = list(Liberia_training),
+                       validation = list(Liberia_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
+
+weekly.available_small <- filter(weekly.available, Date < "2014-09-13")
+
+plots.list <- Liberia_training %>%
+                 select(-Date) %>%
+                 colnames %>%
+                 lapply(function(location){
+                         available  <- weekly.available_small %>%
+                                       `[`(, c("Date", "Category", location))
+                         projection <- weekly.projections %>%
+                                       `[`(, c("Date", location))
+                         plot.weekly(available, projection)})
+
+cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
+                   plots.list[[4]], plots.list[[5]], plots.list[[6]],
+                   plots.list[[7]], plots.list[[8]], plots.list[[9]],
+                   plots.list[[10]], plots.list[[11]], plots.list[[12]],
+                   plots.list[[13]], plots.list[[14]], plots.list[[15]])
+
+
+```
+
+# Daily incidence projections
+
+Daily incidence data are worth looking at although they might be
+noisy.
+
+```{r}
+daily.available <- c(training    = list(Liberia_training),
+                      validation = list(Liberia_validation)) %>%
+                    dplyr::bind_rows(.id = "Category")
+
+daily.projections %<>% dplyr::bind_rows(.)
+
+plots.list <- Liberia_training %>%
+                 select(-Date) %>%
+                 colnames %>%
+                 lapply(function(location){
+                         available  <- daily.available %>%
+                                       `[`(, c("Date", "Category", location))
+                         projection <- daily.projections %>%
+                                       `[`(, c("Date", location))
+                         plot.weekly(available, projection)})
+
+cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
+                   plots.list[[4]], plots.list[[5]], plots.list[[6]],
+                   plots.list[[7]], plots.list[[8]], plots.list[[9]],
+                   plots.list[[10]], plots.list[[11]], plots.list[[12]],
+                   plots.list[[13]], plots.list[[14]], plots.list[[15]])
+
+
+```

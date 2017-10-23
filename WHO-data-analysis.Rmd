@@ -42,15 +42,18 @@ DateOnsetInferred and CL_DistrictRes.
 
 
 ```{r}
-WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv") %>%
+WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv",
+                    colClasses = c(Country = "factor",
+                                   EpiCaseDef = "character",
+                                   DateOnsetInferred = "Date",
+                                   CL_DistrictRes = "factor")) %>%
            select(Country, EpiCaseDef,
                   DateOnsetInferred,CL_DistrictRes) %>%
            na.omit
 
-WHO_raw$Country    %<>% factor
-WHO_raw$EpiCaseDef %<>% factor
 WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
-WHO_raw$DateOnsetInferred %<>% as.Date
+
+
 
 ```
 
@@ -59,12 +62,14 @@ WHO_raw$DateOnsetInferred %<>% as.Date
 For each district in a country, add the number of records for each
 date to get incidence count.
 ```{r}
+
 WHO_bydistricts <- WHO_raw %>% 
                    group_by(Country, CL_DistrictRes,
                                    DateOnsetInferred) %>%
                    summarise(incid = n())
 
 ```
+
 Within each district, if there is a date on which no cases are
 recorded, we assume that there were no cases on that date and add this
 to the record. At the end of this step, the incidence time series for
@@ -72,27 +77,11 @@ each district should be a daily time series.
 
 ```{r}
 
-add_0incid <- function(df){
-    df    %<>% arrange(DateOnsetInferred)
-    start <- min(df$DateOnsetInferred)
-    end   <- max(df$DateOnsetInferred)
-    
-    dates.all <- seq(from = start, to = end, by = "1 day")
-    ndays     <- length(dates.all)
-    country   <- rep(df$Country[1], ndays)
-    district  <- rep(df$CL_DistrictRes[1], ndays)
-    dummy     <- data.frame(DateOnsetInferred = dates.all,
-                            Country = country,
-                            CL_DistrictRes = district)
-    df %<>% right_join(dummy)
-    df$incid %<>% ifelse(is.na(.), 0, . )
-    return(df)    
-}
-
 WHO_bydistricts %<>%
     split(.$CL_DistrictRes) %<>%
     lapply(add_0incid) %<>%
     bind_rows
+
 
 WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
 
@@ -267,9 +256,12 @@ ggplot(HM_vs_WHO, aes(HealthMap, WHO)) +
 ## Projection within a country 
 
 ```{r}
+
+
 WHO_SL <- WHO_bydistricts %>%
               filter(Country == "Sierra Leone") %>%
               droplevels %>% na.omit
+
 
 ggplot(WHO_SL, aes(Date, incid)) +
     geom_point() +
@@ -389,7 +381,8 @@ simulation we want to run. p.movement conatins the probabilities.
 ```{r, warning=FALSE}
 n.dates.sim   <- 49L      # The time period over which projection will be made.
 SL_training   <- SL_wide[1:t.proj, ]
-SL_validation <- SL_wide[(1 + t.proj):nrow(SL_wide), ]
+validation    <- nrow(SL_wide)
+SL_validation <- SL_wide[(1 + t.proj):validation, ]
 
 incid     <- as.matrix(select(SL_training, -Date))
 dates.all <- SL_training[1:t.proj, ] %>%

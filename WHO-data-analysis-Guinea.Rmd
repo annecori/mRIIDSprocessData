@@ -5,7 +5,7 @@ output:
     keep_tex: true
     fig_caption: true
     latex_engine: pdflatex
-title: Analysis of WHO Ebola data for Liberia
+title: Analysis of WHO Ebola data for Guinea
 author:
 - name: Sangeeta Bhatia
   affiliation: Imperial College London
@@ -22,34 +22,73 @@ endnote: no
 ---
 
 ```{r}
-WHO_Liberia <- WHO_bydistricts %>%
-               filter(Country == "Liberia") %>%
+WHO_Guinea <- WHO_bydistricts %>%
+               filter(Country == "Guinea") %>%
                droplevels %>%
                na.omit
 
-ggplot(WHO_Liberia, aes(Date, incid)) +
+ggplot(WHO_Guinea, aes(Date, incid)) +
     geom_point() +
     facet_wrap(~CL_DistrictRes, ncol = 3) +
     theme_minimal() +
-    ggtitle("Incidence in districts of Liberia")
+    ggtitle("Incidence in districts of Guinea")
 
 ```
 
-Clean up the names of the districts because they will become column
-names further down. Remove all spaces, make them upper case.
+## Population flow matrix
 
 ```{r}
+pow_N_from <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
 
-WHO_Liberia$CL_DistrictRes %<>%
-    gsub(' ', '', .)
+adm2_centroids <- "data/Geography/GravityModel/raw/adm2-fixed.txt" %>%
+                   read.csv(stringsAsFactors = FALSE,
+                            sep = "\t",
+                            header = TRUE) %>%
+                   filter(ADM0 == "Guinea")  
 
-WHO_Liberia$CL_DistrictRes %<>% factor
 
-WHO_Liberia_wide <- WHO_Liberia %>%
-                    ungroup %>%
-                    select(-Country) %>%
-                    tidyr::spread(CL_DistrictRes, incid, fill = 0)
+adm2_centroids$ADM2  %<>%
+    iconv(to='ASCII//TRANSLIT')  %<>%
+    gsub("\\'", '', .)  %<>%
+    toupper %<>%
+    factor
 
+WHO_Guinea$CL_DistrictRes %<>%
+    plyr::mapvalues(from = c("N'ZEREKORE", "KISSIDOUGO", "YOMOU" ),
+                    to   = c("NZEREKORE", "KISSIDOUGOU", "YAMOU"))
+
+```
+Some of the prefectures of Guinea are not represented in the WHO
+data. These are: Gaoual, Koubia, Koundara, Labe, Lelouma, Mamou
+and Mandiana. Hence we will drop these from the data frame of
+centroids.
+	
+	
+```{r}
+adm2_centroids %<>%
+    filter(ADM2 %in% WHO_Guinea$CL_DistrictRes) %<>%
+    droplevels
+
+levels(adm2_centroids$ADM2) <- levels(WHO_Guinea$CL_DistrictRes)
+
+adm2_centroids %<>% arrange(ADM2)
+flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
+                            latitude    = adm2_centroids[, "Centroid_Lat"],
+                            population  = adm2_centroids[, "Pop"],
+                            place.names = adm2_centroids[, "ADM2"],
+                            model = "gravity", K = K,
+                            pow_N_from = pow_N_from,
+                            pow_N_to   = pow_N_to,
+                            pow_dist   = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+p.stay        <- 0.99 
+p.movement    <- probability_movement(relative.risk, p.stay)
 
 ```
 
@@ -57,11 +96,16 @@ We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
 ```{r}
 
+WHO_Guinea_wide <- WHO_Guinea %>%
+                    ungroup %>%
+                    select(-Country) %>%
+                    tidyr::spread(CL_DistrictRes, incid, fill = 0)
+
 t.proj    <- 147L
-start     <- 2:(length(WHO_Liberia_wide$Date) - time_window)
+start     <- 2:(length(WHO_Guinea_wide$Date) - time_window)
 end       <- start + time_window
-end.dates <- WHO_Liberia_wide[end, "Date"]
-r.estim   <- WHO_Liberia_wide  %>%
+end.dates <- WHO_Guinea_wide[end, "Date"]
+r.estim   <- WHO_Guinea_wide  %>%
                    select(-Date) %>%
     plyr::alply(2, .dims = TRUE, function(incid) {
                                    I   <- pull(incid, 1) 
@@ -79,13 +123,13 @@ r.estim %>%
     ggplot(aes(Date, `Mean(R)`)) +
     geom_point() +
     facet_wrap(~County) +
-    ggtitle("Mean R for each county in Liberia")
+    ggtitle("Mean R for each county in Guinea")
 
 n.sim <- 1000L    # Number of simulations to run
 
 r.j.t <- r.estim %>%
            lapply(function(R){
-                    cutoff <- which(R$Date %in% WHO_Liberia_wide[t.proj, "Date"])
+                    cutoff <- which(R$Date %in% WHO_Guinea_wide[t.proj, "Date"])
                     shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
                     scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
                     return(rgamma(n.sim, shape = shape,
@@ -93,58 +137,21 @@ r.j.t <- r.estim %>%
 
 ```
 
-Calculate the population flow matrix and hence the relative risk profile.
 
 
-```{r}
-pow_N_from <- 1
-pow_N_to   <- 1
-pow_dist   <- 2
-K          <- 1
-
-adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
-                   read.csv(stringsAsFactors = FALSE,
-                            sep = "\t",
-                            header = TRUE) %>%
-                   filter(ADM0 == "Liberia")  
-
-
-adm1_centroids$ADM1  %<>%
-    gsub(' ', '', .) %<>%
-    toupper %<>%
-    factor
-
-levels(adm1_centroids$ADM1) <- levels(WHO_Liberia$CL_DistrictRes)
-adm1_centroids %<>% arrange(ADM1)
-flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
-                            latitude    = adm1_centroids[, "Centroid_Lat"],
-                            population  = adm1_centroids[, "Pop"],
-                            place.names = adm1_centroids[, "ADM1"],
-                            model = "gravity", K = K,
-                            pow_N_from = pow_N_from,
-                            pow_N_to   = pow_N_to,
-                            pow_dist   = pow_dist)
-
-
-## Relative risk
-relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-p.stay        <- 0.99 
-p.movement    <- probability_movement(relative.risk, p.stay)
-
-```
 
 At this point, all the pieces are in place.
-Liberia_training contains the incidence count we will use for projecting.
+Guinea_training contains the incidence count we will use for projecting.
 Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
 ```{r}
 n.dates.sim        <- 49L      # The time period over which projection will be made.
-Liberia_training   <- WHO_Liberia_wide[1:t.proj, ]
-Liberia_validation <- WHO_Liberia_wide[(1 + t.proj):nrow(WHO_Liberia_wide), ]
+Guinea_training   <- WHO_Guinea_wide[1:t.proj, ]
+Guinea_validation <- WHO_Guinea_wide[(1 + t.proj):nrow(WHO_Guinea_wide), ]
 
-incid     <- as.matrix(select(Liberia_training, -Date))
-dates.all <- Liberia_training[1:t.proj, ] %>%
+incid     <- as.matrix(select(Guinea_training, -Date))
+dates.all <- Guinea_training[1:t.proj, ] %>%
              pull(Date) %>%
              c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max     <- t.proj + n.dates.sim - 1
@@ -157,8 +164,8 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     incidence.proj <- rbind(incid, out)
                                     incidence.proj %<>% data.frame
                                     incidence.proj %<>% cbind(Date = dates.all, .)
-                                    colnames(incidence.proj) <- colnames(Liberia_training)
-                                    return(incidence.proj[(nrow(Liberia_training) + 1):t.max, ])})
+                                    colnames(incidence.proj) <- colnames(Guinea_training)
+                                    return(incidence.proj[(nrow(Guinea_training) + 1):t.max, ])})
 
 
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
@@ -169,14 +176,15 @@ At the same time, we will also obtain the weekly incidence count from
 available data.
 
 ```{r}
-weekly.available <- c(training    = list(Liberia_training),
-                       validation = list(Liberia_validation)) %>%
+weekly.available <- c(training    = list(Guinea_training),
+                       validation = list(Guinea_validation)) %>%
                        lapply(daily.to.weekly) %>%
                        dplyr::bind_rows(.id = "Category")
 
-weekly.available_small <- filter(weekly.available, Date < "2014-09-13")
+end <- max(dates.all) + 21
+weekly.available_small <- filter(weekly.available, Date < end)
 
-plots.list <- Liberia_training %>%
+plots.list <- Guinea_training %>%
                  select(-Date) %>%
                  colnames %>%
                  lapply(function(location){
@@ -186,15 +194,9 @@ plots.list <- Liberia_training %>%
                                        `[`(, c("Date", location))
                          plot.weekly(available, projection)})
 
-cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
-                   plots.list[[4]], plots.list[[5]], plots.list[[6]],
-                   plots.list[[7]], plots.list[[8]], plots.list[[9]],
-                   plots.list[[10]], plots.list[[11]], plots.list[[12]],
-                   plots.list[[13]], plots.list[[14]], plots.list[[15]])
-
+cowplot::plot_grid(plotlist = plots.list)
 
 ```
-
 
 ## Visualising the projections on a map
 
@@ -204,32 +206,54 @@ projection to the end of the projection period.
 
 ```{r}
 
-liberia         <- rgdal::readOGR(dsn = "data/Geography/LBR_adm_shp",
-                                 layer = "LBR_adm1")
-liberia@data$id <- liberia@data$NAME_1
-liberia.points  <- broom::tidy(liberia, region="id")
-liberia.points$id %<>% factor
-liberia.df      <- left_join(liberia.points, liberia@data, by="id")
+guinea         <- rgdal::readOGR(dsn = "data/Geography/GIN_adm_shp",
+                                 layer = "GIN_adm2")
+guinea@data$id <- guinea@data$NAME_2
+guinea.points  <- broom::tidy(guinea, region="id")
+guinea.points$id %<>% factor
+guinea.df      <- left_join(guinea.points, guinea@data, by="id")
 
-liberia.df$NAME_1 %<>%
+guinea.df$NAME_2 %<>%
+    iconv(to='ASCII//TRANSLIT')  %<>%
+    gsub("\\'", '', .)  %<>%
     toupper %<>%
-    gsub(' ', '', .) %<>%
     factor
 
-
-start           <- WHO_Liberia_wide$Date[t.proj] - 7
+start           <- WHO_Guinea_wide$Date[t.proj] - 7
 end             <- max(dates.all) 
 available_small <- filter(weekly.available, Date > start & Date < end) %>% select(-Category)
 projection_50   <- weekly.projections %>% group_by(Date) %>% summarise_all(quantile, probs = 0.5)
+```
+
+As mentioned earlier, some of the prefectures of Guinea are not
+represented in the data. To prevent NAs from popping up when we plot
+the data later, we will insert these missing prefectures with 0
+incidence.
+
+```{r}
+missing <- !(levels(guinea.df$NAME_2) %in% levels(weekly_incid$NAME_2))
+missing <- levels(guinea.df$NAME_2)[missing]
+tmp     <- lapply(missing, function(m) data.frame(m = rep(0, nrow(available_small))))
+available_small <- bind_cols(tmp, available_small)
+colnames(available_small)[1:length(missing)] <- missing
+
+tmp     <- lapply(missing, function(m) data.frame(m = rep(0, nrow(projection_50))))
+projection_50 <- bind_cols(tmp, projection_50)
+colnames( projection_50)[1:length(missing)] <- missing
+
+```
+
+```{r}
+
 weekly_incid    <- list(training = available_small, projection = projection_50) %>% bind_rows(.id = "Category")
 library(lubridate)
 weekly_incid$week <- interval(start, weekly_incid$Date) %/% lubridate::weeks(1)
-weekly_incid    %<>% tidyr::gather(key = NAME_1, value = incid, factor_key = TRUE, -c(Date, week, Category))
+weekly_incid    %<>% tidyr::gather(key = NAME_2, value = incid, factor_key = TRUE, -c(Date, week, Category))
 ## to get rid of 0s as we will take log later.
 weekly_incid$incid %<>% `+`(1)
-liberia.df$NAME_1 <- plyr::revalue(liberia.df$NAME_1, c("GBAPOLU"="GBARPOLU"))
 
-incid_map  <- left_join(liberia.df, weekly_incid)
+levels(weekly_incid$NAME_2) <- levels(guinea.df$NAME_2)
+incid_map  <- left_join(guinea.df, weekly_incid)
 
 incid_map$Category %<>% factor(levels = c("training", "projection"))
 incid_map %<>% arrange(Category)

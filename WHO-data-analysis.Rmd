@@ -1,27 +1,32 @@
 ---
 output: 
   pdf_document:
+    toc: true
     citation_package: natbib
     keep_tex: true
     fig_caption: true
     latex_engine: pdflatex
-title: Analysis of Ebola data from WHO
+title: Analysis of WHO Ebola data
 author:
 - name: Sangeeta Bhatia
   affiliation: Imperial College London
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+abstract: 
+keywords: 
+date: "Y"
 geometry: margin=1in
 fontfamily: mathpazo
 fontsize: 11pt
+# spacing: double
 bibliography: 
 biblio-style: apsr
 endnote: no
 ---
+
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE)
 ```
 
-```{r, echo = FALSE}
+```{r setup, echo = FALSE}
 library(magrittr)
 library(ggplot2)
 library(dplyr)
@@ -41,7 +46,7 @@ The columns we use are : Country, EpiCaseDef (probably),
 DateOnsetInferred and CL_DistrictRes. 
 
 
-```{r}
+```{r rawdata}
 WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv",
                     colClasses = c(Country = "factor",
                                    EpiCaseDef = "character",
@@ -61,7 +66,8 @@ WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
 ## Grouping by districts and interpolating missing data
 For each district in a country, add the number of records for each
 date to get incidence count.
-```{r}
+
+```{r bydistricts}
 
 WHO_bydistricts <- WHO_raw %>% 
                    group_by(Country, CL_DistrictRes,
@@ -75,7 +81,7 @@ recorded, we assume that there were no cases on that date and add this
 to the record. At the end of this step, the incidence time series for
 each district should be a daily time series.
 
-```{r}
+```{r bycountry}
 
 WHO_bydistricts %<>%
     split(.$CL_DistrictRes) %<>%
@@ -118,7 +124,7 @@ for each case is also recorded. In comparing the two data sets, we sum
 across all four categories in Healthmap and derive incidence data from
 cumulative data.
 
-```{r, echo = FALSE}
+```{r hmread, echo = FALSE}
 species   <- "Humans"
 disease   <- "Ebola"
 case.type <- "SCC"
@@ -165,16 +171,24 @@ list( WHO = WHO_weekly,
 
 ```
 
+# Parameters for Ebola
 
-# Estimating Reproduction number from WHO and Healthmap Data
+Culled from literature.
 
-```{r}
+```{r ebola_params}
 mean_SI     <- 14.2
 CV_SI       <- 9.6 / 14.2
 SItrunc     <- 40
 SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
 SI_Distr    <- SI_Distr / sum(SI_Distr)
 time_window <- 7 * 7
+```
+
+
+# Estimating Reproduction number from WHO and Healthmap Data
+
+```{r who_vs_hm}
+
 healthmap_R <- healthmap_bycountry %>%
                lapply(function(case.count){
                         location <- case.count$Country[1]
@@ -228,6 +242,7 @@ list( WHO = WHO_R, HealthMap = healthmap_R) %>%
     scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
     theme_minimal() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 ```
 
 The graphs show that the estimates from the two different sources
@@ -235,13 +250,11 @@ closely track each other. Here's another way to visualise this.
 
 ```{r}
 
-HM_vs_WHO <- list( WHO = WHO_R, HealthMap = healthmap_R) %>%
-              bind_rows(.id = "Source") %>%
-              select(Country, Source, Date, `Mean(R)`)
-
-HM_vs_WHO %<>%
-    tidyr::spread(Source, `Mean(R)`) %<>%
-    filter(complete.cases(.))
+HM_vs_WHO <- inner_join(WHO_R, healthmap_R,
+                        by = c("Date", "Country")) %>%
+              select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
+              rename("WHO" = `Mean(R).x`,
+                     "HealthMap" = `Mean(R).y`)
 
 ggplot(HM_vs_WHO, aes(HealthMap, WHO)) +
     geom_point() +
@@ -252,227 +265,27 @@ ggplot(HM_vs_WHO, aes(HealthMap, WHO)) +
 
 ```
 
+As the above graph indicates, estimates of the reproduction number
+from HealthMap and WHO data are highly correlated (correlation
+coefficient = 0.76, 95% CI = (0.74, 0.78)).
+
+```{r}
+cor.test(HM_vs_WHO$WHO, HM_vs_WHO$HealthMap)
+```
+
 # Projection using WHO data
-## Projection within a country 
 
-```{r}
+## Projection within Sierra Leone
 
-
-WHO_SL <- WHO_bydistricts %>%
-              filter(Country == "Sierra Leone") %>%
-              droplevels %>% na.omit
-
-
-ggplot(WHO_SL, aes(Date, incid)) +
-    geom_point() +
-    facet_wrap(~CL_DistrictRes, ncol = 3) +
-    theme_minimal() +
-    ggtitle("Incidence in the districts of Sierra Leone")
-
+```{r child = 'WHO-data-analysis-Sierra.Rmd'}
 ```
 
+## Projection within Liberia
 
-We will proceed as we did with HealthMap data - split the data set into training and
-validation sets, set up the parameters and press play.
-
-```{r}
-SL_wide <-  WHO_SL %>%
-            ungroup %>%
-            select(-Country) %>%
-            tidyr::spread(CL_DistrictRes, incid, fill = 0)
-               
-
+```{r child = 'WHO-data-analysis-Liberia.Rmd'}
 ```
 
-We are now ready to estimate R and move forward with the projection
-exactly as we did for HealthMap data.
-```{r}
-mean_SI     <- 14.2
-CV_SI       <- 9.6 / 14.2
-SItrunc     <- 40
-SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
-SI_Distr    <- SI_Distr / sum(SI_Distr)
-time_window <- 7 * 7
+## Projection within Guinea
 
-
-start     <- 2:(length(SL_wide$Date) - time_window)
-end       <- start + time_window
-end.dates <- SL_wide[end, "Date"]
-r.estim   <- SL_wide  %>%
-                   select(-Date) %>%
-    plyr::alply(2, .dims = TRUE, function(incid) {
-                                   I   <- pull(incid, 1) 
-                                   res <- EstimateR(I, T.Start = start , T.End = end,
-                                                    method = "NonParametricSI",
-                                                    SI.Distr = SI_Distr,
-                                                    plot = FALSE ,
-                                                    CV.Posterior = 1 ,
-                                                    Mean.Prior = 1 ,
-                                                    Std.Prior = 0.5)
-                                   res$R %<>% cbind(Date = end.dates)
-                                   return(res$R)})
-r.estim %>%
-    bind_rows(.id = "District") %>%
-    ggplot(aes(Date, `Mean(R)`)) +
-    geom_point() +
-    facet_wrap(~District) +
-    ggtitle("Mean R for each district in Sierra Leone")
-
-n.sim  <- 1000L    # Number of simulations to run
-t.proj <- 300L
-r.j.t  <- r.estim %>%
-           lapply(function(R){
-                    cutoff <- which(R$Date %in% SL_wide[t.proj, "Date"])
-                    shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
-                    scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
-                    return(rgamma(n.sim, shape = shape,
-                                  scale = scale))}) %>%
-            data.frame(check.names = F)
-
+```{r child = 'WHO-data-analysis-Guinea.Rmd'}
 ```
-
-
-# Population flow matrix
-
-```{r}
-pow_N_from <- 1
-pow_N_to   <- 1
-pow_dist   <- 2
-K          <- 1
-
-adm2_centroids <- "data/Geography/GravityModel/raw/adm2.txt" %>%
-                   read.csv(stringsAsFactors = FALSE,
-                            sep = "\t",
-                            header = TRUE) %>%
-                   filter(ADM0 == "Sierra Leone")  %>%
-                   filter(ADM2 != "Western Rural") 
-
-adm2_centroids$ADM2 %<>% gsub("Western Urban", "Western", .)
-adm2_centroids$ADM2  %<>%
-    gsub(' ', '', .) %<>%
-    toupper %<>%
-    factor
-
-levels(adm2_centroids$ADM2) <- levels(WHO_SL$CL_DistrictRes)
-adm2_centroids %<>% arrange(ADM2)
- 
-flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
-                            latitude    = adm2_centroids[, "Centroid_Lat"],
-                            population  = adm2_centroids[, "Pop"],
-                            place.names = adm2_centroids[, "ADM2"],
-                            model = "gravity", K = K,
-                            pow_N_from = pow_N_from,
-                            pow_N_to   = pow_N_to,
-                            pow_dist   = pow_dist)
-
-
-## Relative risk
-relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-p.stay     <- 0.99 
-p.movement <- probability_movement(relative.risk, p.stay)
-
-```
-
-At this point, all the pieces are in place.
-SL_training contains the incidence count we will use for projecting.
-Estimate of R is in the data frame r.j.t with a row for each
-simulation we want to run. p.movement conatins the probabilities.
-
-```{r, warning=FALSE}
-n.dates.sim   <- 49L      # The time period over which projection will be made.
-SL_training   <- SL_wide[1:t.proj, ]
-validation    <- nrow(SL_wide)
-SL_validation <- SL_wide[(1 + t.proj):validation, ]
-
-incid     <- as.matrix(select(SL_training, -Date))
-dates.all <- SL_training[1:t.proj, ] %>%
-             pull(Date) %>%
-             c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
-t.max     <- t.proj + n.dates.sim - 1
-
-
-daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
-                                    r.t   <- as.matrix(r.t)
-                                    out   <- project(incid, r.t, SI_Distr,
-                                                     p.movement, n.dates.sim) 
-                                    incidence.proj <- rbind(incid, out)
-                                    incidence.proj %<>% data.frame(check.names = F)
-                                    incidence.proj %<>% cbind(Date = dates.all)
-                                    return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
-
-
-weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
-
-```
-At the same time, we will also obtain the weekly incidence count from
-available data.
-
-```{r, warning=FALSE}
-weekly.available <- c(training    = list(SL_training),
-                       validation = list(SL_validation)) %>%
-                       lapply(daily.to.weekly) %>%
-                       bind_rows(.id = "Category")
-
-plots.list <- SL_training %>%
-                 select(-Date) %>%
-                 colnames %>%
-                 lapply(function(location){
-                         available  <- weekly.available %>%
-                                       `[`(, c("Date", "Category", location))
-                         projection <- weekly.projections %>%
-                                       `[`(, c("Date", location))
-                         plot.weekly(available, projection)})
-
-cowplot::plot_grid(plots.list[[1]],
-                        plots.list[[2]],
-                        plots.list[[3]],
-                        plots.list[[4]],
-                        plots.list[[5]],
-                        plots.list[[6]],
-                        plots.list[[7]],
-                        plots.list[[8]],
-                        plots.list[[9]],
-                        plots.list[[10]],
-                        plots.list[[11]],
-                        plots.list[[12]],
-                        plots.list[[13]])                   
- 
-
-```
-Daily incidence data are worth looking at although they might be
-noisy.
-
-```{r}
-daily.available <- c(training    = list(SL_training),
-                      validation = list(SL_validation)) %>%
-                    bind_rows(.id = "Category")
-
-daily.projections %<>% bind_rows(.)
-
-plots.list <- SL_training %>%
-                 select(-Date) %>%
-                 colnames %>%
-                 lapply(function(location){
-                         available  <- daily.available %>%
-                                       `[`(, c("Date", "Category", location))
-                         projection <- daily.projections %>%
-                                       `[`(, c("Date", location))
-                         plot.weekly(available, projection)})
-
-cowplot::plot_grid(plots.list[[1]],
-                        plots.list[[2]],
-                        plots.list[[3]],
-                        plots.list[[4]],
-                        plots.list[[5]],
-                        plots.list[[6]],
-                        plots.list[[7]],
-                        plots.list[[8]],
-                        plots.list[[9]],
-                        plots.list[[10]],
-                        plots.list[[11]],
-                        plots.list[[12]],
-                        plots.list[[13]])                   
-
-
-```
-

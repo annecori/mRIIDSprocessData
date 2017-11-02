@@ -114,7 +114,10 @@ adm1_centroids$ADM1  %<>%
     toupper %<>%
     factor
 
-levels(adm1_centroids$ADM1) <- levels(WHO_Liberia$CL_DistrictRes)
+
+adm1_centroids$ADM1 %<>%
+    factor(levels = levels(WHO_Liberia$CL_DistrictRes))
+
 adm1_centroids %<>% arrange(ADM1)
 flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
                             latitude    = adm1_centroids[, "Centroid_Lat"],
@@ -186,12 +189,7 @@ plots.list <- Liberia_training %>%
                                        `[`(, c("Date", location))
                          plot.weekly(available, projection)})
 
-cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
-                   plots.list[[4]], plots.list[[5]], plots.list[[6]],
-                   plots.list[[7]], plots.list[[8]], plots.list[[9]],
-                   plots.list[[10]], plots.list[[11]], plots.list[[12]],
-                   plots.list[[13]], plots.list[[14]], plots.list[[15]])
-
+cowplot::plot_grid(plotlist = plots.list)
 
 ```
 

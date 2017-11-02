@@ -1,0 +1,218 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Analysis of WHO Ebola data for all districts
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+The key thing is to get the latitudes, longitudes and population
+estimates for all the districts and determine population flow matrix.
+
+
+```{r}
+pow_N_from <- 1
+pow_N_to   <- 1
+pow_dist   <- 2
+K          <- 1
+
+guinea_sierra <- "data/Geography/GravityModel/raw/adm2-fixed.txt" %>%
+                     read.csv(stringsAsFactors = FALSE,
+                              sep = "\t",
+                              header = TRUE) %>%
+                    filter(ADM0 %in% c("Guinea", "Sierra Leone"))  
+
+liberia <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
+                   read.csv(stringsAsFactors = FALSE,
+                            sep = "\t",
+                            header = TRUE) %>%
+                   filter(ADM0 == "Liberia")  
+
+guinea_sierra %<>%
+    select(ADM2, Centroid_Lon, Centroid_Lat, Pop) %<>%
+    rename(CL_DistrictRes = ADM2)
+
+liberia %<>%
+    select(ADM1, Centroid_Lon, Centroid_Lat, Pop) %<>%
+    rename(CL_DistrictRes = ADM1)
+
+
+all_centroids <- bind_rows(guinea_sierra, liberia) 
+
+
+all_centroids$CL_DistrictRes     %<>%
+    iconv(to='ASCII//TRANSLIT')  %<>%
+    gsub("\\'", '', .)  %<>%
+    gsub(' ', '', .) %<>%
+    toupper %<>%
+    factor
+
+
+all_centroids$CL_DistrictRes %<>% gsub("WESTERNURBAN", "WESTERN", .)
+
+
+
+WHO_bydistricts$CL_DistrictRes %<>%
+    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
+                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
+
+```
+Some of the prefectures of Guinea are not represented in the WHO
+data. These are: Gaoual, Koubia, Koundara, Labe, Lelouma, Mamou
+and Mandiana. Hence we will drop these from the data frame of
+centroids.
+
+```{r}
+
+missing <- setdiff(unique(all_centroids$CL_DistrictRes),
+                   unique(WHO_bydistricts$CL_DistrictRes))
+
+notmissing    <- !(all_centroids$CL_DistrictRes %in% missing)
+all_centroids <- all_centroids[notmissing, ]
+
+
+all_centroids$CL_DistrictRes %<>% factor
+
+```
+
+After this data clean-up we can finally determine the flow matrix.
+
+```{r}
+all_centroids$CL_DistrictRes %<>%
+    factor(levels = levels(WHO_bydistricts$CL_DistrictRes))
+
+all_centroids %<>% arrange(CL_DistrictRes)
+flow.matrix  <- flow_matrix(longitude   = all_centroids[, "Centroid_Lon"],
+                            latitude    = all_centroids[, "Centroid_Lat"],
+                            population  = all_centroids[, "Pop"],
+                            place.names = all_centroids[, "CL_DistrictRes"],
+                            model = "gravity", K = K,
+                            pow_N_from = pow_N_from,
+                            pow_N_to   = pow_N_to,
+                            pow_dist   = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+p.stay        <- 0.99 
+p.movement    <- probability_movement(relative.risk, p.stay)
+
+```
+
+To estimate R, we convert from long format to the wide format.
+
+```{r}
+
+WHO_wide <- WHO_bydistricts %>%
+                    ungroup %>%
+                    select(-Country) %>%
+                    tidyr::spread(CL_DistrictRes, incid, fill = 0)
+
+t.proj    <- 147L
+start     <- 2:(length(WHO_wide$Date) - time_window)
+end       <- start + time_window
+end.dates <- WHO_wide[end, "Date"]
+r.estim   <- WHO_wide  %>%
+                   select(-Date) %>%
+    plyr::alply(2, .dims = TRUE, function(incid) {
+                                   I   <- pull(incid, 1) 
+                                   res <- EstimateR(I, T.Start = start , T.End = end,
+                                                    method = "NonParametricSI",
+                                                    SI.Distr = SI_Distr,
+                                                    plot = FALSE ,
+                                                    CV.Posterior = 1 ,
+                                                    Mean.Prior = 1 ,
+                                                    Std.Prior = 0.5)
+                                   res$R %<>% cbind(Date = end.dates)
+                                   return(res$R)})
+r.estim %>%
+    bind_rows(.id = "District") %>%
+    ggplot(aes(Date, `Mean(R)`)) +
+    geom_point() +
+    facet_wrap(~District) +
+    ggtitle("Mean R for each district in Sierra Leone, Liberia and Guinea")
+
+n.sim <- 1000L    # Number of simulations to run
+
+r.j.t <- r.estim %>%
+           lapply(function(R){
+                    cutoff <- which(R$Date %in% WHO_wide[t.proj, "Date"])
+                    shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
+                    scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
+                    return(rgamma(n.sim, shape = shape,
+                                         scale = scale))}) %>% data.frame
+
+```
+
+At this point, all the pieces are in place.
+alldistricts_training contains the incidence count we will use for projecting.
+Estimate of R is in the data frame r.j.t with a row for each
+simulation we want to run. p.movement conatins the probabilities.
+
+```{r}
+n.dates.sim        <- 49L      # The time period over which projection will be made.
+alldistricts_training   <- WHO_wide[1:t.proj, ]
+alldistricts_validation <- WHO_wide[(1 + t.proj):nrow(WHO_wide), ]
+
+incid     <- as.matrix(select(alldistricts_training, -Date))
+dates.all <- alldistricts_training[1:t.proj, ] %>%
+             pull(Date) %>%
+             c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+t.max     <- t.proj + n.dates.sim - 1
+
+
+daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                    r.t   <- as.matrix(r.t)
+                                    out   <- project(incid, r.t, SI_Distr,
+                                                     p.movement, n.dates.sim) 
+                                    incidence.proj <- rbind(incid, out)
+                                    incidence.proj %<>% data.frame
+                                    incidence.proj %<>% cbind(Date = dates.all, .)
+                                    colnames(incidence.proj) <- colnames(alldistricts_training)
+                                    return(incidence.proj[(nrow(alldistricts_training) + 1):t.max, ])})
+
+
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+
+```
+
+At the same time, we will also obtain the weekly incidence count from
+available data.
+
+```{r}
+weekly.available <- c(training    = list(alldistricts_training),
+                       validation = list(alldistricts_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
+
+end <- max(dates.all) + 49
+weekly.available_small <- filter(weekly.available, Date < end)
+
+plots.list <- alldistricts_training %>%
+                 select(-Date) %>%
+                 colnames %>%
+                 lapply(function(location){
+                         available  <- weekly.available_small %>%
+                                       `[`(, c("Date", "Category", location))
+                         projection <- weekly.projections %>%
+                                       `[`(, c("Date", location))
+                         plot.weekly(available, projection)})
+
+cowplot::plot_grid(plotlist = plots.list)
+
+
+```

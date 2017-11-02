@@ -103,7 +103,10 @@ adm2_centroids$ADM2  %<>%
     toupper %<>%
     factor
 
-levels(adm2_centroids$ADM2) <- levels(WHO_SL$CL_DistrictRes)
+ 
+adm2_centroids$ADM2 %<>%
+    factor(levels = levels(WHO_SL$CL_DistrictRes))
+
 adm2_centroids %<>% arrange(ADM2)
  
 flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
@@ -131,7 +134,7 @@ We will project over a period of 6 weeks at three
 different time points - at the start of the epidemic, during the
 middle and towards the end.
 
-## Projections
+
 
 ```{r}
 n.sim  <- 1000L    # Number of simulations to run
@@ -191,19 +194,7 @@ plots.list <- SL_training %>%
                                        `[`(, c("Date", location))
                          plot.weekly(available, projection)})
 
-cowplot::plot_grid(plots.list[[1]],
-                        plots.list[[2]],
-                        plots.list[[3]],
-                        plots.list[[4]],
-                        plots.list[[5]],
-                        plots.list[[6]],
-                        plots.list[[7]],
-                        plots.list[[8]],
-                        plots.list[[9]],
-                        plots.list[[10]],
-                        plots.list[[11]],
-                        plots.list[[12]],
-                        plots.list[[13]])                   
+cowplot::plot_grid(plotlist = plots.list)                   
  
 
 ```

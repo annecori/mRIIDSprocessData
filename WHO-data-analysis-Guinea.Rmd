@@ -35,7 +35,7 @@ ggplot(WHO_Guinea, aes(Date, incid)) +
 
 ```
 
-## Population flow matrix
+
 
 ```{r}
 pow_N_from <- 1
@@ -72,9 +72,12 @@ adm2_centroids %<>%
     filter(ADM2 %in% WHO_Guinea$CL_DistrictRes) %<>%
     droplevels
 
-levels(adm2_centroids$ADM2) <- levels(WHO_Guinea$CL_DistrictRes)
+
+adm2_centroids$ADM2 %<>%
+    factor(levels = levels(WHO_Guinea$CL_DistrictRes))
 
 adm2_centroids %<>% arrange(ADM2)
+
 flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
                             latitude    = adm2_centroids[, "Centroid_Lat"],
                             population  = adm2_centroids[, "Pop"],
@@ -94,6 +97,7 @@ p.movement    <- probability_movement(relative.risk, p.stay)
 
 We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
+
 ```{r}
 
 WHO_Guinea_wide <- WHO_Guinea %>%

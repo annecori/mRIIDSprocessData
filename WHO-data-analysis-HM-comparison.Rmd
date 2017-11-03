@@ -68,6 +68,7 @@ WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
 WHO_weekly$Date       %<>% as.Date
 healthmap_weekly$Date %<>% as.Date
 
+color_scale <- c("HealthMap" = "black", "WHO" = "green")
 list( WHO = WHO_weekly,
       HealthMap = healthmap_weekly[, c("Country", "Date", "incid")]) %>%
     bind_rows(.id = "Source") %>%
@@ -76,7 +77,8 @@ list( WHO = WHO_weekly,
     facet_grid(Country ~.) +
     scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_colour_manual(values = color_scale)
 
 ```
 ## Estimating Reproduction number from WHO and Healthmap Data
@@ -135,7 +137,8 @@ list( WHO = WHO_R, HealthMap = healthmap_R) %>%
     facet_grid(Country ~.) +
     scale_x_date(date_labels="%d/%m/%y",date_breaks = "3 weeks") +
     theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_colour_manual(values = color_scale)
 
 ```
 

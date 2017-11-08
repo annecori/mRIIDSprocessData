@@ -27,7 +27,6 @@ estimates for all the districts and determine population flow matrix.
 ```{r}
 pow_N_from <- 1
 pow_N_to   <- 1
-pow_dist   <- 2
 K          <- 1
 
 guinea_sierra <- "data/Geography/GravityModel/raw/adm2-fixed.txt" %>%
@@ -108,7 +107,6 @@ flow.matrix  <- flow_matrix(longitude   = all_centroids[, "Centroid_Lon"],
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-p.stay        <- 0.99 
 p.movement    <- probability_movement(relative.risk, p.stay)
 
 ```
@@ -122,7 +120,7 @@ WHO_wide <- WHO_bydistricts %>%
                     select(-Country) %>%
                     tidyr::spread(CL_DistrictRes, incid, fill = 0)
 
-t.proj    <- 147L
+
 start     <- 2:(length(WHO_wide$Date) - time_window)
 end       <- start + time_window
 end.dates <- WHO_wide[end, "Date"]
@@ -139,14 +137,6 @@ r.estim   <- WHO_wide  %>%
                                                     Std.Prior = 0.5)
                                    res$R %<>% cbind(Date = end.dates)
                                    return(res$R)})
-r.estim %>%
-    bind_rows(.id = "District") %>%
-    ggplot(aes(Date, `Mean(R)`)) +
-    geom_point() +
-    facet_wrap(~District) +
-    ggtitle("Mean R for each district in Sierra Leone, Liberia and Guinea")
-
-n.sim <- 1000L    # Number of simulations to run
 
 r.j.t <- r.estim %>%
            lapply(function(R){
@@ -158,13 +148,24 @@ r.j.t <- r.estim %>%
 
 ```
 
+```{r all_r, eval = FALSE}
+r.estim %>%
+    bind_rows(.id = "District") %>%
+    ggplot(aes(Date, `Mean(R)`)) +
+    geom_point() +
+    facet_wrap(~District) +
+    ggtitle("Mean R for each district in Sierra Leone, Liberia and Guinea")
+
+
+
+```
 At this point, all the pieces are in place.
 alldistricts_training contains the incidence count we will use for projecting.
 Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
 ```{r}
-n.dates.sim        <- 49L      # The time period over which projection will be made.
+
 alldistricts_training   <- WHO_wide[1:t.proj, ]
 alldistricts_validation <- WHO_wide[(1 + t.proj):nrow(WHO_wide), ]
 
@@ -193,7 +194,7 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r}
+```{r  all_gridmap, eval = FALSE}
 weekly.available <- c(training    = list(alldistricts_training),
                        validation = list(alldistricts_validation)) %>%
                        lapply(daily.to.weekly) %>%
@@ -213,6 +214,127 @@ plots.list <- alldistricts_training %>%
                          plot.weekly(available, projection)})
 
 cowplot::plot_grid(plotlist = plots.list)
+
+
+```
+
+## Evaluating goodness of fit
+```{r all_fit}
+weekly.available <- c(training    = list(alldistricts_training),
+                       validation = list(alldistricts_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       dplyr::bind_rows(.id = "Category")
+
+start           <- min(weekly.projections$Date)
+end             <- max(weekly.projections$Date)
+available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
+                   select(-Category)
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5)
+
+error        <- select(projection_50, -Date) - select(available_small, -Date)
+all_rms   <- summarise_all(error, funs(rms)) %>%
+                cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+
+outfile   <-  "output/alldistricts-rms.csv"
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+write.table(all_rms, outfile,
+            sep = ",", col.names = col.names, append = T, row.names = FALSE, quote = FALSE)
+
+```
+## Visualising the spread on the map of West Africa
+
+```{r all_map,  eval = FALSE}
+liberia         <- rgdal::readOGR(dsn = "data/Geography/LBR_adm_shp",
+                                 layer = "LBR_adm2")
+liberia@data$id <- liberia@data$NAME_1
+liberia.points  <- broom::tidy(liberia, region="id")
+liberia.points$id %<>% factor
+liberia.df      <- left_join(liberia.points, liberia@data, by="id")
+liberia.df$CL_DistrictRes <- liberia.df$NAME_1
+
+
+sierra         <- rgdal::readOGR(dsn = "data/Geography/SLE_adm_shp",
+                                 layer = "SLE_adm2")
+sierra@data$id <- sierra@data$NAME_2
+sierra.points  <- broom::tidy(sierra, region="id")
+sierra.points$id %<>% factor
+sierra.df      <- left_join(sierra.points, sierra@data, by="id")
+sierra.df$NAME_2 <- plyr::revalue(sierra.df$NAME_2,
+                                  c("Western Rural" = "WESTERN",
+                                    "Western Urban" = "WESTERN"))
+
+sierra.df$CL_DistrictRes <- sierra.df$NAME_2
+
+guinea         <- rgdal::readOGR(dsn = "data/Geography/GIN_adm_shp",
+                                 layer = "GIN_adm2")
+guinea@data$id <- guinea@data$NAME_2
+guinea.points  <- broom::tidy(guinea, region="id")
+guinea.points$id %<>% factor
+guinea.df      <- left_join(guinea.points, guinea@data, by="id")
+guinea.df$CL_DistrictRes <- guinea.df$NAME_2
+
+wafrica <- rbind(guinea.df, liberia.df) %>% rbind(sierra.df)
+wafrica$CL_DistrictRes %<>%
+    iconv(to='ASCII//TRANSLIT')  %<>%
+    gsub("\\'", '', .)  %<>%
+    gsub(' ', '', .) %<>%
+    toupper %<>%
+    factor
+
+
+
+start           <- min(weekly.projections$Date)
+end             <- max(dates.all) 
+
+available_small <- filter(weekly.available, Date > start & Date < end) %>%
+                   select(-c(Category, Date)) %>%
+                   colSums %>% data.frame 
+
+available_small %<>% tibble::rownames_to_column()
+colnames(available_small) <- c("CL_DistrictRes", "incid")
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5) %>%
+                   ungroup %>%
+                   select(-Date) %>% colSums %>% data.frame 
+
+projection_50 %<>% tibble::rownames_to_column()
+colnames(projection_50) <- c("CL_DistrictRes", "incid")
+
+
+
+
+missing   <- setdiff(unique(wafrica$CL_DistrictRes),
+                     unique(available_small$CL_DistrictRes))
+
+available_small %<>% rbind(data.frame(CL_DistrictRes = missing,
+                                      incid = rep(0, length(missing))))
+projection_50 %<>% rbind(data.frame(CL_DistrictRes = missing,
+                                    incid = rep(0, length(missing))))
+
+total_incid    <- list(training = data.frame(available_small),
+                        projection = data.frame(projection_50)) %>%
+                   bind_rows(.id = "Category")
+
+incid_map  <- left_join(wafrica, total_incid)
+
+
+incid_map$Category %<>% factor(levels = c("training", "projection"))
+incid_map %<>% arrange(Category)
+
+
+ ggplot(incid_map) + 
+    aes(long, lat, group = group, fill = incid) +
+    geom_polygon() +
+    geom_path(color = "white" ) +
+    coord_equal() +
+    facet_grid(.~Category) +
+    scale_fill_gradient2(low = "grey50",
+                         high = "firebrick")
 
 
 ```

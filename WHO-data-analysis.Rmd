@@ -1,11 +1,5 @@
 ---
-output: 
-  pdf_document:
-    toc: true
-    citation_package: natbib
-    keep_tex: true
-    fig_caption: true
-    latex_engine: pdflatex
+output: html_document
 title: Analysis of WHO Ebola data
 author:
 - name: Sangeeta Bhatia
@@ -20,6 +14,13 @@ fontsize: 11pt
 bibliography: 
 biblio-style: apsr
 endnote: no
+params:
+  pow_dist : 1.2
+  t.proj : 250
+  n.sim : 1000
+  n.dates.sim : 35
+  p.stay: 0.9
+  
 ---
 
 ```{r global_options, include=FALSE}
@@ -32,6 +33,13 @@ library(ggplot2)
 library(dplyr)
 library(EpiEstim)
 devtools::load_all()
+
+pow_dist    <- params$pow_dist
+t.proj      <- params$t.proj
+n.sim       <- params$n.sim
+n.dates.sim <- params$n.dates.sim
+p.stay      <- params$p.stay
+
 
 ```
 # Data clean-up
@@ -81,7 +89,7 @@ recorded, we assume that there were no cases on that date and add this
 to the record. At the end of this step, the incidence time series for
 each district should be a daily time series.
 
-```{r bycountry}
+```{r fillup}
 
 WHO_bydistricts %<>%
     split(.$CL_DistrictRes) %<>%
@@ -91,6 +99,9 @@ WHO_bydistricts %<>%
 
 WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
 
+```
+
+```{r raw_viz, eval = FALSE}
 WHO_bycountry <- WHO_bydistricts %>%
                   group_by(Country,Date) %>%
                   summarise(incid = sum(incid)) 
@@ -112,7 +123,6 @@ ggplot(WHO_bycountry, aes(Date, incid)) +
 
 ```
 
-
 # Parameters for Ebola
 
 Culled from literature.
@@ -126,12 +136,19 @@ SI_Distr    <- SI_Distr / sum(SI_Distr)
 time_window <- 7 * 7
 ```
 
-# Comparison with the data from Health Map
+# Gravity model parameters
 
-```{r child = 'WHO-data-analysis-HM-comparison.Rmd'}
+```{r gm_params}
+
+pow_N_to <- pow_N_from <- 1
+K        <- 1
+
 ```
 
+# Comparison with the data from Health Map
 
+```{r child = 'WHO-data-analysis-HM-comparison.Rmd', eval = FALSE}
+```
 
 # Projection using WHO data
 
@@ -153,4 +170,19 @@ time_window <- 7 * 7
 ## Projection across all districts within Sierra Leone, Liberia and Guinea
 
 ```{r child = 'WHO-data-analysis-alldistricts.Rmd'}
+```
+
+## Evaluating goodness of fit
+```{r}
+outfile    <- "output/alldistricts-rms-0811.csv"
+residuals  <- read.csv(outfile)
+normalise  <- function(col) col/norm(col, "2") 
+normalised <- select(residuals, -c(pow_dist, p.stay)) %>%
+              apply(2, normalise) %>% rowSums
+
+pstay <- unique(residuals$p.stay)   %>% sort
+power <- unique(residuals$pow_dist) %>% sort
+rms   <- matrix(normalised, nrow = length(power), byrow = TRUE)
+plotly::plot_ly(x = ~power, y = ~pstay, z = ~rms) %>% add_surface()
+
 ```

@@ -57,3 +57,7 @@ add_0incid <- function(df){
     df$incid %<>% ifelse(is.na(.), 0, . )
     return(df)
 }
+
+rms <- function(error){
+    sqrt(mean((error)^2, na.rm = TRUE))
+}

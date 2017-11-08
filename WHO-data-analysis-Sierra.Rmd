@@ -28,6 +28,10 @@ WHO_SL <- WHO_bydistricts %>%
               droplevels %>% na.omit
 
 
+
+```
+
+```{r sl_raw, eval = FALSE}
 ggplot(WHO_SL, aes(Date, incid)) +
     geom_point() +
     facet_wrap(~CL_DistrictRes, ncol = 3) +
@@ -35,7 +39,6 @@ ggplot(WHO_SL, aes(Date, incid)) +
     ggtitle("Incidence in the districts of Sierra Leone")
 
 ```
-
 
 We will proceed as we did with HealthMap data - split the data set into training and
 validation sets, set up the parameters and press play.
@@ -70,6 +73,10 @@ r.estim   <- SL_wide  %>%
                                                     Std.Prior = 0.5)
                                    res$R %<>% cbind(Date = end.dates)
                                    return(res$R)})
+
+```
+
+```{r sl_r, eval = FALSE}
 r.estim %>%
     bind_rows(.id = "District") %>%
     ggplot(aes(Date, `Mean(R)`)) +
@@ -78,17 +85,12 @@ r.estim %>%
     ggtitle("Mean R for each district in Sierra Leone")
 
 ```
-
 Next, calculate the population flow matrix from gravity model and
 hence the relative risk for each district.
 
 
 
 ```{r}
-pow_N_from <- 1
-pow_N_to   <- 1
-pow_dist   <- 2
-K          <- 1
 
 adm2_centroids <- "data/Geography/GravityModel/raw/adm2.txt" %>%
                    read.csv(stringsAsFactors = FALSE,
@@ -121,7 +123,6 @@ flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-p.stay     <- 0.99 
 p.movement <- probability_movement(relative.risk, p.stay)
 
 ```
@@ -137,8 +138,7 @@ middle and towards the end.
 
 
 ```{r}
-n.sim  <- 1000L    # Number of simulations to run
-t.proj <- 250L
+
 r.j.t  <- r.estim %>%
            lapply(function(R){
                     cutoff <- which(R$Date %in% SL_wide[t.proj, "Date"])
@@ -148,7 +148,7 @@ r.j.t  <- r.estim %>%
                                   scale = scale))}) %>%
             data.frame(check.names = F)
 
-n.dates.sim   <- 49L      # The time period over which projection will be made.
+
 SL_training   <- SL_wide[1:t.proj, ]
 validation    <- nrow(SL_wide)
 SL_validation <- SL_wide[(1 + t.proj):validation, ]
@@ -176,7 +176,7 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r, warning=FALSE}
+```{r sl_grid, eval = FALSE}
 weekly.available <- c(training    = list(SL_training),
                        validation = list(SL_validation)) %>%
                        lapply(daily.to.weekly) %>%
@@ -199,13 +199,44 @@ cowplot::plot_grid(plotlist = plots.list)
 
 ```
 
+## Evaluating goodness of fit
+
+```{r sl_fit}
+weekly.available <- c(training    = list(SL_training),
+                       validation = list(SL_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
+
+start           <- min(weekly.projections$Date)
+end             <- max(weekly.projections$Date)
+available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
+                   select(-Category)
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5)
+
+
+## --- goodness of fit ---
+error <- select(projection_50, -Date) - select(available_small, -Date)
+sl_rms   <- summarise_all(error, funs(rms)) %>%
+         cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+
+outfile   <-  "output/sierra-rms.csv" 
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+write.table(sl_rms, outfile,  
+            sep = ",", col.names = col.names, append = T, row.names = F, quote = F)
+
+```
+
+
 ## Visualising the projections on a map
 
-We will only plot the incidence data from 1 week before we started
-projection to the end of the projection period.
+We can compare the spatial spread of the predicted case counts with
+the available for the period over which we are projecting.
+which we are projecting
 
-
-```{r}
+```{r sierra_map, eval = FALSE}
 
 sierra         <- rgdal::readOGR(dsn = "data/Geography/SLE_adm_shp",
                                  layer = "SLE_adm2")
@@ -220,21 +251,37 @@ sierra.df$NAME_2 %<>%
     factor
 
 
-start           <- SL_wide$Date[t.proj] - 7
-end             <- max(dates.all) 
-available_small <- filter(weekly.available, Date > start & Date < end) %>% select(-Category)
-projection_50   <- weekly.projections %>% group_by(Date) %>% summarise_all(quantile, probs = 0.5)
-weekly_incid    <- list(training = available_small, projection = projection_50) %>% bind_rows(.id = "Category")
-library(lubridate)
-weekly_incid$week <- interval(start, weekly_incid$Date) %/% lubridate::weeks(1)
-weekly_incid    %<>% tidyr::gather(key = NAME_2, value = incid, factor_key = TRUE, -c(Date, week, Category))
-## to get rid of 0s as we will take log later.
-weekly_incid$incid %<>% `+`(1)
 sierra.df$NAME_2 <- plyr::revalue(sierra.df$NAME_2,
                                   c("WESTERNURBAN" = "WESTERN",
                                     "WESTERNRURAL" = "WESTERN"))
 
-incid_map  <- left_join(sierra.df, weekly_incid)
+
+start           <- min(weekly.projections$Date)
+end             <- max(weekly.projections$Date)
+available_small <- filter(weekly.available, Date > start & Date < end) %>%
+                   select(-c(Category, Date)) %>%
+                   colSums %>% data.frame 
+
+available_small %<>% tibble::rownames_to_column()
+colnames(available_small) <- c("NAME_2", "incid")
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5) %>%
+                   ungroup %>%
+                   select(-Date) %>% colSums %>% data.frame 
+
+projection_50 %<>% tibble::rownames_to_column()
+colnames(projection_50) <- c("NAME_2", "incid")
+
+
+
+total_incid    <- list(training = data.frame(available_small),
+                        projection = data.frame(projection_50)) %>%
+                   bind_rows(.id = "Category")
+
+
+incid_map  <- left_join(sierra.df, total_incid)
 
 incid_map$Category %<>% factor(levels = c("training", "projection"))
 incid_map %<>% arrange(Category)
@@ -245,10 +292,9 @@ incid_map %<>% arrange(Category)
     geom_polygon() +
     geom_path(color = "white" ) +
     coord_equal() +
-    facet_grid(Category~week) +
+    facet_grid(.~Category) +
     scale_fill_gradient2(low = "grey50",
-                         high = "firebrick",
-                         trans = "log10")
+                         high = "firebrick")
                          
 
 

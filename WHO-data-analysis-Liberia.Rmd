@@ -26,7 +26,8 @@ WHO_Liberia <- WHO_bydistricts %>%
                filter(Country == "Liberia") %>%
                droplevels %>%
                na.omit
-
+```
+```{r lbr_raw, eval = FALSE}
 ggplot(WHO_Liberia, aes(Date, incid)) +
     geom_point() +
     facet_wrap(~CL_DistrictRes, ncol = 3) +
@@ -57,7 +58,7 @@ We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data.
 ```{r}
 
-t.proj    <- 147L
+
 start     <- 2:(length(WHO_Liberia_wide$Date) - time_window)
 end       <- start + time_window
 end.dates <- WHO_Liberia_wide[end, "Date"]
@@ -74,14 +75,6 @@ r.estim   <- WHO_Liberia_wide  %>%
                                                     Std.Prior = 0.5)
                                    res$R %<>% cbind(Date = end.dates)
                                    return(res$R)})
-r.estim %>%
-    bind_rows(.id = "County") %>%
-    ggplot(aes(Date, `Mean(R)`)) +
-    geom_point() +
-    facet_wrap(~County) +
-    ggtitle("Mean R for each county in Liberia")
-
-n.sim <- 1000L    # Number of simulations to run
 
 r.j.t <- r.estim %>%
            lapply(function(R){
@@ -93,14 +86,21 @@ r.j.t <- r.estim %>%
 
 ```
 
+```{r lbr_r, eval = FALSE}
+r.estim %>%
+    bind_rows(.id = "County") %>%
+    ggplot(aes(Date, `Mean(R)`)) +
+    geom_point() +
+    facet_wrap(~County) +
+    ggtitle("Mean R for each county in Liberia")
+
+
+```
+
 Calculate the population flow matrix and hence the relative risk profile.
 
 
 ```{r}
-pow_N_from <- 1
-pow_N_to   <- 1
-pow_dist   <- 2
-K          <- 1
 
 adm1_centroids <- "data/Geography/GravityModel/raw/adm1_centroids_fixed.tsv" %>%
                    read.csv(stringsAsFactors = FALSE,
@@ -131,7 +131,7 @@ flow.matrix  <- flow_matrix(longitude   = adm1_centroids[, "Centroid_Lon"],
 
 ## Relative risk
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
-p.stay        <- 0.99 
+
 p.movement    <- probability_movement(relative.risk, p.stay)
 
 ```
@@ -142,7 +142,7 @@ Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
 ```{r}
-n.dates.sim        <- 49L      # The time period over which projection will be made.
+
 Liberia_training   <- WHO_Liberia_wide[1:t.proj, ]
 Liberia_validation <- WHO_Liberia_wide[(1 + t.proj):nrow(WHO_Liberia_wide), ]
 
@@ -171,7 +171,7 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r}
+```{r liberia_grid, eval = FALSE}
 weekly.available <- c(training    = list(Liberia_training),
                        validation = list(Liberia_validation)) %>%
                        lapply(daily.to.weekly) %>%
@@ -193,6 +193,36 @@ cowplot::plot_grid(plotlist = plots.list)
 
 ```
 
+## Evaluating goodness of fit
+
+```{r lbr_fit}
+weekly.available <- c(training    = list(Liberia_training),
+                       validation = list(Liberia_validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
+
+start           <- min(weekly.projections$Date)
+end             <- max(weekly.projections$Date)
+available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
+                   select(-Category)
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5)
+
+
+## --- goodness of fit ---
+error <- select(projection_50, -Date) - select(available_small, -Date)
+liberia_rms   <- summarise_all(error, funs(rms)) %>%
+         cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+
+outfile   <-  "output/liberia-rms.csv" 
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+write.table(liberia_rms, outfile,  
+            sep = ",", col.names = col.names, append = T, row.names = F, quote = F)
+
+```
+
 
 ## Visualising the projections on a map
 
@@ -200,7 +230,7 @@ We will only plot the incidence data from 1 week before we started
 projection to the end of the projection period.
 
 
-```{r}
+```{r  liberia_map, eval = FALSE}
 
 liberia         <- rgdal::readOGR(dsn = "data/Geography/LBR_adm_shp",
                                  layer = "LBR_adm1")
@@ -215,33 +245,45 @@ liberia.df$NAME_1 %<>%
     factor
 
 
-start           <- WHO_Liberia_wide$Date[t.proj] - 7
-end             <- max(dates.all) 
-available_small <- filter(weekly.available, Date > start & Date < end) %>% select(-Category)
-projection_50   <- weekly.projections %>% group_by(Date) %>% summarise_all(quantile, probs = 0.5)
-weekly_incid    <- list(training = available_small, projection = projection_50) %>% bind_rows(.id = "Category")
-library(lubridate)
-weekly_incid$week <- interval(start, weekly_incid$Date) %/% lubridate::weeks(1)
-weekly_incid    %<>% tidyr::gather(key = NAME_1, value = incid, factor_key = TRUE, -c(Date, week, Category))
-## to get rid of 0s as we will take log later.
-weekly_incid$incid %<>% `+`(1)
-liberia.df$NAME_1 <- plyr::revalue(liberia.df$NAME_1, c("GBAPOLU"="GBARPOLU"))
+start           <- min(weekly.projections$Date)
+end             <- max(weekly.projections$Date)
+available_small <- filter(weekly.available, Date > start & Date < end) %>%
+                   select(-c(Category, Date)) %>%
+                   colSums %>% data.frame
 
-incid_map  <- left_join(liberia.df, weekly_incid)
+available_small %<>% tibble::rownames_to_column()
+colnames(available_small) <- c("NAME_1", "incid")
+
+projection_50   <- weekly.projections %>%
+                   group_by(Date) %>%
+                   summarise_all(quantile, probs = 0.5) %>%
+                   ungroup %>%
+                   select(-Date) %>% colSums %>% data.frame
+
+projection_50 %<>% tibble::rownames_to_column()
+colnames(projection_50) <- c("NAME_1", "incid")
+
+
+
+total_incid    <- list(training = data.frame(available_small),
+                        projection = data.frame(projection_50)) %>%
+                   bind_rows(.id = "Category")
+
+total_incid$NAME_1 %<>% gsub("GBARPOLU", "GBAPOLU", .)
+incid_map  <- left_join(liberia.df, total_incid)
 
 incid_map$Category %<>% factor(levels = c("training", "projection"))
 incid_map %<>% arrange(Category)
 
 
-ggplot(incid_map) + 
+ ggplot(incid_map) +
     aes(long, lat, group = group, fill = incid) +
     geom_polygon() +
     geom_path(color = "white" ) +
     coord_equal() +
-    facet_grid(Category~week) +
+    facet_grid(.~Category) +
     scale_fill_gradient2(low = "grey50",
-                         high = "firebrick",
-                         trans = "log10")
+                         high = "firebrick")
                          
 
 

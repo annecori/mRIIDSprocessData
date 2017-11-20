@@ -15,11 +15,11 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 1.2
+  pow_dist : 1
   t.proj : 250
   n.sim : 1000
   n.dates.sim : 35
-  p.stay: 0.9
+  p.stay: 1
   
 ---
 
@@ -154,35 +154,36 @@ K        <- 1
 
 ## Projection within Sierra Leone
 
-```{r child = 'WHO-data-analysis-Sierra.Rmd'}
+```{r child = 'WHO-data-analysis-Sierra.Rmd', eval = FALSE}
 ```
 
 ## Projection within Liberia
 
-```{r child = 'WHO-data-analysis-Liberia.Rmd'}
+```{r child = 'WHO-data-analysis-Liberia.Rmd', eval = FALSE}
 ```
 
 ## Projection within Guinea
 
-```{r child = 'WHO-data-analysis-Guinea.Rmd'}
+```{r child = 'WHO-data-analysis-Guinea.Rmd', eval = FALSE}
 ```
 
 ## Projection across all districts within Sierra Leone, Liberia and Guinea
 
-```{r child = 'WHO-data-analysis-alldistricts.Rmd'}
+```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = TRUE}
 ```
 
 ## Evaluating goodness of fit
-```{r}
-outfile    <- "output/alldistricts-rms-0811.csv"
+```{r, eval = FALSE}
+outfile    <- "output/sierra-rms.csv"
 residuals  <- read.csv(outfile)
+
 normalise  <- function(col) col/norm(col, "2") 
 normalised <- select(residuals, -c(pow_dist, p.stay)) %>%
               apply(2, normalise) %>% rowSums
 
 pstay <- unique(residuals$p.stay)   %>% sort
 power <- unique(residuals$pow_dist) %>% sort
-rms   <- matrix(normalised, nrow = length(power), byrow = TRUE)
-plotly::plot_ly(x = ~power, y = ~pstay, z = ~rms) %>% add_surface()
+rms   <- matrix(normalised[, 1], nrow = length(power), byrow = TRUE)
+p <- plotly::plot_ly(x = ~power, y = ~pstay, z = ~rms) %>% plotly::add_surface()
 
 ```

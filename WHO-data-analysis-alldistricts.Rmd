@@ -25,10 +25,6 @@ estimates for all the districts and determine population flow matrix.
 
 
 ```{r}
-pow_N_from <- 1
-pow_N_to   <- 1
-K          <- 1
-
 guinea_sierra <- "data/Geography/GravityModel/raw/adm2-fixed.txt" %>%
                      read.csv(stringsAsFactors = FALSE,
                               sep = "\t",
@@ -187,7 +183,11 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     return(incidence.proj[(nrow(alldistricts_training) + 1):t.max, ])})
 
 
+
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
+
+outfile <- paste0("output/alldistricts-weekly-", p.stay, "-", pow_dist, ".csv")
+write.csv(weekly.projections, file = outfile, quote = FALSE, row.names = FALSE)
 
 ```
 
@@ -246,7 +246,7 @@ write.table(all_rms, outfile,
 ```
 ## Visualising the spread on the map of West Africa
 
-```{r all_map,  eval = FALSE}
+```{r all_map, eval = FALSE}
 liberia         <- rgdal::readOGR(dsn = "data/Geography/LBR_adm_shp",
                                  layer = "LBR_adm2")
 liberia@data$id <- liberia@data$NAME_1

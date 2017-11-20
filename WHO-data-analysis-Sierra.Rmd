@@ -2,7 +2,7 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: true
+    keep_tex: false
     fig_caption: true
     latex_engine: pdflatex
 title: Analysis of Ebola data from WHO
@@ -90,7 +90,7 @@ hence the relative risk for each district.
 
 
 
-```{r}
+```{r sl_flowmat}
 
 adm2_centroids <- "data/Geography/GravityModel/raw/adm2.txt" %>%
                    read.csv(stringsAsFactors = FALSE,
@@ -125,6 +125,11 @@ flow.matrix  <- flow_matrix(longitude   = adm2_centroids[, "Centroid_Lon"],
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 p.movement <- probability_movement(relative.risk, p.stay)
 
+## Test with random matrix. Delete later
+
+#prandom <- runif(169)
+#p.movement <- matrix(prandom, nrow = nrow(p.movement))
+
 ```
 
 At this point, all the pieces are in place.
@@ -137,7 +142,7 @@ middle and towards the end.
 
 
 
-```{r}
+```{r sl_rjt}
 
 r.j.t  <- r.estim %>%
            lapply(function(R){
@@ -160,7 +165,7 @@ dates.all <- SL_training[1:t.proj, ] %>%
 t.max     <- t.proj + n.dates.sim - 1
 
 
-daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+sl_daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     r.t   <- as.matrix(r.t)
                                     out   <- project(incid, r.t, SI_Distr,
                                                      p.movement, n.dates.sim) 
@@ -170,7 +175,7 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
 
 
-weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
+sl_weekly_projections <- lapply(sl_daily_projections, daily.to.weekly) %>% bind_rows(.)
 
 ```
 At the same time, we will also obtain the weekly incidence count from
@@ -190,7 +195,7 @@ plots.list <- SL_training %>%
                  lapply(function(location){
                          available  <- weekly.available %>%
                                        `[`(, c("Date", "Category", location))
-                         projection <- weekly.projections %>%
+                         projection <- sl_weekly_projections %>%
                                        `[`(, c("Date", location))
                          plot.weekly(available, projection)})
 
@@ -207,12 +212,12 @@ weekly.available <- c(training    = list(SL_training),
                        lapply(daily.to.weekly) %>%
                        bind_rows(.id = "Category")
 
-start           <- min(weekly.projections$Date)
-end             <- max(weekly.projections$Date)
+start           <- min(sl_weekly_projections$Date)
+end             <- max(sl_weekly_projections$Date)
 available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
                    select(-Category)
 
-projection_50   <- weekly.projections %>%
+projection_50   <- sl_weekly_projections %>%
                    group_by(Date) %>%
                    summarise_all(quantile, probs = 0.5)
 
@@ -256,8 +261,8 @@ sierra.df$NAME_2 <- plyr::revalue(sierra.df$NAME_2,
                                     "WESTERNRURAL" = "WESTERN"))
 
 
-start           <- min(weekly.projections$Date)
-end             <- max(weekly.projections$Date)
+start           <- min(sl_weekly_projections$Date)
+end             <- max(sl_weekly_projections$Date)
 available_small <- filter(weekly.available, Date > start & Date < end) %>%
                    select(-c(Category, Date)) %>%
                    colSums %>% data.frame 
@@ -265,7 +270,7 @@ available_small <- filter(weekly.available, Date > start & Date < end) %>%
 available_small %<>% tibble::rownames_to_column()
 colnames(available_small) <- c("NAME_2", "incid")
 
-projection_50   <- weekly.projections %>%
+projection_50   <- sl_weekly_projections %>%
                    group_by(Date) %>%
                    summarise_all(quantile, probs = 0.5) %>%
                    ungroup %>%

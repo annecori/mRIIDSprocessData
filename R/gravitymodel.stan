@@ -18,13 +18,17 @@ model {
   matrix[N, N] pmovement;
   for (i in 1:N){
    for (j in 1:N){
-     pmovement[i, j] = (pop_prod[i, j]^alpha)/distances[i, j]^gamma
+     pmovement[i, j] =
+         if_else(i == j, 0,
+			 pop_prod[i, j]^alpha)/distances[i, j]^gamma
    }
    real total;
    total = sum(pmovement[i, ])
-   pmovement[i, ] = pmovement[i, ]/total
+   pmovement[i, ] = (1 - pstay) * (pmovement[i, ]/total)
   }
-  
+  for (i in 1:N){
+    pmovement[i, i] = 1 - pstay 
+  }
   for (i in 1:N){
     for(t in 2:T){
      i_t = I[1:i, ]

@@ -37,7 +37,8 @@ project <-  function(incid, R, si, pij, n.days = 7){
     for(i in start:end){
         i_t      <- out[1:i, ]
         w_t      <- utils::tail(ws, i)
-        out[i, ] <- lambda.j.t(pij, R, i_t, w_t) %>% rpois(n.loc, .)
+        mu       <- lambda.j.t(pij, R, i_t, w_t)
+        out[i, ] <- rpois(n.loc, mu)
 
     }
     return(out[start:nrow(out), ])

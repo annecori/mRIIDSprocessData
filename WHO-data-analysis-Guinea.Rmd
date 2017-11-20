@@ -27,7 +27,7 @@ WHO_Guinea <- WHO_bydistricts %>%
                droplevels %>%
                na.omit
 ```
-```{r guinea_raw}
+```{r guinea_raw, eval = FALSE}
 ggplot(WHO_Guinea, aes(Date, incid)) +
     geom_point() +
     facet_wrap(~CL_DistrictRes, ncol = 3) +
@@ -129,7 +129,7 @@ r.j.t <- r.estim %>%
 
 ```
 
-```{r guinea_r}
+```{r guinea_r, eval = FALSE}
 r.estim %>%
     bind_rows(.id = "County") %>%
     ggplot(aes(Date, `Mean(R)`)) +
@@ -232,7 +232,7 @@ write.table(guinea_rms, outfile,
 
 
 ## Visualising the spread on the map of Guinea
-```{r guinea_map,  eval = FALSE}
+```{r guinea_map}
 guinea         <- rgdal::readOGR(dsn = "data/Geography/GIN_adm_shp",
                                  layer = "GIN_adm2")
 guinea@data$id <- guinea@data$NAME_2

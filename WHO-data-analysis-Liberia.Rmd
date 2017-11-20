@@ -171,7 +171,7 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r liberia_grid, eval = FALSE}
+```{r liberia_grid}
 weekly.available <- c(training    = list(Liberia_training),
                        validation = list(Liberia_validation)) %>%
                        lapply(daily.to.weekly) %>%
@@ -230,7 +230,7 @@ We will only plot the incidence data from 1 week before we started
 projection to the end of the projection period.
 
 
-```{r  liberia_map, eval = FALSE}
+```{r  liberia_map}
 
 liberia         <- rgdal::readOGR(dsn = "data/Geography/LBR_adm_shp",
                                  layer = "LBR_adm1")

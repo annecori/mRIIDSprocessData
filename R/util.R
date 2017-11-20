@@ -61,3 +61,29 @@ add_0incid <- function(df){
 rms <- function(error){
     sqrt(mean((error)^2, na.rm = TRUE))
 }
+
+##' Test if two samples were drawn from a Poisson distribution with the same rate parameter
+##'
+##' http://www.sciencedirect.com/science/article/pii/S0378375802004081
+##' Homogeneity of Results in Testing Samples from Poisson Series: With an Application to Testing Clover Seed for Dodder
+##' J. Przyborowski and H. Wilenski Biometrika Vol. 31, No. 3/4 (Mar., 1940), pp. 313-323
+##' @details The smaller the difference between the two rate parameters, the harder it will be to detect, especially with small
+##' sample sizes.
+##' @param x numeric vector
+##' @param y numeric vector.
+##' @return pvalue for H_0: lambda_1 = lamnda_2
+##' @author Sangeeta Bhatia
+ctest <- function(x, y){
+
+    k1 <- sum(x)
+    k2 <- sum(y)
+    k  <- k1 + k2
+
+    p_x1_lt_k1 <- pbinom(k1, size = k, prob = 0.5, lower.tail = T) # P(X1 <= k1)
+    p_x1_gt_k1 <- pbinom(k1, size = k, prob = 0.5, lower.tail = F) # P(X1 > k1)
+    p_x1_eq_k1 <- abs( p_x1_lt_k1 -  p_x1_gt_k1)   # P(X1 = k1)
+    p_x1_gt_k1 <- p_x1_gt_k1 + p_x1_eq_k1 # P(X1 >= k1)
+
+    2 * min(p_x1_gt_k1, p_x1_lt_k1)
+
+}

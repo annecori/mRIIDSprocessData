@@ -68,7 +68,7 @@ rms <- function(error){
 ##' Homogeneity of Results in Testing Samples from Poisson Series: With an Application to Testing Clover Seed for Dodder
 ##' J. Przyborowski and H. Wilenski Biometrika Vol. 31, No. 3/4 (Mar., 1940), pp. 313-323
 ##' @details The smaller the difference between the two rate parameters, the harder it will be to detect, especially with small
-##' sample sizes.
+##' sample sizes. x and y should have same length otherwise the return value will be nonsensical
 ##' @param x numeric vector
 ##' @param y numeric vector.
 ##' @return pvalue for H_0: lambda_1 = lamnda_2
@@ -87,3 +87,54 @@ ctest <- function(x, y){
     2 * min(p_x1_gt_k1, p_x1_lt_k1)
 
 }
+
+##' Log likelihood of an observed vector
+##'
+##' .. content for \details{} ..
+##' @title
+##' @param obs vector of observed values
+##' @param freq.table data frame recording the probability distribution such as that returned by as.data.frame(prop.table()). Column names are x and prob.
+##' @return log likelihood
+##' @author Sangeeta Bhatia
+log_likelihood <- function(obs, freq.table){
+
+    prob0 <- setdiff(obs, freq.table$x)
+    if(length(prob0 > 0)) lh <- 0
+    else{
+        lh <- filter(freq.table, x %in% obs) %>%
+              pull(prob) %>% prod
+    }
+
+
+    log(lh)
+}
+
+##' .. Log likelihood of the observed incidence data
+##'
+##' Log likelihood of the observed incidence data under the probability distribution
+##' determined by the predicted data.
+##' @title
+##' @param observed  data.frame with t rows and 2 columns one of which should
+##' contain the time (1, 2, 3 etc or dates) and should be called the date.
+##' The second column should be called incid and contains the observed incidences.
+##' @param predicted data.frame with t * num_simulations rows and 2 columns one of
+##' which contains the time (same as observed) and is called Date.
+##' The second column is called incid and contains the predicted incidences.
+##' @return log likelihood of the observed data.
+##' @author Sangeeta Bhatia
+log_likelihood_atj <- function(observed, predicted){
+    dates <- unique(observed$Date)
+    lh <- 0
+    for(d in dates){
+        obs  <- filter(observed,  Date == d) %>% pull(incid)
+        pred <- filter(predicted, Date == d) %>% pull(incid)
+
+        freq.table <- table(pred) %>%
+                       prop.table %>%
+                       data.frame %>%
+                       rename("x" = "pred", "prob" = "Freq")
+        lh <- lh + log_likelihood(obs, freq.table)
+    }
+    lh
+}
+

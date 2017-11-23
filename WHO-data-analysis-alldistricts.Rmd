@@ -186,8 +186,7 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
 
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
 
-outfile <- paste0("output/alldistricts-weekly-", p.stay, "-", pow_dist, ".csv")
-write.csv(weekly.projections, file = outfile, quote = FALSE, row.names = FALSE)
+
 
 ```
 
@@ -220,28 +219,24 @@ cowplot::plot_grid(plotlist = plots.list)
 
 ## Evaluating goodness of fit
 ```{r all_fit}
-weekly.available <- c(training    = list(alldistricts_training),
-                       validation = list(alldistricts_validation)) %>%
-                       lapply(daily.to.weekly) %>%
-                       dplyr::bind_rows(.id = "Category")
 
-start           <- min(weekly.projections$Date)
-end             <- max(weekly.projections$Date)
-available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
-                   select(-Category)
+daily.projections %<>% bind_rows(.)
+start           <- min(daily.projections$Date)
+end             <- max(daily.projections$Date)
+available_small <- filter(WHO_wide, Date >= start & Date <= end) 
 
-projection_50   <- weekly.projections %>%
+projection_50   <- daily.projections %>%
                    group_by(Date) %>%
                    summarise_all(quantile, probs = 0.5)
 
-error        <- select(projection_50, -Date) - select(available_small, -Date)
+error     <- select(projection_50, -Date) - select(available_small, -Date)
 all_rms   <- summarise_all(error, funs(rms)) %>%
                 cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
 
-outfile   <-  "output/alldistricts-rms.csv"
-col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
-write.table(all_rms, outfile,
-            sep = ",", col.names = col.names, append = T, row.names = FALSE, quote = FALSE)
+#outfile   <-  "output/alldistricts-rms.csv"
+#col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+#write.table(all_rms, outfile,
+#            sep = ",", col.names = col.names, append = T, row.names = FALSE, quote = FALSE)
 
 ```
 ## Visualising the spread on the map of West Africa

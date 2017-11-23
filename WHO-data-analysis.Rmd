@@ -16,16 +16,17 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 250
+  t.proj : 300
   n.sim : 1000
   n.dates.sim : 35
-  p.stay: 1
+  p.stay: 0.9
   
 ---
 
 ```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "output/figures/")
 ```
+
 
 ```{r setup, echo = FALSE}
 library(magrittr)
@@ -99,13 +100,14 @@ WHO_bydistricts %<>%
 
 WHO_bydistricts %<>% rename(Date = DateOnsetInferred)
 
-```
-
-```{r raw_viz, eval = FALSE}
 WHO_bycountry <- WHO_bydistricts %>%
                   group_by(Country,Date) %>%
                   summarise(incid = sum(incid)) 
 
+
+```
+
+```{r raw_viz, eval = FALSE}
 
 ggplot(WHO_bydistricts, aes(Date, incid)) +
     geom_point() +
@@ -145,7 +147,7 @@ K        <- 1
 
 ```
 
-# Comparison with the data from Health Map
+# Comparison with the data from Health Map and ProMed
 
 ```{r child = 'WHO-data-analysis-HM-comparison.Rmd', eval = FALSE}
 ```
@@ -154,7 +156,7 @@ K        <- 1
 
 ## Projection within Sierra Leone
 
-```{r child = 'WHO-data-analysis-Sierra.Rmd', eval = FALSE}
+```{r child = 'WHO-data-analysis-Sierra.Rmd', eval = TRUE}
 ```
 
 ## Projection within Liberia
@@ -169,21 +171,26 @@ K        <- 1
 
 ## Projection across all districts within Sierra Leone, Liberia and Guinea
 
-```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = TRUE}
+```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = FALSE}
 ```
 
 ## Evaluating goodness of fit
 ```{r, eval = FALSE}
-outfile    <- "output/sierra-rms.csv"
+outfile    <- "output/alldistricts-rms-tproj-300.csv"
 residuals  <- read.csv(outfile)
 
-normalise  <- function(col) col/norm(col, "2") 
+normalise  <- function(col){
+    normx <- norm(col, "2")
+    if(normx != 0) col <- col/normx
+    col
+}
 normalised <- select(residuals, -c(pow_dist, p.stay)) %>%
               apply(2, normalise) %>% rowSums
 
 pstay <- unique(residuals$p.stay)   %>% sort
 power <- unique(residuals$pow_dist) %>% sort
-rms   <- matrix(normalised[, 1], nrow = length(power), byrow = TRUE)
-p <- plotly::plot_ly(x = ~power, y = ~pstay, z = ~rms) %>% plotly::add_surface()
+rms   <- matrix(normalised, nrow = length(power), byrow = TRUE)
+p <- plotly::plot_ly(x = ~pstay, y = ~power, z = ~rms) %>% plotly::add_surface()
+
 
 ```

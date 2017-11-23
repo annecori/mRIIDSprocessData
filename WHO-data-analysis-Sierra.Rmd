@@ -207,17 +207,14 @@ cowplot::plot_grid(plotlist = plots.list)
 ## Evaluating goodness of fit
 
 ```{r sl_fit}
-weekly.available <- c(training    = list(SL_training),
-                       validation = list(SL_validation)) %>%
-                       lapply(daily.to.weekly) %>%
-                       bind_rows(.id = "Category")
 
-start           <- min(sl_weekly_projections$Date)
-end             <- max(sl_weekly_projections$Date)
-available_small <- filter(weekly.available, Date >= start & Date <= end) %>%
-                   select(-Category)
+sl_projections  <- bind_rows(sl_daily_projections)
+start           <- min(sl_projections$Date)
+end             <- max(sl_projections$Date)
+available_small <- filter(SL_wide, Date >= start & Date <= end) 
 
-projection_50   <- sl_weekly_projections %>%
+
+projection_50   <- sl_projections %>%
                    group_by(Date) %>%
                    summarise_all(quantile, probs = 0.5)
 
@@ -225,7 +222,7 @@ projection_50   <- sl_weekly_projections %>%
 ## --- goodness of fit ---
 error <- select(projection_50, -Date) - select(available_small, -Date)
 sl_rms   <- summarise_all(error, funs(rms)) %>%
-         cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+            cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
 
 outfile   <-  "output/sierra-rms.csv" 
 col.names <- ifelse(file.exists(outfile), FALSE, TRUE)

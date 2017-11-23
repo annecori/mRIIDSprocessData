@@ -175,7 +175,7 @@ sl_daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
 
 
-sl_weekly_projections <- lapply(sl_daily_projections, daily.to.weekly) %>% bind_rows(.)
+#sl_weekly_projections <- lapply(sl_daily_projections, daily.to.weekly) %>% bind_rows(.)
 
 ```
 At the same time, we will also obtain the weekly incidence count from
@@ -213,7 +213,30 @@ start           <- min(sl_projections$Date)
 end             <- max(sl_projections$Date)
 available_small <- filter(SL_wide, Date >= start & Date <= end) 
 
+```
 
+```{r sl_logl}
+districts <- select(sl_projections, -Date) %>% colnames
+names(districts) <- districts
+sl_loglh   <- lapply(districts, function(district){
+                                      observed  <- available_small[, c("Date", district)]
+                                      predicted <- sl_projections[, c("Date", district)]
+
+                                      colnames(observed)  <- c("Date", "incid")
+                                      colnames(predicted) <- c("Date", "incid")
+
+                                      log_likelihoods_atj(observed, predicted) %>% sum})
+
+sl_loglh %<>% data.frame
+sl_loglh %<>% cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+outfile   <-  "output/sierra-lh.csv" 
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+write.table(sl_loglh, outfile,  
+            sep = ",", col.names = col.names, append = T, row.names = F, quote = F)
+
+```
+
+```{r sl_rms, eval = FALSE}
 projection_50   <- sl_projections %>%
                    group_by(Date) %>%
                    summarise_all(quantile, probs = 0.5)

@@ -176,21 +176,21 @@ K        <- 1
 
 ## Evaluating goodness of fit
 ```{r, eval = FALSE}
-outfile    <- "output/alldistricts-rms-tproj-300.csv"
-residuals  <- read.csv(outfile)
+outfile    <- "output/sierra-lh.csv"
+log_likelihood  <- read.csv(outfile)
 
 normalise  <- function(col){
     normx <- norm(col, "2")
     if(normx != 0) col <- col/normx
     col
 }
-normalised <- select(residuals, -c(pow_dist, p.stay)) %>%
+normalised <- select(log_likelihood, -c(pow_dist, p.stay)) %>%
               apply(2, normalise) %>% rowSums
 
-pstay <- unique(residuals$p.stay)   %>% sort
-power <- unique(residuals$pow_dist) %>% sort
-rms   <- matrix(normalised, nrow = length(power), byrow = TRUE)
-p <- plotly::plot_ly(x = ~pstay, y = ~power, z = ~rms) %>% plotly::add_surface()
+pstay <- unique(log_likelihood$p.stay)   %>% sort
+power <- unique(log_likelihood$pow_dist) %>% sort
+log_likelihood   <- matrix(normalised, nrow = length(power), byrow = TRUE)
+p <- plotly::plot_ly(x = ~pstay, y = ~power, z = ~log_likelihood) %>% plotly::add_surface()
 
 
 ```

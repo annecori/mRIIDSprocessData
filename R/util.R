@@ -122,19 +122,18 @@ log_likelihood <- function(obs, freq.table){
 ##' The second column is called incid and contains the predicted incidences.
 ##' @return log likelihood of the observed data.
 ##' @author Sangeeta Bhatia
-log_likelihood_atj <- function(observed, predicted){
+log_likelihoods_atj <- function(observed, predicted){
     dates <- unique(observed$Date)
-    lh <- 0
+    lh <- c()
     for(d in dates){
         obs  <- filter(observed,  Date == d) %>% pull(incid)
         pred <- filter(predicted, Date == d) %>% pull(incid)
 
-        freq.table <- table(pred) %>%
-                       prop.table %>%
-                       data.frame %>%
-                       rename("x" = "pred", "prob" = "Freq")
-        lh <- lh + log_likelihood(obs, freq.table)
+        lambda <- mean(pred)
+        lh_obs <- dpois(obs, lambda = lambda, log = TRUE)
+        lh <- c(lh, lh_obs)
     }
+    names(lh) <- dates
     lh
 }
 

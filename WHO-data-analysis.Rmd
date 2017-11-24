@@ -15,11 +15,11 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 1
+  pow_dist : 2
   t.proj : 300
   n.sim : 1000
   n.dates.sim : 35
-  p.stay: 0.9
+  p.stay: 0.99
   
 ---
 
@@ -156,7 +156,7 @@ K        <- 1
 
 ## Projection within Sierra Leone
 
-```{r child = 'WHO-data-analysis-Sierra.Rmd', eval = TRUE}
+```{r child = 'WHO-data-analysis-Sierra.Rmd', eval = FALSE}
 ```
 
 ## Projection within Liberia
@@ -171,26 +171,31 @@ K        <- 1
 
 ## Projection across all districts within Sierra Leone, Liberia and Guinea
 
-```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = FALSE}
+```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = TRUE}
 ```
 
 ## Evaluating goodness of fit
 ```{r, eval = FALSE}
-outfile    <- "output/sierra-lh.csv"
-log_likelihood  <- read.csv(outfile)
+outfile         <- "output/alldistricts-lh-tproj-300.csv"
+log_likelihood  <- read.csv(outfile, na.strings = "-Inf")
 
-normalise  <- function(col){
-    normx <- norm(col, "2")
-    if(normx != 0) col <- col/normx
-    col
-}
-normalised <- select(log_likelihood, -c(pow_dist, p.stay)) %>%
-              apply(2, normalise) %>% rowSums
+## Replace -Inf by a large negative number
+
+log_likelihood[is.na(log_likelihood)] <- -600
+
 
 pstay <- unique(log_likelihood$p.stay)   %>% sort
 power <- unique(log_likelihood$pow_dist) %>% sort
-log_likelihood   <- matrix(normalised, nrow = length(power), byrow = TRUE)
-p <- plotly::plot_ly(x = ~pstay, y = ~power, z = ~log_likelihood) %>% plotly::add_surface()
 
+z  <- select(log_likelihood, -c(pow_dist, p.stay)) %>%
+      rowSums %>%
+       matrix(nrow = length(power), byrow = TRUE)
+
+p <- plotly::plot_ly(x = ~pstay, y = ~power, z = ~z) %>% plotly::add_surface()
+
+
+#p <- plot_ly(x = ~pstay, y = ~power, showscale = TRUE) %>%
+#  add_surface(z = ~z300) %>%
+#  add_surface(z = ~z500, opacity = 0.98) 
 
 ```

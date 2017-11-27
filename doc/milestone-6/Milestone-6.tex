@@ -1,0 +1,207 @@
+\documentclass[11pt,]{article}
+\usepackage[]{mathpazo}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Milestone 6},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{natbib}
+\bibliographystyle{plainnat}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{Mapping the Risk of International Infectious Disease Spread
+    (MRIIDS)}
+  \subtitle{A project funded through USAID’s ``Combating Zika and
+    Future Threats: A Grand Challenge for Development'' program \\
+    Milestone 6: Increased complexity of the simple model to include data from Milestone 5}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{}
+  \preauthor{}\postauthor{}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{27 November, 2017}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{chains}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\newpage
+\section{Milestone Description}\label{milestone-description}
+
+Increased complexity of the simple model to include data from Milestone
+5. Automated testing and validating procedures implemented where
+possible. Procedures for multiple models comparison and accounting for
+uncertainty established.
+
+\section{Summary of Milestone 4}\label{summary-of-milestone-4}
+
+In Milestone 4, we presented a simple transmission model that made us of
+historical case counts, tranmissibility of the pathogen and geographical
+characetrisation as a sole means to predict future risk. The number of
+cases at a location \(j\) at time \(t\) is given by the equation \[
+  I_{j, t} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
+  R_{t, i} \sum_{s = 1}^{t}{I_{i, t - s} w_{s}}\right)} \right),
+\]
+
+where \(R_{t, i}\) is the reproduction number at location \(i\) at time
+\(t\) and \(p_{i \rightarrow j}\) is the probability of moving from
+location \(i\) to location \(j\). The probability of moving between
+locations is derived from the relative flow of populations between
+locations. This latter quantity is estimated using a population flow
+model. In the previous iteration of our work, we had used gravity model.
+Under this model, the flow of individuals from area \(i\) to area \(j\),
+\(\phi_{i \rightarrow j}\), is proportional to the product of the
+populations of the two areas, \(N_i\) and \(N_j\), and inversely
+proportional to the distance between them \(d_{i, j}\) raised to some
+power. That is,
+\[  p_{i \rightarrow j} = (1 - p_{stay}^i) r_{i \rightarrow j}^{spread},\]
+
+where \(p_{stay}^i\) is the probability of staying at location \(i\) and
+\(r_{i \rightarrow j}^{spread}\) is the relative risk of spread to a
+location \(j\) from a focal location \(i\).
+\(r_{i \rightarrow j}^{spread}\) can be quantified as \[
+  r_{i \rightarrow j}^{spread} = \frac{\phi_{i \rightarrow
+  j}}{\sum_{x}{\phi_{i \rightarrow
+  j}}}.
+\]
+
+\section{Changes in Milestone 6}\label{changes-in-milestone-6}
+
+\hypertarget{workflow}{\subsection{Workflow}\label{workflow}}
+
+The pre-processing steps for data obrained from HealthMap/ProMed consist
+of:
+\begin{itemize}
+\item Restricting the full data set to the locations of interest;
+\item For days with multiple alerts, merge the alerts into a single
+  alert;
+\item Discard inconsistent data i.e., that which lead to a decreasing
+  cumulative counts;
+\item Interpolating for dates for which data are missing
+so that the cumulative incidence count is available for every day in the
+interval of interest and retrieve incidence data from interpolated
+cumulative incidence data.
+\end{itemize}
+
+In addition to the above, a step was added after merging duplicate
+alerts to remove outliers. This was done using Chebyshev Inequality
+with sample mean (see~\ref{saw1984chebyshev}). 
+
+\subsection{Model training and validation using data from
+WHO}\label{model-training-and-validation-using-data-from-who}
+
+In the current iteration, the model was trained and validated the data
+on cases officially reported to the WHO during the 2013--2016 Ebola
+outbreak in Guinea, Liberia and Sierra Leone. This dataset was cleaned
+and published in \citep{garske20160308} and it is this cleaned version
+of the data that were used in this work. This dataset consists of
+incidence reports at ADM2 level. Thus in using it, we were able to
+better validate the model. We refer to this dataset as WHO data
+throughout the rest of this document.
+
+\section{Output for Ebola in West
+Africa}\label{output-for-ebola-in-west-africa}
+
+In this section, we provide results from each step in the workflow
+described in \protect\hyperlink{workflow}{Section}.
+
+\subsection{Incidence data clean-up}\label{incidence-data-clean-up}
+
+Since the WHO data used was a clean version, pre-processing was not
+needed. The pre-processing steps are illustrated using data from
+HealthMap. Figure~\ref{fig:lbr_cleanup} shows
+the HealthMap data for Liberia through each pre-processing step.
+
+\begin{figure}
+  \includegraphics[]{"ms6-figures/liberia-preprocessing"}
+  \label{fig:lbr_cleanup}
+  \caption{An illustration of the pre-processing carried out on
+    HealthMap data. Note the outliers that have removed at the third
+    step.}
+\end{figure}
+
+\subsection{Estimating
+Transmissibility}\label{estimating-transmissibility}
+
+\subsection{Predicting Future Cases}\label{predicting-future-cases}
+
+\subsection{Connectivity and Risk of International
+Spread}\label{connectivity-and-risk-of-international-spread}
+
+\section{Conclusions and Next Steps}\label{conclusions-and-next-steps}
+
+\renewcommand\refname{References}
+\bibliography{ms6.bib}
+
+
+\end{document}

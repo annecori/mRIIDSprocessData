@@ -181,7 +181,7 @@ log_likelihood  <- read.csv(outfile, na.strings = "-Inf")
 
 ## Replace -Inf by a large negative number
 
-log_likelihood[is.na(log_likelihood)] <- -600
+log_likelihood[is.na(log_likelihood)] <- -900
 
 
 pstay <- unique(log_likelihood$p.stay)   %>% sort

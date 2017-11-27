@@ -133,27 +133,10 @@ compute.cumulative.incidence <- function(no.duplicates){
     k.sd       <- interval.width.for.p(use.last, 1 - p.within.k) %>% sqrt %>% `[`(2)
 
 
-    cum.incidence %<>% remove.last.outliers(use.last=use.last, k.sd=k.sd)
-    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
-                  no.duplicates$Country[1],
-                   "outliers-removed.pdf", sep = "-")
-    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    # ggsave(out, p)
-
-    cum.incidence %<>%  make_monotonically_increasing
-    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
-                  no.duplicates$Country[1],
-                   "monotonically-increasing.pdf", sep = "-")
-    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    # ggsave(out, p)
-
-    cum.incidence %<>% interpolate.missing.data
-    out <- paste( no.duplicates$Species[1], no.duplicates$Disease[1],
-                  no.duplicates$Country[1],
-                   "missing-interpolated.pdf", sep = "-")
-    p <- ggplot(cum.incidence, aes(Date, Cases)) + geom_point() + theme_minimal()
-    # ggsave(out, p)
-
+    cum.incidence %<>%
+        remove.last.outliers(use.last=use.last, k.sd=k.sd) %<>%
+        make_monotonically_increasing %<>%
+        interpolate.missing.data
 
     cum.incidence
 }

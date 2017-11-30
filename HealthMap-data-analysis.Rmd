@@ -86,7 +86,8 @@ Visualising the raw data.
 healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
                  read.csv(stringsAsFactors = FALSE)
 
-healthmap$Issue.Date %<>% as.Date(format = "%m/%d/%y")
+healthmap %<>% filter(Species == species & Disease == disease)
+
 
 ```
 
@@ -96,6 +97,8 @@ healthmap.raw <- healthmap %>%
                  filter(Species == species,
                                Disease == disease) %>%
                  select(Issue.Date, SC, SD, CC, CD, Country)
+
+healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
 
 healthmap.raw %>%
   tidyr::gather(case_type,
@@ -116,7 +119,7 @@ confirmed cases.
 
 
 ```{r}
-w.africa    <- healthmap$Country %>% unique
+
 
 cols.to.keep <- c("Location", "Country", "Disease", "Species",
                    "HealthMap.Alert.ID", "Headline", "URL",
@@ -162,8 +165,8 @@ by.location <- healthmap %>%
                    cum.incidence %<>% interpolate.missing.data
                    results %<>% c(interpolate  = list(cum.incidence))
 
-                    results %<>% bind_rows(.id = "cleanup_step")
-                    
+                   results %<>% bind_rows(.id = "cleanup_step")
+
                    return(results)}) 
     
 by.location[["Liberia"]]$cleanup_step %<>% factor
@@ -186,49 +189,42 @@ ggplot(by.location[["Liberia"]], aes(Date, Cases)) +
 
 ```
 
-```
-## Warning in as.POSIXlt.POSIXct(x, tz): unknown timezone 'zone/tz/2017c.1.0/
-## zoneinfo/Europe/London'
-```
+```{r incid_tall, eval = TRUE}
 
-```{r}
-## Even at this point we have several NAs because for a given date,
-## we don't have data for all locations.
-## Fortunately the dates are regularly spaced even after the step below.
+by.location %<>% lapply(function(df){
+                         df %<>% filter(cleanup_step == "interpolate")
+                         df$incid <- c(0, diff(df$Cases))
+                         df %<>% select(-c(cleanup_step, Cases)) 
+                         return(df)})
 
-by.location %<>% `[`(complete.cases(.), )
 
-## Subset the incidence counts. we are not going to use any other column
-## except date which we will grab from by.location data frame
-by.location.incidence <- by.location[, grep("incid", names(by.location))]
-colnames(by.location.incidence) %<>%
-                          lapply(function(s){
-                                       strsplit(s, split = "[.]") %>%
-                                       unlist  %>%
-                                       `[`(1)}) %>% unlist %>%
-                                       gsub(" ", "", ., fixed = TRUE)
-
-## We will now split our data into training and validation sets.
-training   <- cbind(Date = by.location$Date[1:t.proj],
-                    by.location.incidence[1:t.proj, ])
-validation <- cbind(Date = by.location$Date[(t.proj + 1):nrow(by.location.incidence)],
-                          by.location.incidence[(t.proj + 1):nrow(by.location.incidence), ])
-weekly.available <- c(training    = list(training),
-                       validation = list(validation)) %>%
-                       lapply(daily.to.weekly) %>%
-                       bind_rows(.id = "Category")
-```
+by.location %>%
+    bind_rows(.id = "Country") %>%
+    ggplot(aes(Date, incid)) +
+    geom_point() +
+    facet_wrap(~Country, scales = "free_y") +
+    theme_minimal() +
+    theme(axis.text.x=element_text(angle = -80, hjust = 0)) +
+    ylab("Incidence")
 
 ```
-## Error in select(., -Date): could not find function "select"
+
+```{r incid_wide, eval = TRUE}
+
+by.location_incid <- bind_rows(by.location, .id = "Country") %>%
+                     tidyr::spread(key = Country, value = incid, fill = 0) 
+
 ```
 
-```{r}
-## Using incidence count to estimate reproduction number.
-start     <- 1:(length(by.location$Date) - time_window)
+We now use the incidence count to estimate reproduction number.
+
+```{r hm_restim, eval = TRUE}
+
+start     <- 1:(length(by.location_incid$Date) - time_window)
 end       <- start + time_window
-end.dates <- by.location[end, "Date"]
-r.estim   <- by.location.incidence  %>%
+end.dates <- by.location_incid[end, "Date"]
+r.estim   <- by.location_incid %>%
+                   select(-Date) %>%
                    plyr::alply(2, .dims = TRUE, function(incid) {
                                                  res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
                                                                   method = "NonParametricSI",
@@ -240,44 +236,42 @@ r.estim   <- by.location.incidence  %>%
                                                  res$R %<>% cbind(Date = end.dates)
                                                  return(res$R)})
 
-## Plotting estimate of R for each country
-r.estim %>%
-    bind_rows(.id = 'Location') %>%
-    ggplot(aes(Date, `Mean(R)`, color = Location)) + geom_point() + theme_minimal()
-```
+lapply(names(r.estim), function(country) {
+    R <- r.estim[[country]]
+    p <- ggplot(R, aes(Date)) +
+        geom_ribbon(aes(ymin = `Quantile.0.025(R)`,
+                        ymax = `Quantile.0.975(R)`),
+                    fill = "grey70") +
+         geom_line(aes(y =  `Mean(R)`)) +
+        theme_minimal() + ylab("Reproduction Number R")
+    ggsave(file = paste0("output/", country, "-R.png"), p)
+})
 
 ```
-## Warning: Removed 6 rows containing missing values (geom_point).
-```
+We assume that the reproduction number remains unchanged for the time
+period over which we wish to project. For each location, distribution of
+r_t at t.proj is r_t over the next n.days.sim.
 
-![plot of chunk unnamed-chunk-1](figure/unnamed-chunk-1-1.png)
 
-```{r}
-## End of plotting R
+```{r rjt, eval = TRUE}
 
-## We assume that the reproduction number remains unchanged for the time
-## period over which we wish to project. For each location, distribution of
-## r_t at t.proj is r_t over the next n.days.sim.
 r.j.t <- r.estim %>%
            lapply(function(R){
-                     cutoff <- which(R$Date %in% by.location[t.proj, "Date"])
+                     cutoff <- which(R$Date %in% by.location_incid[t.proj, "Date"])
                      shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
                      scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
                      return(rgamma(n.sim, shape = shape,
                                           scale = scale))}) %>% data.frame
 
-colnames(r.j.t) <- colnames(by.location.incidence)
 
-r.j.t %>% cbind(Index = 1:n.sim, .) %>%
-    reshape2::melt(id.vars = "Index") %>%
-    rename(Country = variable, R_t = value) %>%
-        ggplot(aes(Index, R_t)) + geom_point() + facet_grid(. ~ Country)
+
+
 ```
 
-![plot of chunk unnamed-chunk-1](figure/unnamed-chunk-1-2.png)
+Determine the flow matrix for the countries of interest only.
 
 ```{r}
-## Determine the flow matrix for the countries of interest only.
+w.africa       <- healthmap$Country %>% unique
 adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
                    filter(V1 %in% w.africa)
@@ -295,82 +289,120 @@ flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
-# p.stay      <- 0.99 # this can be a vector
-# p.movement  <- probability_movement(relative.risk, p.stay)
+p.stay      <- 0.99 # this can be a vector
+p.movement  <- probability_movement(relative.risk, p.stay)
+
+```
 
 
+At this point, all the pieces are in place. by.location_incid contains the incidence count
+r.j.t contains the estimates of reproduction numbers.
+p.movement conatins the probabilities.
+SI_Distr is the serial interval distribution.
+The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
+taking care of the dimensions of course. Now divide the dataset into
+training and validation sets.
 
-## At this point, all the pieces are in place.
-## by.location contains the incidence count
-## r.j.t contains the estimates of reproduction numbers.
-## p.movement conatins the probabilities.
-## SI_Distr is the serial interval distribution.
-## The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
-## taking care of the dimensions of course.
-## Now divide the dataset into training and validation sets.
+We will now split our data into training and validation sets.
 
-incidence.count <- by.location.incidence[1:t.proj, ]
+```{r hm_split, eval = TRUE}
+
+training   <- by.location_incid[1:t.proj, ]
+validation <- by.location_incid[(t.proj + 1):nrow(by.location_incid), ]
+
+```
+
+```{r hm_projection, eval = TRUE}
+
+incidence.count <- select(training, -Date)
 incid           <- as.matrix(incidence.count)
-dates.all       <- by.location[1:t.proj, "Date"] %>%
+dates.all       <- training$Date %>%
                        c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
-##ws            <- c(SI_Distr, rep(0, t.max - length(SI_Distr) + 1)) %>% rev
 
-## Each row of r.j.t is a set of reproduction numbers at each
-## location for one simulation.
-p.stay      <- 0.99
-p.movement  <- probability_movement(relative.risk, p.stay)
 daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     r.t   <- as.matrix(r.t)
                                     out   <- project(incid, r.t, SI_Distr,
                                                      p.movement, n.dates.sim)
-                                    colnames(incid) <- colnames(incidence.count)
+
                                     incidence.proj  <- rbind(incidence.count, out)
                                     incidence.proj %<>% cbind(Date = dates.all)
                                     return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
 
 
+
+
+```
+
+
+```{r hm_plotslist, eval = TRUE}
+
+weekly.available <- c(training    = list(training),
+                       validation = list(validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
+
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
-```
 
-```
-## Warning in FUN(X[[i]], ...): Number of rows is not a multiple of 7.
-```
-
-```
-## Warning in FUN(X[[i]], ...): Ignoring last 6 days.
-```
-
-```
-## Error in select(., -Date): could not find function "select"
-```
-
-```{r}
-plots.list         <- lapply(colnames(by.location.incidence), function(location){
+plots.list         <- lapply(colnames(incidence.count), function(location){
                                 available  <- weekly.available[, c("Date", "Category", location)]
                                 projection <- weekly.projections[, c("Date", location)]
                                 plot.weekly(available, projection)})
-```
 
 ```
-## Error in FUN(X[[i]], ...): object 'weekly.available' not found
-```
+
+
 
 ```{r}
 p <- cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]],
                         plots.list[[4]], plots.list[[5]], plots.list[[6]])
 ```
 
-```
-## Error in cowplot::plot_grid(plots.list[[1]], plots.list[[2]], plots.list[[3]], : object 'plots.list' not found
-```
+
+
 
 ```{r}
 cowplot::save_plot("scratch.png", p,
                     base_aspect_ratio = 1.3)
 ```
 
-```
-## Error in grid::grid.draw(plot): object 'p' not found
+```{r}
+by_date <- split(weekly.projections, weekly.projections$Date)      
+projections_50 <- lapply(by_date, function(df)
+                   summarise_if(df, is.numeric, quantile, probs = 0.5)) %>%
+                   bind_rows(.id = "Date") %>%
+                   tidyr::gather(Country, y, -Date)    
+
+
+projections_025 <- lapply(by_date, function(df)
+                   summarise_if(df, is.numeric, quantile, probs = 0.025)) %>%
+                   bind_rows(.id = "Date") %>%
+                   tidyr::gather(Country, ymin, -Date)
+
+projections_975 <- lapply(by_date, function(df)
+                    summarise_if(df, is.numeric, quantile, probs = 0.975)) %>%
+                    bind_rows(.id = "Date") %>%
+                    tidyr::gather(Country, ymax, -Date)
+
+
+projections_distr <- left_join(projections_50, projections_025) %>%
+                     left_join(projections_975)
+
+projections_distr$Date %<>% as.Date
+
+tmp <- tidyr::gather(weekly.available, Country, Incidence, -c(Category, Date)) 
+    ggplot(tmp, aes(Date, Incidence, color = Category)) +
+    geom_point() +
+    theme_minimal() + facet_wrap(~Country) +
+        geom_line(data = projections_distr, aes(x = Date, y = y, group = 1),
+                  color = 'black', size = 1) +    
+        geom_ribbon(data = projections_distr, aes(x = Date,
+                                                  ymin = ymin,
+                                                  ymax = ymax,
+                                                  group = 1),
+                                               inherit.aes = FALSE,
+                                               alpha = 0.5)
+        
+
 ```
 

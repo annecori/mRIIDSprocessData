@@ -160,7 +160,7 @@ alldistricts_training contains the incidence count we will use for projecting.
 Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
-```{r}
+```{r all_project, eval = FALSE}
 
 alldistricts_training   <- WHO_wide[1:t.proj, ]
 alldistricts_validation <- WHO_wide[(1 + t.proj):nrow(WHO_wide), ]
@@ -220,7 +220,7 @@ cowplot::plot_grid(plotlist = plots.list)
 ```
 
 ## Evaluating goodness of fit
-```{r all_fit}
+```{r all_fit, eval = FALSE}
 
 daily.projections %<>% bind_rows(.)
 start           <- min(daily.projections$Date)
@@ -228,7 +228,25 @@ end             <- max(daily.projections$Date)
 available_small <- filter(WHO_wide, Date >= start & Date <= end) 
 ```
 
-```{r all_loglh}
+We now determine the likelihood of the parameters using the observed data.
+
+```{r all_loglh_1step, eval = TRUE}
+
+incid  <- as.matrix(select(WHO_wide, -Date))
+t.max  <- t.proj + n.dates.sim - 1
+R      <- r.j.t[1, ]
+all_loglh <- log_likelihood_1step(incid,
+                                  window = 20,
+                                  start = t.proj + 1,
+                                  end = t.max,
+                                  pij = p.movement,
+                                  R = as.matrix(R),
+                                  si = SI_Distr) %>% sum
+
+```
+
+
+```{r all_loglh, eval = FALSE}
 districts <- select(daily.projections, -Date) %>% colnames
 names(districts) <- districts
 all_loglh   <- lapply(districts, function(district){
@@ -239,11 +257,18 @@ all_loglh   <- lapply(districts, function(district){
                                       colnames(predicted) <- c("Date", "incid")
 
                                       log_likelihoods_atj(observed, predicted) %>% sum})
+```
+
+
+
+```{r all_lh_write, eval = TRUE}
 
 all_loglh %<>% data.frame
 all_loglh %<>% cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
+
 outfile   <-  paste0("output/alldistricts-lh-tproj-", t.proj, ".csv")
 col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+
 write.table(all_loglh, outfile,  
             sep = ",", col.names = col.names, append = T, row.names = F, quote = F)
 

@@ -17,9 +17,9 @@ endnote: no
 params:
   pow_dist : 2
   t.proj : 300
-  n.sim : 1000
+  n.sim : 1
   n.dates.sim : 35
-  p.stay: 0.99
+  p.stay: 1
   
 ---
 
@@ -55,7 +55,7 @@ The columns we use are : Country, EpiCaseDef (probably),
 DateOnsetInferred and CL_DistrictRes. 
 
 
-```{r rawdata}
+```{r rawdata, eval = FALSE}
 WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv",
                     colClasses = c(Country = "factor",
                                    EpiCaseDef = "character",
@@ -76,7 +76,7 @@ WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
 For each district in a country, add the number of records for each
 date to get incidence count.
 
-```{r bydistricts}
+```{r bydistricts, eval = FALSE}
 
 WHO_bydistricts <- WHO_raw %>% 
                    group_by(Country, CL_DistrictRes,
@@ -90,7 +90,7 @@ recorded, we assume that there were no cases on that date and add this
 to the record. At the end of this step, the incidence time series for
 each district should be a daily time series.
 
-```{r fillup}
+```{r fillup, eval = FALSE}
 
 WHO_bydistricts %<>%
     split(.$CL_DistrictRes) %<>%
@@ -122,6 +122,14 @@ ggplot(WHO_bycountry, aes(Date, incid)) +
     theme_minimal() +
     ggtitle("Incidence in each country") +
     xlab("") + theme(axis.text.x = element_text(angle = 45, vjust = 0.2))
+
+```
+
+Read in data prepared using the above code chunks.
+
+```{r data_load, eval = TRUE}
+
+WHO_bydistricts <- readr::read_csv("data/CaseCounts/who/WHO_bydistricts.csv")
 
 ```
 

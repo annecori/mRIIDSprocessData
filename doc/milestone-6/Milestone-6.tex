@@ -105,16 +105,29 @@ possible. Explore procedures for multiple models comparison and accounting for
 uncertainty.
 
 \section{General Approach}
-In Milestone 4, we presented a simple transmission model that made us of
+In Milestone 4, we presented a simple transmission model that made use of
 historical case counts (data stream 1), information about the
 transmissibility of the pathogen (data stream 2) and geographical
 characetrisation (data stream 3) as a sole means to predict future risk. 
-We built on the simple model presented in Milestone 4 (ML4) to a more
-complex model that integrates the information on multiple data streams to provide:
+In the simple approach, the geographical characterisation was not fully integrated in the model:
+first transmissibility was estimated from case count data, then future incidence was predicted, and 
+finally, the predicted incidence was distributed geographically according to the spatial distribution 
+and population density of each geographical unit.
 
+to achieve the goal outlined in milestone 6, We built on the simple model presented in Milestone 4 
+(ML4) to integrate geographical information into our inference procedure.
+Having achieved this, other charateristics defined at the geographical scale of reeference can be 
+added to the model such as the health care capacity of a location.
+
+In essence, by building our more complex model around integrating spatial information 
+into the inference and prediction phases, we build a complex models which has the potential to
+account for the multiple datastreams initially described.
+
+Therefore, our new complex model has the ability to:
 \begin{itemize}
-\item estimate model parameters,
-\item predict the regional/international spread of Ebola. 
+\item estimate model parameters: including parameters linked to geographical spread (or
+potentially health care capacity,
+\item predict the regional/international spread of Ebola, relying on those parameters' estimates. 
 \end{itemize}
 
 We have also established the procedure for the validation process
@@ -137,7 +150,7 @@ transmissibility of a pathogen, the healthcare capacity at location
 $i$ etc. Its dependance on these factors is formalised as
 \[ R_{t, i} := f(haq_i, R_0, t),\]
 where $haq_i$ is an index/score quantifying the healthcare capacity at
-$i$, $f$ denotes a function and other symbols have their usual meaning.
+$i$, $f$ denotes a function, $R_0$ is the basic reproduction number (datastream 2) and $t$ is time..
 
 The probability of moving between locations is derived from the relative flow of populations between
 locations. This latter quantity is estimated using a population flow
@@ -157,9 +170,19 @@ location \(j\) from a focal location \(i\).
   j}}}.
 \]
 
+NEED FORMULATION FOR FUNCTION PHI + DISCUSS P_STAY (POSSIBLE IMBALANCE IN FLOW IF P_STAY IS GEOGRAPHICALLY HETEROGENEOUS)
+
 \subsection{Statistical inference of model parameters}
-The parameters of the full model as presented in Section~\ref{sec:model} are: $R_{t, i}$, $p_{stay}$ and $\gamma$. The
-reproduction number $R_{t, i}$ at time $t$ can be estimated from the
+The parameters of the full model as presented in Section~\ref{sec:model} are: 
+\begin{itemize}
+\item $R_{t, i}$, the reproduction at time $t$,
+\item $p_{stay}$, the probability of staying in location $i$, and 
+\item $\gamma$, the power of the gravity model. Larger value of this parameter indicates 
+that distances travelled tend to be short. 
+\end{itemize}
+
+I WOULD REMOVE THIS BELOW?
+The reproduction number $R_{t, i}$ at time $t$ can be estimated from the
 incidence data for the previous 3 to 4 weeks using the package EpiEstim
 (\cite{cori2013new}). 
 
@@ -182,14 +205,23 @@ Thus assuming that each observation is independent, the likelihood of the parame
 In practice, we use past 2 to 3 weeks of incidence data to compute the
 likelihood.
 
+NEEDS TO DESCRIBE BY GEOGRAPHICAL UNITS HERE... AND PROVIDE THE POSTERIOR DISTRIBUTION OF THE PARAMETERS
+
 \subsection{Multi-model Comparison}
-We are exploring the use of well established statistical measures ranging from simple such as
-likelihood ratio to the more sophisticated information-theoretic
-measures such as AIC or DIC for multi-model comparison. Another line
-of investigation for multi-model inference is model avaeraging i.e.,
-the predicted values are the weighted means of the predictions from
-each model under consideration where the weights are the model
-probabilities (see \cite{burnham2011aic}). 
+
+We are exploring two possibilities: 
+- simple model selection procedure
+- multimodel averaging.
+Whiole the first is easier, the second better acciount for not only parameter uncertainty but also mode uncertainty.
+
+Needs example (e.g. No gamma, i.e. Gamma=1) compare dic use best fit model
+
+Or evaluate all models and use multimodel average (see \cite{burnham2011aic}):  
+First evauate dic for each model
+Compute relative importance of each model based on dic
+Predict for each model and weight predictions according to relative importance
+
+
 
 \subsection{Predicting Future Incidence Pattern and Geographical Spread}
 
@@ -198,12 +230,14 @@ probabilities (see \cite{burnham2011aic}).
 
 The general approach outlined above relies on several data streams, an
 inference framework, and a framework for projection. The code
-developed as part of the project will be made available as an open
-source R package that will provide functions for pre-processing and
+developed as part of the project is available as an open
+source R package that provide functions for pre-processing and
 collating the various data streams as well as plug the data into
-modules that will do the inference and the projection. The software
+modules that will do the inference and the projection. 
+
+The software
 package will eventually be published on the R packages repository
-(CRAN). At the moment is available on GitHub (github.com/annecori/mRIIDSprocessData).
+(CRAN). At the moment, it is available on GitHub (github.com/annecori/mRIIDSprocessData).
 
 \begin{figure}
    \centering

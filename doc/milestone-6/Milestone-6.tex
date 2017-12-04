@@ -194,22 +194,37 @@ probabilities (see \cite{burnham2011aic}).
 \subsection{Predicting Future Incidence Pattern and Geographical Spread}
 
 \section{Implementation Details}
+\subsection{Software Package mRIIDS}
 
 The general approach outlined above relies on several data streams, an
 inference framework, and a framework for projection. The code
 developed as part of the project will be made available as an open
 source R package that will provide functions for pre-processing and
 collating the various data streams as well as plug the data into
-modules that will do the inference and the projection. 
+modules that will do the inference and the projection. The software
+package will eventually be published on the R packages repository
+(CRAN). At the moment is available on GitHub (github.com/annecori/mRIIDSprocessData).
 
 \begin{figure}
-  \includegraphics[scale = 0.5]{ms6-figures/github-screenshot}
+   \centering
+  \includegraphics[width=8cm, height = 6cm]{ms6-figures/github-screenshot}
   \label{fig:github}
   \caption{The software being developed for the project is available
     on GitHub.}
 \end{figure}
 
-\subsection{Software Package mRIIDS}
+
+The package will include extensive documentation in the form of
+user-friendly help files and vignettes.
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=8cm, height = 6cm]{ms6-figures/Helpfile-screenshot}
+  \caption{An example of the documentation for the R package mRIIDS}
+  \label{fig:helpfile}
+\end{figure}
+
 \subsection{Collating data for each data stream}
 \begin{center}
 \begin{figure}
@@ -239,17 +254,20 @@ modules that will do the inference and the projection.
 \node (h) [on chain=2,join] {Predict future incidence};
 \draw[->] (d) -- (e);
 \end{tikzpicture}
-\label{fig:workflow}
 \caption{Workflow for the processing of the various data streams.}
+\label{fig:workflow}
 \end{figure}
 \end{center}
 
-In Milestone 6, a step was added to the data pre-processing workflow
+Figure~\ref{fig:workflow} summarises the steps involved in collating
+the different data streams and in going from raw data to predictions. In Milestone 6, a step was added to the data pre-processing workflow
 to remove outliers from data. The removal of outliers was done using Chebyshev Inequality
-with sample mean (see~\cite{saw1984chebyshev}). Figure~\ref{fig:wf_example} illustrates the results of each step in the pre-processing steps in the workflow. 
+with sample mean (see~\cite{saw1984chebyshev}). Figure~\ref{fig:wf_example} illustrates
+the results of each step in the pre-processing steps in the workflow.
+
 \begin{figure}
   \centering
-  \includegraphics{ms6-figures/liberia-preprocessing.png}
+  \includegraphics{ms6-figures/liberia-preprocessing}
   \caption{Illustration of the pre-processing steps on HealthMap incidence
     data for Liberia.}
   \label{fig:wf_example}
@@ -277,19 +295,59 @@ well as the reproduction numbers estimated from the incidence data.
 \begin{figure}
     \centering
     \begin{subfigure}[b]{0.8\textwidth}
-        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid.png}
+        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid}
         \caption{Comparison of incidence data from WHO, HealthMap and ProMed.}
         \label{fig:incid_comp}
       \end{subfigure}
       ~
     \begin{subfigure}[b]{0.8\textwidth}
-        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R.png}
+        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R}
         \caption{Comparison of the reproduction numbers estimated from
         the different sources of the incidence data.}
         \label{fig:r_comp}
     \end{subfigure}
   \end{figure}
-  
+
+\subsection{Inference of parameters}
+
+The parameters of the full model detailed in Section~\ref{sec:} are
+$\alpha$, $\beta$, $\gamma$, $p_{stay}$ and $R_{i, t}$. The
+estimation os $R_{i, t}$ uses incidence data and is done using the
+EpiEstim package. In the interest of simplicity, we assume both
+$\alpha$ and $\beta$ to be $1$. Thus the set of parameters is now
+$p_{stay}$ and $\gamma$. We explored the influence of these two
+parameters on the quality of fit of the model at various points in the
+epidemic. To assess the goodness-of-fit, we used the normalised root mean squared
+error (rms), which is the sum of squares of the differences between
+observed and predicted values. That is, 
+\[ rms := \sum_{i = 1}^n{\left(o_i - p_i\right)^2},\]
+where $o_i$ is $i$th observation, $p_i$ is the corresponding value
+predicted by the model and $n$ is the total number of observations.
+
+\begin{figure}
+  \centering
+  \begin{subfigure}[b]{0.4\textwidth}
+    \includegraphics[]{ms6-figures/rms-100-2}
+    \caption{Projecting for 5 weeks at 100 days from the start of the epidemic.}
+    \label{fig:rms-100}
+\end{subfigure}
+~
+  \begin{subfigure}[b]{0.4\textwidth}
+    \includegraphics[]{ms6-figures/rms-300-2}
+    \caption{Projecting for 5 weeks at 300 days from the start of the epidemic.}    
+    \label{fig:rms-300}
+\end{subfigure}
+  \caption[RMS as a function of model parameters]{Normalised root mean
+    squared values as a function of the model parameters. The fit is
+    assessed for prediction of 5 weeks at 100 and 300 days from the start of
+    the epidemic. The fit is better for smaller values of the root
+    mean sqaure error. In the early phase of the epidemic, a better
+    fit is obtained at a smaller value of $p_{stay}$ while at the 300
+    days mark, a much higher value of $p_{stay}$ is needed to obtain a
+  good fit.}
+  \label{fig:rms}
+\end{figure}
+
 \section{Output for Ebola in West Africa}\label{output-for-ebola-in-west-africa}
 
 

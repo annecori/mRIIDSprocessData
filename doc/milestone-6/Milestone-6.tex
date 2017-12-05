@@ -323,42 +323,48 @@ on cases officially reported to the WHO during the 2013--2016 Ebola
 outbreak in Guinea, Liberia and Sierra Leone. This dataset was cleaned
 and published in \citep{garske20160308} and it is this cleaned version
 of the data that were used in this work. This dataset consists of
-incidence reports at ADM2 level. Thus in using it, we were able to
-better validate the model at a finer spatial resolution than available
+incidence reports at ADM2 level. Thus in using it, we were able to validate the model at a finer spatial resolution than available
 with HealthMap/ProMed data. We refer to this dataset as WHO data
 throughout the rest of this document.
 
-\subsubsection{Incidence trends from different data sources}
+\subsection{Incidence trends from different data sources}
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
-and ProMed). As can be seen in Figures~\ref{fig:incid_comp} and \ref{fig:r_comp}, the
-three data sources correlate well both in the incidence time series as
-well as the reproduction numbers estimated from the incidence data.
+and ProMed). As can be seen in Figure~\ref{fig:incid_comp}, the
+three data sources correlate well in the incidence time series.
+
 \begin{figure}
     \centering
-    \begin{subfigure}[b]{0.8\textwidth}
         \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid}
         \caption{Comparison of incidence data from WHO, HealthMap and ProMed.}
         \label{fig:incid_comp}
-      \end{subfigure}
-      ~
-    \begin{subfigure}[b]{0.8\textwidth}
-        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R}
-        \caption{Comparison of the reproduction numbers estimated from
-        the different sources of the incidence data.}
-        \label{fig:r_comp}
-    \end{subfigure}
   \end{figure}
 
 \subsection{Inference of parameters}
 
-The parameters of the full model detailed in Section~\ref{sec:} are
+The parameters of the full model detailed in Section~\ref{sec:model} are
 $\alpha$, $\beta$, $\gamma$, $p_{stay}$ and $R_{i, t}$. The
 estimation os $R_{i, t}$ uses incidence data and is done using the
-EpiEstim package. In the interest of simplicity, we assume both
-$\alpha$ and $\beta$ to be $1$. Thus the set of parameters is now
+EpiEstim package. Figure~\ref{fig:r_comp} shows the
+reproduction number estimated using previous 28 days incidence
+data. The high degree of correlation in the estimates from the three
+different data sources shows that the estimation procedure is robust
+to slight variations in reported number.
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R}
+  \caption{Comparison of the reproduction numbers estimated from
+        the different sources of the incidence data.}
+  \label{fig:r_comp}
+\end{figure}
+
+
+In the interest of simplicity, we assume both
+$\alpha$ and $\beta$ to be $1$. The other two parameters are
 $p_{stay}$ and $\gamma$. We explored the influence of these two
-parameters on the quality of fit of the model at various points in the
+parameters on the quality of fit of the predictions from the models at various points in the
 epidemic. To assess the goodness-of-fit, we used the normalised root mean squared
 error (rms), which is the sum of squares of the differences between
 observed and predicted values. That is, 
@@ -370,17 +376,17 @@ predicted by the model and $n$ is the total number of observations.
   \centering
   \begin{subfigure}[b]{0.4\textwidth}
     \includegraphics[]{ms6-figures/rms-100-2}
-    \caption{Projecting for 5 weeks at 100 days from the start of the epidemic.}
+    \caption{Root mean square errors for prediction for 5 weeks at 100 days from the start of the epidemic.}
     \label{fig:rms-100}
 \end{subfigure}
 ~
   \begin{subfigure}[b]{0.4\textwidth}
     \includegraphics[]{ms6-figures/rms-300-2}
-    \caption{Projecting for 5 weeks at 300 days from the start of the epidemic.}    
+    \caption{Root mean square errors for prediction for 5 weeks at 300 days from the start of the epidemic.}    
     \label{fig:rms-300}
 \end{subfigure}
   \caption[RMS as a function of model parameters]{Normalised root mean
-    squared values as a function of the model parameters. The fit is
+    squared error as a function of the model parameters. The fit is
     assessed for prediction of 5 weeks at 100 and 300 days from the start of
     the epidemic. The fit is better for smaller values of the root
     mean square error. In the early phase of the epidemic, a better
@@ -390,14 +396,15 @@ predicted by the model and $n$ is the total number of observations.
   \label{fig:rms}
 \end{figure}
 
-%\section{Output for Ebola in West Africa}\label{output-for-ebola-in-west-africa}
+\subsection{Predicting Future Cases}\label{predicting-future-cases}
 
+The WHO data consisted of incidence data at the district level. To
+validate the model, we carried out analysis at both the district level
+and country level.
 
+\subsubsection{Prediction at country level}
 
-%\subsection{Estimating Transmissibility}\label{estimating-transmissibility}
-
-%\subsection{Predicting Future Cases}\label{predicting-future-cases}
-
+\subsubsection{Prediction at district level}
 %\subsection{Connectivity and Risk of International Spread}\label{connectivity-and-risk-of-international-spread}
 
 %\subsection{Parameters Inference}

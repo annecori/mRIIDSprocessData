@@ -105,23 +105,25 @@ possible. Explore procedures for multiple models comparison and accounting for
 uncertainty.
 
 \section{General Approach}
+
 In Milestone 4, we presented a simple transmission model that made use of
 historical case counts (data stream 1), information about the
 transmissibility of the pathogen (data stream 2) and geographical
-characetrisation (data stream 3) as a sole means to predict future risk. 
-In the simple approach, the geographical characterisation was not fully integrated in the model:
+characterization (data stream 3) to predict future risk. 
+In this approach, the geographical characterization was not fully integrated in the model:
 first transmissibility was estimated from case count data, then future incidence was predicted, and 
 finally, the predicted incidence was distributed geographically according to the spatial distribution 
 and population density of each geographical unit.
 
-to achieve the goal outlined in milestone 6, We built on the simple model presented in Milestone 4 
+To achieve the goals outlined in Milestone 6, we built on the model presented in Milestone 4 
 (ML4) to integrate geographical information into our inference procedure.
-Having achieved this, other charateristics defined at the geographical scale of reeference can be 
-added to the model such as the health care capacity of a location.
+Having achieved this, other characteristics defined at the geographical
+scale of reference such as the health care capacity of a location, can be 
+added to the model.
 
-In essence, by building our more complex model around integrating spatial information 
-into the inference and prediction phases, we build a complex models which has the potential to
-account for the multiple datastreams initially described.
+In essence, by integrating the spatial information into the inference
+and prediction phases, we have developed a complex model that has the potential to
+account for the multiple data streams initially described.
 
 Therefore, our new complex model has the ability to:
 \begin{itemize}
@@ -146,61 +148,87 @@ where \(R_{t, i}\) is the reproduction number at location \(i\) at time
 location \(i\) to location \(j\). The quantity $R_{t, i}$ is the
 reproduction number at time $t$ at location $i$. $R_{t, i}$ is
 affected by a number of other factors e.g., the intrinsic
-transmissibility of a pathogen, the healthcare capacity at location
-$i$ etc. Its dependance on these factors is formalised as
+transmissibility of a pathogen, the health care capacity at location
+$i$ etc. Its dependence on these factors is formalized as
 \[ R_{t, i} := f(haq_i, R_0, t),\]
-where $haq_i$ is an index/score quantifying the healthcare capacity at
-$i$, $f$ denotes a function, $R_0$ is the basic reproduction number (datastream 2) and $t$ is time..
+where $haq_i$ is an index/score quantifying the health care capacity at
+$i$, $f$ denotes a function, $R_0$ is the basic reproduction number (data stream 2) and $t$ is time..
 
 The probability of moving between locations is derived from the relative flow of populations between
 locations. This latter quantity is estimated using a population flow
 model such as gravity model. Under gravity model, the flow of individuals from area \(i\) to area \(j\),
 \(\phi_{i \rightarrow j}\), is proportional to the product of the
-populations of the two areas, \(N_i\) and \(N_j\), and inversely proportional to the distance between them \(d_{i, j}\) raised to some
-power $\gamma$. The probability of movement from location \(i\) to
-location \(j\) is given by
-\[  p_{i \rightarrow j} = (1 - p_{stay}^i) r_{i \rightarrow j}^{spread},\]
+populations of the two areas, \(N_i\) and \(N_j\) and inversely
+proportional to the distance between them \(d_{i, j}\), all quantities
+are raised to some power.
+\[
+  \phi_{i \rightarrow j} :=  \frac{N_i^{\alpha}N_j^{\beta}}{d_{i, j}^{\gamma}}.
+\]
 
-where \(p_{stay}^i\) is the probability of staying at location \(i\) and
-\(r_{i \rightarrow j}^{spread}\) is the relative risk of spread to a
-location \(j\) from a focal location \(i\).
-\(r_{i \rightarrow j}^{spread}\) is quantified as \[
+In practice, \( \alpha \) and \( \beta \) are assumed to be $1$. The
+exponent \( \gamma \) modulates the effects distance on the flow of
+populations. A large value of \( \gamma \) indicates that the
+distances traveled by populations tend to be short.
+
+The relative risk of spread at a location \(j\) from a location \(i\)
+is thus the population flow into location \(j\) from location \(i\).
+
+\[
   r_{i \rightarrow j}^{spread} = \frac{\phi_{i \rightarrow
   j}}{\sum_{x}{\phi_{i \rightarrow
   j}}}.
 \]
 
-NEED FORMULATION FOR FUNCTION PHI + DISCUSS P_STAY (POSSIBLE IMBALANCE IN FLOW IF P_STAY IS GEOGRAPHICALLY HETEROGENEOUS)
+The probability of movement from location \(i\) to location \(j\) is given by
+\[  p_{i \rightarrow j} = (1 - p_{stay}^i) r_{i \rightarrow j}^{spread},\]
+
+where \(p_{stay}^i\) is the probability of staying at location
+\(i\). As the above equation indicates, by varying $p_{stay}^i$, we
+can capture the dynamics of population flow across spatial units. For
+instance, if \(p_{stay}^i\) is large, then the flow out of location
+\(i\) would be small. Thus, if this parameter is geographically
+heterogeneous, we obtain imbalanced flow of population. 
+
+NEED FORMULATION FOR FUNCTION PHI + DISCUSS $p_{STAY}$ (POSSIBLE IMBALANCE IN FLOW IF PSTAY IS GEOGRAPHICALLY HETEROGENEOUS)
 
 \subsection{Statistical inference of model parameters}
+
 The parameters of the full model as presented in Section~\ref{sec:model} are: 
 \begin{itemize}
 \item $R_{t, i}$, the reproduction at time $t$,
 \item $p_{stay}$, the probability of staying in location $i$, and 
-\item $\gamma$, the power of the gravity model. Larger value of this parameter indicates 
-that distances travelled tend to be short. 
+\item $\gamma$, the exponent of the distance in the gravity model. 
 \end{itemize}
 
-I WOULD REMOVE THIS BELOW?
-The reproduction number $R_{t, i}$ at time $t$ can be estimated from the
-incidence data for the previous 3 to 4 weeks using the package EpiEstim
-(\cite{cori2013new}). 
 
-The other parameters can be estimated using maximum likelihood
+The parameters can be estimated using maximum likelihood
 estimation or estimating the posterior distribution of the parameters using
-MCMC. Let the observed incidence time series be $o_1, o_2, \dots
-o_t \dots $. Then the likelihood of the model parameters given the
+MCMC. Let the observed incidence time series at locations \(1\)
+through \(n\) and time \(1, 2 \dots t\) be
+\[
+I = \begin{bmatrix}
+    o_{1,1}       & o_{1,2}  & \dots & o_{1,n} \\
+    o_{2,1}       & o_{2,2}  & \dots & o_{2,n} \\
+    \hdotsfor{4} \\
+    o_{t,1}       & o_{t,2}  & \dots & o_{t,n}
+\end{bmatrix}
+\]
+where \(o_{i, j}\) is the observed incidence at time \(i\) at location
+\(j\).
+Then the likelihood of the model parameters given the
 observations is proportional to the probability of the data given
-model parameters.  The probability of $o_t$ at time $t$ given
+model parameters.  The probability of $o_{j, t}$ given
 the model parameters is:
-\[ P(o_t \mid p_{stay}, \gamma, R_t) = e^-{\lambda_t}
-  \frac{o_t^{\lambda_t}}{\lambda_t !}, \]
-where $\lambda_t$ is given by
-\[\lambda_t = R_t \sum_{s = 1}^t{I_{s}w_{t - s}}.\]
+\[ P(o_{j, t} \mid p_{stay}^i, \gamma, R_{i, t}) = e^{-\lambda_{j, t}}
+  \frac{o_{j, t}^{\lambda_{j, t}}}{\lambda_{j, t} !}, \]
+where $\lambda_{j, t}$ is given by
+\[
+  \lambda_{j, t} = \sum_{i = 1}^n{\left(p_{i \rightarrow j}R_{i, t} \sum_{s
+        = 1}^t{I_{i, s}w_{t - s}} \right)}.\]
 
 Thus assuming that each observation is independent, the likelihood of the parameters is proportional to
 \[
-\prod_{t = 1}^{t}{e^-{\lambda_t} \frac{o_t^{\lambda_t}}{\lambda_t !}}.
+\prod_{t = 1}^{t}{e^{-\lambda_{i, t}} \frac{o_{i, t}^{\lambda_{i, t}}}{\lambda_{i, t} !}}.
 \]
 In practice, we use past 2 to 3 weeks of incidence data to compute the
 likelihood.
@@ -209,21 +237,26 @@ NEEDS TO DESCRIBE BY GEOGRAPHICAL UNITS HERE... AND PROVIDE THE POSTERIOR DISTRI
 
 \subsection{Multi-model Comparison}
 
-We are exploring two possibilities: 
-- simple model selection procedure
-- multimodel averaging.
-Whiole the first is easier, the second better acciount for not only parameter uncertainty but also mode uncertainty.
+We are exploring two possibilities:
+
+\begin{itemize}
+\item simple model selection procedure
+\item  multi-model averaging.
+\end{itemize}
+
+While selecting a model is easier, multi-model averaging better
+accounts for both parameter and model uncertainty.
 
 Needs example (e.g. No gamma, i.e. Gamma=1) compare dic use best fit model
 
-Or evaluate all models and use multimodel average (see \cite{burnham2011aic}):  
-First evauate dic for each model
+Or evaluate all models and use multi-model average (see \cite{burnham2011aic}):  
+First evaluate dic for each model
 Compute relative importance of each model based on dic
 Predict for each model and weight predictions according to relative importance
 
 
 
-\subsection{Predicting Future Incidence Pattern and Geographical Spread}
+%%%%%\subsection{Predicting Future Incidence Pattern and Geographical Spread}
 
 \section{Implementation Details}
 \subsection{Software Package mRIIDS}
@@ -262,38 +295,13 @@ user-friendly help files and vignettes.
 \subsection{Collating data for each data stream}
 \begin{center}
 \begin{figure}
-\begin{tikzpicture}[start chain=1 going right,
-                    start chain=2 going left,
-                    node distance=5mm,
-                    every join/.style=->,
-                    every node/.style={draw,
-                      rectangle,
-                      rounded corners,
-                      minimum width = 3.4cm,
-                      minimum height = 2cm,
-                      text width = 2.3cm,
-                      text=black,
-                      text opacity=1,
-                      align=center,
-                    fill=teal!60}]
- \pgfsetfillopacity{0.3}
-\node (a) [on chain=1,join] {Extract case counts};
-\node (b) [on chain=1,join] {Merge Duplicate Alerts};
-\node (c) [on chain=1,join] {Remove outliers};
-\node (d) [on chain=1,join] {Discard inconsistent data};
-\node (e) [on chain=2, below = of d,join] {Interpolate missing data};
-\node (f) [on chain=2,join] {Estimate Reproduction Number};
-\node (g) [on chain=2,join] {Determine probability of movement between
-  locations};
-\node (h) [on chain=2,join] {Predict future incidence};
-\draw[->] (d) -- (e);
-\end{tikzpicture}
+\includegraphics[]{ms6-figures/workflow}
 \caption{Workflow for the processing of the various data streams.}
 \label{fig:workflow}
 \end{figure}
 \end{center}
 
-Figure~\ref{fig:workflow} summarises the steps involved in collating
+Figure~\ref{fig:workflow} summarizes the steps involved in collating
 the different data streams and in going from raw data to predictions. In Milestone 6, a step was added to the data pre-processing workflow
 to remove outliers from data. The removal of outliers was done using Chebyshev Inequality
 with sample mean (see~\cite{saw1984chebyshev}). Figure~\ref{fig:wf_example} illustrates
@@ -375,34 +383,24 @@ predicted by the model and $n$ is the total number of observations.
     squared values as a function of the model parameters. The fit is
     assessed for prediction of 5 weeks at 100 and 300 days from the start of
     the epidemic. The fit is better for smaller values of the root
-    mean sqaure error. In the early phase of the epidemic, a better
+    mean square error. In the early phase of the epidemic, a better
     fit is obtained at a smaller value of $p_{stay}$ while at the 300
     days mark, a much higher value of $p_{stay}$ is needed to obtain a
   good fit.}
   \label{fig:rms}
 \end{figure}
 
-\section{Output for Ebola in West Africa}\label{output-for-ebola-in-west-africa}
+%\section{Output for Ebola in West Africa}\label{output-for-ebola-in-west-africa}
 
 
 
-\subsection{Estimating Transmissibility}\label{estimating-transmissibility}
+%\subsection{Estimating Transmissibility}\label{estimating-transmissibility}
 
-\subsection{Predicting Future Cases}\label{predicting-future-cases}
+%\subsection{Predicting Future Cases}\label{predicting-future-cases}
 
-\subsection{Connectivity and Risk of International
-Spread}\label{connectivity-and-risk-of-international-spread}
+%\subsection{Connectivity and Risk of International Spread}\label{connectivity-and-risk-of-international-spread}
 
-\subsection{Parameters Inference}
-[initial exploration of how $p_{stay}$ and power, using rms]
-
-[Formalization of the likelihood for joint estimation of R, $p_{stay}$, power]
-
-This section should include figures
-
-\subsection{Predicting future incidence and geographical spread}
-
-[present some early results – map of predictions/ incidence curve/ table at country level? ].
+%\subsection{Parameters Inference}
 
 \section{Conclusions and next steps}\label{sec:conclusions}
 

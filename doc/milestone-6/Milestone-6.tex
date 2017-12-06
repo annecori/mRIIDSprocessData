@@ -88,9 +88,8 @@
   \postdate{\par}
   \date{27 November, 2017}
 
-\usepackage{tikz}
-\usetikzlibrary{positioning}
-\usetikzlibrary{chains}
+
+\usepackage[section]{placeins}
 
 \begin{document}
 \maketitle
@@ -139,7 +138,7 @@ For the model validation, we rely on both Promed/HealthMap incidence data, which
 at the national scale, and WHO reported data which are at the district level. The advantage 
 of using the more spatially refined WHO data is that it allows increased statistical power to 
 infer the spatial parameters of the model (i.e. more movements occur at finer spatial scale, 
-therefore the `signature' of movement in inceidence data is more identifyable at finer scale).
+therefore the `signature' of movement in incidence data is more identifiable at finer scale).
 This exercise could be viewed as:
 \begin{itemize}
 \item demonstrating the flexible nature of our framework, i.e. 
@@ -244,7 +243,7 @@ Thus assuming that each observation is independent, the likelihood of the parame
 \]
 In practice, we estimate $R_{t, i}$ as an average over the past 2 or 3 week with sliding time windows.
 
-Given this likelihood, we can write the joint posterior distribution of the parameter given the observaed data as:
+Given this likelihood, we can write the joint posterior distribution of the parameter given the observed data as:
 \[
 P( \{p_{stay}^i\}, \gamma, \{R_{i, t}\} \mid \{o_{j, t}\}) \propto  
   \mathcal{L} \times P(\{R_{i,0}\}) P(\{p_{stay}^i\}) P(\gamma).
@@ -383,7 +382,7 @@ three data sources correlate well in the incidence time series.
 
 The parameters of the full model detailed in Section~\ref{sec:model} are
 $\alpha$, $\beta$, $\gamma$, $p_{stay}$ and $R_{i, t}$. The
-estimation os $R_{i, t}$ uses incidence data and is done using the
+estimation of $R_{i, t}$ uses incidence data and is done using the
 EpiEstim package. Figure~\ref{fig:r_comp} shows the
 reproduction number estimated using previous 28 days incidence
 data. The high degree of correlation in the estimates from the three

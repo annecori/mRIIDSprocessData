@@ -64,35 +64,22 @@
 \let\rmarkdownfootnote\footnote%
 \def\footnote{\protect\rmarkdownfootnote}
 
-%%% Change title format to be more compact
-\usepackage{titling}
-
-% Create subtitle command for use in maketitle
-\newcommand{\subtitle}[1]{
-  \posttitle{
-    \begin{center}\large#1\end{center}
-    }
-}
-
-\setlength{\droptitle}{-2em}
-  \title{Mapping the Risk of International Infectious Disease Spread
-    (MRIIDS)}
-  \subtitle{A project funded through USAID’s ``Combating Zika and
-    Future Threats: A Grand Challenge for Development'' program \\
-    Milestone 6: Increased complexity of the simple model to include data from Milestone 5}
-  \pretitle{\vspace{\droptitle}\centering\huge}
-  \posttitle{\par}
-  \author{}
-  \preauthor{}\postauthor{}
-  \predate{\centering\large\emph}
-  \postdate{\par}
-  \date{27 November, 2017}
-
 
 \usepackage[section]{placeins}
 
 \begin{document}
-\maketitle
+\begin{titlepage}
+  \centering
+    \includegraphics[width=\linewidth]{ms6-figures/logo} % also works with logo.pdf
+    \linespread{1.2}\Large{Mapping the Risk of International Infectious Disease Spread
+    (MRIIDS)}
+
+   \linespread{1.2}\large{A project funded through USAID’s ``Combating Zika and
+     Future Threats: A Grand Challenge for Development'' program}
+   \vfill
+    Milestone 6: Increased complexity of the simple model to include data from Milestone 5
+    \vfill
+  \end{titlepage}
 \tableofcontents
 
 \newpage
@@ -448,6 +435,43 @@ validate the model, we carried out analysis at both the district level
 using WHO data and at country level using data from HealthMap.
 
 \subsubsection{Prediction at country level}
+
+Predictions over a 7 week period were carried out using the incidence
+data provided by HealthMap. The data pre-processing steps detailed in
+an earlier section were applied. The projection was done at two
+different time steps - at 200 days and 400 days from the start of the
+epidemic (October 2014 and April 2015
+respectively) in order to capture an increasing as well as a
+decreasing phase in the outbreak. Figure~\ref{fig:hm-prediction-200} shows the
+predictions for October 2014. Figure~\ref{fig:hm-prediction-400} is
+the corresponding figure for projections in April 2015.
+
+\begin{figure}
+  \centering
+  \includegraphics[]{ms6-figures/hm_summary_projections_0.99_1_200}
+  \caption{Predictions using HealthMap data in October 2014. The
+    orange dots represent the data used to estimate the instantaneous
+    reproduction number. The blue dates represent the observed
+    incidence in the period over which prediction is being carried
+    out. The solid black line traces the median projected incidence
+    and the shaded area constitutes the 95\% credible interval around
+    the median incidence.}
+  \label{fig:hm-prediction-200}
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \includegraphics[]{ms6-figures/hm_summary_projections_0.99_2_400}
+  \caption{Predictions using HealthMap data in October 2014. The
+    orange dots represent the data used to estimate the instantaneous
+    reproduction number. The blue dates represent the observed
+    incidence in the period over which prediction is being carried
+    out. The solid black line traces the median projected incidence
+    and the shaded area constitutes the 95\% credible interval around
+    the median incidence.}
+  \label{fig:hm-prediction-400}
+\end{figure}
 
 \subsubsection{Prediction at district level}
 

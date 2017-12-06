@@ -262,39 +262,38 @@ Given the most general model formulation outlined above, multiple models could b
 viewed as simplification of the original model. For instance assuming  $\{R_{i, t}\}$ to be constant across geographical units, 
 or assuming unity for the parameter $zgamma$ of the gravity.
 
-Variants of the model would have distincts number of parameters, for instance assuming $\gamma =1$ would reduce the number
+Variants of the model would have distinct number of parameters, for instance assuming $\gamma =1$ would reduce the number
 of parameters to be estimated by 1. 
 
 Relying on data-driven and evidence based approaches, we seek to formulate the 
 simplest model that account for patterns observed in the data. In such simplest model, all layers of complexity must be justified, i.e.
-it is justifed to estimate a parameter $\gamma$ (and not assume unity) if and only if the fit of our model to the observed 
+it is justified to estimate a parameter $\gamma$ (and not assume unity) if and only if the fit of our model to the observed 
 data is significantly improved (in a statistical sense).
 
 Relying on our MCMC estimation of the joint posterior, we can evaluate the goodness of fit of any models by calculating
-the Deviance Information Criterion (DIC). Such DIC is a well established measure of goodness of fit, and commomly 
-used for model selection. it promotes models that can best reproduce observed patterns while penalising
+the Deviance Information Criterion (DIC). Such DIC is a well established measure of goodness of fit, and commonly 
+used for model selection. it promotes models that can best reproduce observed patterns while penalizing
 for increased models complexity (i.e. increased number of parameters).
 
 Using such `model selection' approach, each model is evaluated in turn, DICs are obtained and compared, and
 we can rigorously selected the best model to produce the final predictions.
 
-We are exploring two possibilities:
+Alternatively, after evaluating each model, we can produce 'model averaged' predictions. Under this approach, the predictions
+of each model are weighted according to the statistical of the particular model. Such approach has the advantage of accounting
+for structural uncertainties, i.e. the very structure of the underlying model is treated as an unknown state.
+
+The 'model averaged' predictions are finally obtained based on the 4 following steps:
 \begin{itemize}
-\item a simple model selection procedure,
-\item  a multi-model averaging procedure.
+\item evaluate the goodness of fit (e.g. DIC) for each model,
+\item calculate the difference ($\Delta_k$) between the DIC value of the best model and the DIC value for each of the other models,
+\item compute the relative weight for each model as $w_k = \frac{exp(\frac{1}{2}\Delta_k)}{\sum_{m = 1}^{M}{exp(\frac{1}{2}\Delta_m)}}$, with $M$ the total number of models evaluated,
+\item produce predictions by sequentially 1) randomly selecting a particular model according to its weight, 2) producing predictions based on the parameters' joint posterior distributions associated with this particular model.
 \end{itemize}
 
-
-
-Needs example (e.g. No gamma, i.e. Gamma=1) compare dic use best fit model
-
-Or evaluate all models and use multi-model average (see \cite{burnham2011aic}):  
-First evaluate dic for each model
-Compute relative importance of each model based on dic
-Predict for each model and weight predictions according to relative importance
-
-While selecting a model is easier to implement, multi-model averaging would better
-accounts for both parameter and model uncertainty, i.e. parametric and structural uncertainties.
+We are currently in the process of implementing those approaches (simple model selection and multi-model averaging).
+Once implementation is finalized, we will validate and contrast both approach, recognizing that while selecting a model 
+is easier to implement, multi-model averaging should better
+accounts for both parameters and model uncertainty, i.e. parametric and structural uncertainties.
 
 %%%%%\subsection{Predicting Future Incidence Pattern and Geographical Spread}
 

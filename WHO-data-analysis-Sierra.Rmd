@@ -43,7 +43,7 @@ ggplot(WHO_SL, aes(Date, incid)) +
 We will proceed as we did with HealthMap data - split the data set into training and
 validation sets, set up the parameters and press play.
 
-```{r}
+```{r sl_wide, eval = FALSE}
 SL_wide <-  WHO_SL %>%
             ungroup %>%
             select(-Country) %>%
@@ -52,6 +52,11 @@ SL_wide <-  WHO_SL %>%
 
 ```
 
+```{r, eval = TRUE}
+
+SL_wide <- readr::read_csv("data/CaseCounts/who/sl_wide.csv")
+
+```
 We are now ready to estimate R and move forward with the projection
 exactly as we did for HealthMap data. 
 
@@ -107,7 +112,7 @@ adm2_centroids$ADM2  %<>%
 
  
 adm2_centroids$ADM2 %<>%
-    factor(levels = levels(WHO_SL$CL_DistrictRes))
+    factor(levels = levels(factor(WHO_SL$CL_DistrictRes)))
 
 adm2_centroids %<>% arrange(ADM2)
  
@@ -175,18 +180,34 @@ sl_daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     return(incidence.proj[(nrow(SL_training) + 1):t.max, ])})
 
 
-#sl_weekly_projections <- lapply(sl_daily_projections, daily.to.weekly) %>% bind_rows(.)
+sl_weekly_projections <- lapply(sl_daily_projections, daily.to.weekly) %>% bind_rows(.)
 
 ```
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r sl_grid, eval = FALSE}
+```{r sl_grid, eval = TRUE}
 weekly.available <- c(training    = list(SL_training),
                        validation = list(SL_validation)) %>%
                        lapply(daily.to.weekly) %>%
-                       bind_rows(.id = "Category")
+    bind_rows(.id = "Category")
 
+projections_distr <- projection_quantiles(sl_weekly_projections)
+outfile <- paste0("output/sl_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
+write.csv(projections_distr, file = outfile, row.names = F, quote = F)
+
+outfile <- paste0("output/sl_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+
+t.min <- min(projections_distr$Date) - 63
+t.max <- max(projections_distr$Date) + 49
+weekly.available %<>% filter(Date >= t.min & Date < t.max)
+trng.start <- min(projections_distr$Date) - time_window
+valdtn.end <- max(projections_distr$Date)
+p <- plot.weekly3(weekly.available, projections_distr, trng.start, valdtn.end)
+ggsave(outfile, p)
+
+```
+```{r sl_gridmap, eval = FALSE}
 end <- max(dates.all) + 42
 weekly.available %<>% filter(Date < end)
 plots.list <- SL_training %>%
@@ -301,26 +322,38 @@ colnames(projection_50) <- c("NAME_2", "incid")
 
 
 
-total_incid    <- list(training = data.frame(available_small),
-                        projection = data.frame(projection_50)) %>%
+total_incid    <- list(Observed = data.frame(available_small),
+                       Predicted = data.frame(projection_50)) %>%
                    bind_rows(.id = "Category")
 
 
 incid_map  <- left_join(sierra.df, total_incid)
 
-incid_map$Category %<>% factor(levels = c("training", "projection"))
+incid_map$Category %<>% factor(levels = c("Observed", "Predicted"))
 incid_map %<>% arrange(Category)
 
 
- ggplot(incid_map) + 
+p <- ggplot(incid_map) + 
     aes(long, lat, group = group, fill = incid) +
     geom_polygon() +
-    geom_path(color = "white" ) +
+    geom_path(color = "black", alpha = 0.1 ) +
     coord_equal() +
-    facet_grid(.~Category) +
+    facet_wrap(~Category, strip.position = "bottom") +
     scale_fill_gradient2(low = "grey50",
                          high = "firebrick")
-                         
+
+p <- p + theme(strip.text.x = element_text(size = 12,
+                                           colour = "red",
+                                           face = "bold"))
+p <- p + theme(panel.border = element_blank(),
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               axis.line = element_blank(),
+               strip.background = element_blank())
+
+p <- p +  theme(axis.title = element_blank(),
+                axis.text = element_blank(),
+                axis.ticks = element_blank())
 
 
 ```

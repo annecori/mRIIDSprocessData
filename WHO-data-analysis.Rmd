@@ -17,9 +17,9 @@ endnote: no
 params:
   pow_dist : 2
   t.proj : 300
-  n.sim : 1
-  n.dates.sim : 35
-  p.stay: 1
+  n.sim : 1000
+  n.dates.sim : 49
+  p.stay: 0.7
   
 ---
 
@@ -55,7 +55,7 @@ The columns we use are : Country, EpiCaseDef (probably),
 DateOnsetInferred and CL_DistrictRes. 
 
 
-```{r rawdata, eval = FALSE}
+```{r rawdata, eval = TRUE}
 WHO_raw <- read.csv("data/CaseCounts/who/rstb20160308supp1.csv",
                     colClasses = c(Country = "factor",
                                    EpiCaseDef = "character",
@@ -73,10 +73,11 @@ WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
 
 
 ## Grouping by districts and interpolating missing data
+
 For each district in a country, add the number of records for each
 date to get incidence count.
 
-```{r bydistricts, eval = FALSE}
+```{r bydistricts, eval = TRUE}
 
 WHO_bydistricts <- WHO_raw %>% 
                    group_by(Country, CL_DistrictRes,
@@ -90,7 +91,7 @@ recorded, we assume that there were no cases on that date and add this
 to the record. At the end of this step, the incidence time series for
 each district should be a daily time series.
 
-```{r fillup, eval = FALSE}
+```{r fillup, eval = TRUE}
 
 WHO_bydistricts %<>%
     split(.$CL_DistrictRes) %<>%
@@ -138,12 +139,14 @@ WHO_bydistricts <- readr::read_csv("data/CaseCounts/who/WHO_bydistricts.csv")
 Culled from literature.
 
 ```{r ebola_params}
+
 mean_SI     <- 14.2
 CV_SI       <- 9.6 / 14.2
 SItrunc     <- 40
 SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
 SI_Distr    <- SI_Distr / sum(SI_Distr)
 time_window <- 7 * 7
+
 ```
 
 # Gravity model parameters
@@ -157,7 +160,7 @@ K        <- 1
 
 # Comparison with the data from Health Map and ProMed
 
-```{r child = 'WHO-data-analysis-HM-comparison.Rmd', eval = FALSE}
+```{r child = 'WHO-data-analysis-HM-comparison.Rmd', eval = TRUE}
 ```
 
 # Projection using WHO data
@@ -179,17 +182,17 @@ K        <- 1
 
 ## Projection across all districts within Sierra Leone, Liberia and Guinea
 
-```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = TRUE}
+```{r child = 'WHO-data-analysis-alldistricts.Rmd', eval = FALSE}
 ```
 
 ## Evaluating goodness of fit
 ```{r, eval = FALSE}
-outfile         <- "output/alldistricts-lh-tproj-300.csv"
+outfile         <- "output/alldistricts-lh-tproj-100.csv"
 log_likelihood  <- read.csv(outfile, na.strings = "-Inf")
 
 ## Replace -Inf by a large negative number
 
-log_likelihood[is.na(log_likelihood)] <- -900
+#log_likelihood[is.na(log_likelihood)] <- -900
 
 
 pstay <- unique(log_likelihood$p.stay)   %>% sort

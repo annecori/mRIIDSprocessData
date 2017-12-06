@@ -24,7 +24,7 @@ The key thing is to get the latitudes, longitudes and population
 estimates for all the districts and determine population flow matrix.
 
 
-```{r}
+```{r centroids_merge, eval = FALSE}
 guinea_sierra <- "data/Geography/GravityModel/raw/adm2-fixed.txt" %>%
                      read.csv(stringsAsFactors = FALSE,
                               sep = "\t",
@@ -61,9 +61,6 @@ all_centroids$CL_DistrictRes %<>% gsub("WESTERNURBAN", "WESTERN", .)
 
 
 
-WHO_bydistricts$CL_DistrictRes %<>%
-    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
-                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
 
 ```
 Some of the prefectures of Guinea are not represented in the WHO
@@ -71,7 +68,7 @@ data. These are: Gaoual, Koubia, Koundara, Labe, Lelouma, Mamou
 and Mandiana. Hence we will drop these from the data frame of
 centroids.
 
-```{r}
+```{r guinea_missing, eval = FALSE}
 
 missing <- setdiff(unique(all_centroids$CL_DistrictRes),
                    unique(WHO_bydistricts$CL_DistrictRes))
@@ -82,11 +79,22 @@ all_centroids <- all_centroids[notmissing, ]
 
 all_centroids$CL_DistrictRes %<>% factor
 
+
 ```
 
 After this data clean-up we can finally determine the flow matrix.
+```{r whocen, eval = TRUE}
+
+all_centroids <- read.csv("data/Geography/GravityModel/processed/WHOcentroids.csv")
+
+```
 
 ```{r}
+WHO_bydistricts$CL_DistrictRes %<>% factor
+WHO_bydistricts$CL_DistrictRes %<>%
+    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
+                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
+
 all_centroids$CL_DistrictRes %<>%
     factor(levels = levels(WHO_bydistricts$CL_DistrictRes))
 
@@ -160,7 +168,7 @@ alldistricts_training contains the incidence count we will use for projecting.
 Estimate of R is in the data frame r.j.t with a row for each
 simulation we want to run. p.movement conatins the probabilities.
 
-```{r all_project, eval = FALSE}
+```{r all_project, eval = TRUE}
 
 alldistricts_training   <- WHO_wide[1:t.proj, ]
 alldistricts_validation <- WHO_wide[(1 + t.proj):nrow(WHO_wide), ]
@@ -192,14 +200,23 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
 At the same time, we will also obtain the weekly incidence count from
 available data.
 
-```{r  all_gridmap, eval = FALSE}
-
+```{r}
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% dplyr::bind_rows(.)
 
 weekly.available <- c(training    = list(alldistricts_training),
                        validation = list(alldistricts_validation)) %>%
                        lapply(daily.to.weekly) %>%
                        dplyr::bind_rows(.id = "Category")
+
+projections_distr <- projection_quantiles(weekly.projections)
+outfile <- paste0("output/alldistricts_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
+write.csv(projections_distr, file = outfile, row.names = F, quote = F)
+
+
+```
+
+```{r  all_gridmap, eval = FALSE}
+
 
 end <- max(dates.all) + 49
 weekly.available_small <- filter(weekly.available, Date < end)
@@ -230,7 +247,7 @@ available_small <- filter(WHO_wide, Date >= start & Date <= end)
 
 We now determine the likelihood of the parameters using the observed data.
 
-```{r all_loglh_1step, eval = TRUE}
+```{r all_loglh_1step, eval = FALSE}
 
 incid  <- as.matrix(select(WHO_wide, -Date))
 t.max  <- t.proj + n.dates.sim - 1
@@ -261,7 +278,7 @@ all_loglh   <- lapply(districts, function(district){
 
 
 
-```{r all_lh_write, eval = TRUE}
+```{r all_lh_write, eval = FALSE}
 
 all_loglh %<>% data.frame
 all_loglh %<>% cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
@@ -283,10 +300,10 @@ error     <- select(projection_50, -Date) - select(available_small, -Date)
 all_rms   <- summarise_all(error, funs(rms)) %>%
                 cbind(data.frame(pow_dist = pow_dist, p.stay = p.stay), .)
 
-#outfile   <-  "output/alldistricts-rms.csv"
-#col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
-#write.table(all_rms, outfile,
-#            sep = ",", col.names = col.names, append = T, row.names = FALSE, quote = FALSE)
+outfile   <-  paste0("output/alldistricts-rms-", t.proj, ".csv")
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+write.table(all_rms, outfile,
+            sep = ",", col.names = col.names, append = T, row.names = FALSE, quote = FALSE)
 
 ```
 ## Visualising the spread on the map of West Africa

@@ -166,8 +166,9 @@ $i$ etc. Its dependence on these factors is formalized as
 where $haq_i$ is an index/score quantifying the health care capacity at location 
 $i$, $f$ denotes a function, $R_0$ is the basic reproduction number (data stream 2) and $t$ is time..
 
-The probability of moving between locations is derived from the relative flow of populations between
-locations. This latter quantity is estimated using a population flow
+The probability of moving between locations is derived from the
+relative flow of populations.
+This latter quantity is estimated using a population flow
 model such as a gravity model. Under a gravity model, the flow of individuals from area \(i\) to area \(j\),
 \(\phi_{i \rightarrow j}\), is proportional to the product of the
 populations of the two areas, \(N_i\) and \(N_j\) and inversely
@@ -244,6 +245,7 @@ Thus assuming that each observation is independent, the likelihood of the parame
 In practice, we estimate $R_{t, i}$ as an average over the past 2 or 3 week with sliding time windows.
 
 Given this likelihood, we can write the joint posterior distribution of the parameter given the observed data as:
+
 \[
 P( \{p_{stay}^i\}, \gamma, \{R_{i, t}\} \mid \{o_{j, t}\}) \propto  
   \mathcal{L} \times P(\{R_{i,0}\}) P(\{p_{stay}^i\}) P(\gamma).
@@ -258,30 +260,34 @@ additional data sources such as prior information derived from flight data.
 \subsection{Multi-model Comparison}
 
 Given the most general model formulation outlined above, multiple models could be formulated that can be 
-viewed as simplification of the original model. For instance assuming  $\{R_{i, t}\}$ to be constant across geographical units, 
-or assuming unity for the parameter $zgamma$ of the gravity.
+viewed as simplification of the original model. For instance a model
+could assume  $\{R_{i, t}\}$ to be constant across geographical units, 
+or could assume that the parameter $\gamma$ of the gravity model is $1$.
 
 Variants of the model would have distinct number of parameters, for instance assuming $\gamma =1$ would reduce the number
 of parameters to be estimated by 1. 
 
 Relying on data-driven and evidence based approaches, we seek to formulate the 
-simplest model that account for patterns observed in the data. In such simplest model, all layers of complexity must be justified, i.e.
+simplest model that account for patterns observed in the data. In such a model, all layers of complexity must be justified, i.e.
 it is justified to estimate a parameter $\gamma$ (and not assume unity) if and only if the fit of our model to the observed 
 data is significantly improved (in a statistical sense).
 
-Relying on our MCMC estimation of the joint posterior, we can evaluate the goodness of fit of any models by calculating
-the Deviance Information Criterion (DIC). Such DIC is a well established measure of goodness of fit, and commonly 
-used for model selection. it promotes models that can best reproduce observed patterns while penalizing
-for increased models complexity (i.e. increased number of parameters).
+Relying on our MCMC estimation of the joint posterior, we can evaluate the goodness of fit of any model by calculating
+the Deviance Information Criterion (DIC). DIC is a well established
+measure of goodness of fit, and is commonly used for model
+selection. It promotes models that can best reproduce observed
+patterns while penalizing for increased models complexity (i.e. increased number of parameters).
 
-Using such `model selection' approach, each model is evaluated in turn, DICs are obtained and compared, and
-we can rigorously selected the best model to produce the final predictions.
+Using such a `model selection' approach, each model is evaluated in turn, DICs are obtained and compared, and
+we can rigorously select the best model to produce the final predictions.
 
-Alternatively, after evaluating each model, we can produce 'model averaged' predictions. Under this approach, the predictions
+Alternatively, after evaluating each model, we can produce `model averaged' predictions. Under this approach, the predictions
 of each model are weighted according to the statistical of the particular model. Such approach has the advantage of accounting
 for structural uncertainties, i.e. the very structure of the underlying model is treated as an unknown state.
 
-The 'model averaged' predictions are finally obtained based on the 4 following steps:
+The `model averaged' predictions are finally obtained based on the 4
+following steps:
+
 \begin{itemize}
 \item evaluate the goodness of fit (e.g. DIC) for each model,
 \item calculate the difference ($\Delta_k$) between the DIC value of the best model and the DIC value for each of the other models,
@@ -290,9 +296,9 @@ The 'model averaged' predictions are finally obtained based on the 4 following s
 \end{itemize}
 
 We are currently in the process of implementing those approaches (simple model selection and multi-model averaging).
-Once implementation is finalized, we will validate and contrast both approach, recognizing that while selecting a model 
+Once implementation is finalized, we will validate and contrast both approaches, recognizing that while selecting a model 
 is easier to implement, multi-model averaging should better
-accounts for both parameters and model uncertainty, i.e. parametric and structural uncertainties.
+account for both parameters and model uncertainty, i.e. parametric and structural uncertainties.
 
 %%%%%\subsection{Predicting Future Incidence Pattern and Geographical Spread}
 
@@ -307,7 +313,7 @@ collating the various data streams as well as plug the data into
 modules that will do the inference and the projection. 
 
 The software
-package will eventually be published on the R packages repository
+package will be published on the R packages repository
 (CRAN). At the moment, it is available on GitHub (github.com/annecori/mRIIDSprocessData).
 
 \begin{figure}
@@ -320,7 +326,8 @@ package will eventually be published on the R packages repository
 
 
 The package will include extensive documentation in the form of
-user-friendly help files and vignettes.
+user-friendly help files and vignettes. An example of a help file can
+be seen in Figure~\ref{fig:helpfile}.
 
 
 \begin{figure}
@@ -373,7 +380,7 @@ three data sources correlate well in the incidence time series.
 
 \begin{figure}
     \centering
-        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid}
+        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid-clean}
         \caption{Comparison of incidence data from WHO, HealthMap and ProMed.}
         \label{fig:incid_comp}
   \end{figure}
@@ -392,7 +399,7 @@ to slight variations in reported number.
 
 \begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R}
+  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R-clean}
   \caption{Comparison of the reproduction numbers estimated from
         the different sources of the incidence data.}
   \label{fig:r_comp}
@@ -436,17 +443,59 @@ predicted by the model and $n$ is the total number of observations.
 
 \subsection{Predicting Future Cases}\label{predicting-future-cases}
 
-The WHO data consisted of incidence data at the district level. To
+As mentioned earlier, the WHO data consisted of incidence data at the district level. To
 validate the model, we carried out analysis at both the district level
-and country level.
+using WHO data and at country level using data from HealthMap.
 
 \subsubsection{Prediction at country level}
 
 \subsubsection{Prediction at district level}
-%\subsection{Connectivity and Risk of International Spread}\label{connectivity-and-risk-of-international-spread}
 
-%\subsection{Parameters Inference}
+Predictions over a 7 week period were carried out at 2 different time points - at 300 and
+500 days from the start of the epidemic (October 2014 and May 2015
+respectively). In estimating the reproduction number, previous 7 weeks
+of incidence data were used. It is assumed that the 
+transmissibility did not change for the previous 7 weeks (as in
+\cite{team2015west}). This analysis was carried at the sub-national
+levels for Sierra Leone, Liberia and
+Guinea as well as across the 55 districts in the three countries.
+Figure~\ref{fig:sl-predictions} illustrates the results for
+Sierra Leone.  Figure~\ref{fig:sl-map} compared the observed and
+predicted spatial spread of the epidemic over a 7 week period
+beginning in May 2015. It can be seen that the model performs well at
+capturing the spatial dimension of the epidemic.
 
+\begin{figure}
+  \centering
+  \begin{subfigure}{0.8\textwidth}
+    \includegraphics{ms6-figures/sl_summary_projections_0.9_1_300}
+  \end{subfigure}
+  ~
+  \begin{subfigure}{0.8\textwidth}
+    \includegraphics{ms6-figures/sl_summary_projections_0.9_1_500}
+  \end{subfigure}  
+  
+  \caption[Sierra Leone Projections]{Spread of Ebola in the districts
+    of Sierra Leone. Orange dots represent the data used to estimate
+    the instantaneous reproduction number. Blue dots are the observed incidences in
+    the period over which prediction is being carried out. Solid line
+    represents the median predicted weekly incidence and the shaded
+    area is the 95\% credible interval. The top panel shows the
+    predictions at 300 days from the start of the epidemic (October
+    2014) and the
+    bottom panel is the prediction at 500 days (May 2015).}
+  \label{fig:sl-predictions}
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \includegraphics{ms6-figures/sl-map}
+  \caption[Spatial spread of Ebola in Sierra Leone]{The map shows the
+    observed (left) and predicted (right) spatial spread of Ebola in
+    Sierra Leone over a 7 week period beginning in May 2015.}
+  \label{fig:sl-map}
+\end{figure}
 \section{Conclusions and next steps}\label{sec:conclusions}
 
 

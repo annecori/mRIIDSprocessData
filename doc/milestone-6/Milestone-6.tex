@@ -163,7 +163,7 @@ $i$, $f$ denotes a function, $R_0$ is the basic reproduction number (data stream
 The probability of moving between locations is derived from the
 relative flow of populations.
 This latter quantity is estimated using a population flow
-model such as a gravity model. Under a gravity model, the flow of individuals from area \(i\) to area \(j\),
+model such as a gravity model \citep{GROSCHE2007175}. Under a gravity model, the flow of individuals from area \(i\) to area \(j\),
 \(\phi_{i \rightarrow j}\), is proportional to the product of the
 populations of the two areas, \(N_i\) and \(N_j\) and inversely
 proportional to the distance between them \(d_{i, j}\), all quantities
@@ -344,7 +344,7 @@ be seen in Figure~\ref{fig:helpfile}.
 Figure~\ref{fig:workflow} summarizes the steps involved in collating
 the different data streams and in going from raw data to predictions. In Milestone 6, a step was added to the data pre-processing workflow
 to remove outliers from data. The removal of outliers was done using Chebyshev Inequality
-with sample mean (see~\cite{saw1984chebyshev}). Figure~\ref{fig:wf_example} illustrates
+with sample mean (see~\citep{saw1984chebyshev}). Figure~\ref{fig:wf_example} illustrates
 the results of each step in the pre-processing steps in the workflow.
 
 \begin{figure}
@@ -368,6 +368,14 @@ incidence reports at ADM2 level. Thus in using it, we were able to validate the 
 with HealthMap/ProMed data. We refer to this dataset as WHO data
 throughout the rest of this document.
 
+For data stream 2 i.e., parameters informing the transmissibility of
+Ebola, we assumed a Gamma distributed serial interval with mean 14.2
+days and standard deviation 9.6 days \citep{team2015west}.
+As in Milestone 4, a Gamma prior with mean 3.3 and variance 1.5 was
+used for the reproduction number. This was informed by a review of estimates of the reproduction number for Ebola Zaire in outbreaks preceding the West African Ebola outbreak \citep{van2015review}, which reported estimates ranging from 1.4 to 4.7. The mean prior 3.3 was chosen as the midpoint of this interval, and the variance 1.5, was chosen so the 95\% prior probability interval contains the extremes of this interval.
+
+
+
 \subsection{Incidence trends from different data sources}
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
@@ -381,8 +389,8 @@ of the three data sources were well correlated.
         \label{fig:incid_comp}
   \end{figure}
 
-During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data
-are typically not available in real time due to reporting delay [REF cori, 2017 lesson learn]. A key advantage 
+During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data)
+are typically not available in real time due to reporting delay \citep{cori2017key}. A key advantage 
 of relying on Promed/Health data in our project is the real time nature of the data. However this come at the cost
 of nationally aggregated data.
 
@@ -474,8 +482,8 @@ steps are shown in Figure~\ref{fig:hm-incid}.
 \end{figure}
 
 The projection was done at two
-different time steps - at 200 days and 400 days from the start of the
-epidemic (October 2014 and April 2015
+different time steps - at 150 days and 400 days from the start of the
+epidemic (August 2014 and April 2015
 respectively) in order to capture an increasing as well as a
 decreasing phase in the outbreak. Figure~\ref{fig:hm-prediction-200} shows the
 predictions for October 2014. Figure~\ref{fig:hm-prediction-400} is
@@ -483,8 +491,8 @@ the corresponding figure for projections in April 2015.
 
 \begin{figure}
   \centering
-  \includegraphics[]{ms6-figures/hm_summary_projections_0.99_1_200}
-  \caption{Predictions using HealthMap data in October 2014. The
+  \includegraphics[]{ms6-figures/hm_summary_projections_0.99_1_150}
+  \caption{Predictions using HealthMap data in August 2014. The
     orange dots represent the data used to estimate the instantaneous
     reproduction number. The blue dates represent the observed
     incidence in the period over which prediction is being carried
@@ -516,7 +524,7 @@ respectively). [[In estimating the reproduction number, previous 7 weeks
 of incidence data were used, DONT understand, especially link with next sentence...]]. 
 It is assumed that the 
 transmissibility did not change for the previous 7 weeks (as in
-\cite{team2015west}). This analysis was carried at the sub-national
+\citep{team2015west}). This analysis was carried at the sub-national
 levels for Sierra Leone, Liberia and
 Guinea as well as across the 55 districts in the three countries.
 Figure~\ref{fig:sl-predictions} illustrates the results for
@@ -557,16 +565,31 @@ capturing the spatial dimension of the epidemic.
   \label{fig:sl-map}
 \end{figure}
 \FloatBarrier
+
 \section{Conclusions and next steps}\label{sec:conclusions}
 
+The integration of the different data streams into the prediction
+framework shows promising results in predicting the risk of spread of
+an outbreak. The model was validated using both gross and
+disaggregated data from the  2013 to 2016 outbreak of Ebola. The next
+steps of this work include:
 
+\begin{itemize}
+\item estimation of parameters of the model;
+\item integrating the uncertainty in parameters in the prediction
+  framework;
+\item implement model selection and model averaging modules to account
+  for model uncertainty as well; and
+\item incorporate attributes defined geographically such as health
+  care capacity into the framework.
+\end{itemize}
 
 
 
 
 
 \newpage
-\section*{References}
+
 \bibliography{ms6}
 
 

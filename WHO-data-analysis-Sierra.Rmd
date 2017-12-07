@@ -338,12 +338,12 @@ p <- ggplot(incid_map) +
     geom_polygon() +
     geom_path(color = "black", alpha = 0.1 ) +
     coord_equal() +
-    facet_wrap(~Category, strip.position = "bottom") +
+    facet_wrap(~Category, strip.position = "top") +
     scale_fill_gradient2(low = "grey50",
                          high = "firebrick")
 
+p <- p + theme_bw()
 p <- p + theme(strip.text.x = element_text(size = 12,
-                                           colour = "red",
                                            face = "bold"))
 p <- p + theme(panel.border = element_blank(),
                panel.grid.major = element_blank(),

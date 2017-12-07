@@ -77,7 +77,7 @@
    \linespread{1.2}\large{A project funded through USAID’s ``Combating Zika and
      Future Threats: A Grand Challenge for Development'' program}
    \vfill
-    Milestone 6: Increased complexity of the simple model to include data from Milestone 5
+    Milestone 6: Increased complexity of the simple model to include data from Milestone 5.
     \vfill
   \end{titlepage}
 \tableofcontents
@@ -301,7 +301,7 @@ modules that will do the inference and the projection.
 
 The software
 package will be published on the R packages repository
-(CRAN). At the moment, it is available on GitHub (github.com/annecori/mRIIDSprocessData).
+(CRAN). At the moment, it is available on GitHub: github.com/annecori/mRIIDSprocessData (figure 1).
 
 \begin{figure}
    \centering
@@ -362,8 +362,8 @@ throughout the rest of this document.
 \subsection{Incidence trends from different data sources}
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
-and ProMed). As can be seen in Figure~\ref{fig:incid_comp}, the
-three data sources correlate well in the incidence time series.
+and ProMed). As can be seen in Figure~\ref{fig:incid_comp}, the incidence time series
+of the three data sources were well correlated.
 
 \begin{figure}
     \centering
@@ -372,17 +372,31 @@ three data sources correlate well in the incidence time series.
         \label{fig:incid_comp}
   \end{figure}
 
+During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data
+are typically not available in real time due to reporting delay [REF cori, 2017 lesson learn]. A key advantage 
+of relying on Promed/Health data in our project is the real time nature of the data. However this come at the cost
+of nationally aggregated data.
+
+The results of the analysis above point toward a potential solution to obtain `pseudo real-time' district
+ level incidence data. One could relay on real-time national data (e.g. Promed/Healthmap) and disaggregate 
+the time-series to obtain district level incidence using spatial information from a ' retrospective'
+time-series at finer scale (i.e. WHO data).
+
 \subsection{Inference of parameters}
 
 The parameters of the full model detailed in Section~\ref{sec:model} are
-$\alpha$, $\beta$, $\gamma$, $p_{stay}$ and $R_{i, t}$. The
-estimation of $R_{i, t}$ uses incidence data and is done using the
-EpiEstim package. Figure~\ref{fig:r_comp} shows the
-reproduction number estimated using previous 28 days incidence
-data. The high degree of correlation in the estimates from the three
-different data sources shows that the estimation procedure is robust
-to slight variations in reported number.
+$\alpha$, $\beta$, $\gamma$, $p_{stay}$ and $R_{i, t}$. A simple
+estimation of $R_{i, t}$ can be obtained using incidence data and knowledge of the serial interval.
+Such statistical procedure has been implemented in the
+R package EpiEstim. Figure~\ref{fig:r_comp} shows the
+reproduction number estimated assuming constant transmissibility during period of 28 days. 
+Sliding  28 days windows allow us to obtain daily estimate of the reproduction number (see [ref AJE cori ] for details).
 
+We estimated temporal pattern of the reproduction number for the 3 most affected country in West Africa
+using either data sources (Promed, Healthmap, and WHO).
+The high degree of correlation in the estimates of transmissibility from the three
+different data sources shows that the estimation procedure is robust
+to slight variations in reported incidence.
 
 \begin{figure}
   \centering
@@ -393,6 +407,7 @@ to slight variations in reported number.
 \end{figure}
 
 
+Then, the spatial spread must be assessed.
 In the interest of simplicity, we assume both
 $\alpha$ and $\beta$ to be $1$. The other two parameters are
 $p_{stay}$ and $\gamma$. We explored the influence of these two
@@ -488,8 +503,9 @@ the corresponding figure for projections in April 2015.
 
 Predictions over a 7 week period were carried out at 2 different time points - at 300 and
 500 days from the start of the epidemic (October 2014 and May 2015
-respectively). In estimating the reproduction number, previous 7 weeks
-of incidence data were used. It is assumed that the 
+respectively). [[In estimating the reproduction number, previous 7 weeks
+of incidence data were used, DONT understand, especially link with next sentence...]]. 
+It is assumed that the 
 transmissibility did not change for the previous 7 weeks (as in
 \cite{team2015west}). This analysis was carried at the sub-national
 levels for Sierra Leone, Liberia and

@@ -9,7 +9,7 @@
 \contentsline {subsection}{\numberline {4.3}Model training and validation using data from WHO}{7}{subsection.4.3}
 \contentsline {subsection}{\numberline {4.4}Incidence trends from different data sources}{7}{subsection.4.4}
 \contentsline {subsection}{\numberline {4.5}Inference of parameters}{7}{subsection.4.5}
-\contentsline {subsection}{\numberline {4.6}Predicting Future Cases}{11}{subsection.4.6}
-\contentsline {subsubsection}{\numberline {4.6.1}Prediction at country level}{11}{subsubsection.4.6.1}
-\contentsline {subsubsection}{\numberline {4.6.2}Prediction at district level}{11}{subsubsection.4.6.2}
-\contentsline {section}{\numberline {5}Conclusions and next steps}{11}{section.5}
+\contentsline {subsection}{\numberline {4.6}Predicting Future Cases}{10}{subsection.4.6}
+\contentsline {subsubsection}{\numberline {4.6.1}Prediction at country level}{10}{subsubsection.4.6.1}
+\contentsline {subsubsection}{\numberline {4.6.2}Prediction at district level}{10}{subsubsection.4.6.2}
+\contentsline {section}{\numberline {5}Conclusions and next steps}{18}{section.5}

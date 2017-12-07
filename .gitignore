@@ -7,3 +7,7 @@ output/*
 *.log 
 doc/milestone-6/Milestone-6.pdf 
 *.toc
+*.bbl
+*.blg
+*.out
+*.synctex.gz

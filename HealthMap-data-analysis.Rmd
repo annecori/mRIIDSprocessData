@@ -18,8 +18,8 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 2
-  t.proj : 300
+  pow_dist : 1
+  t.proj : 150
   n.sim : 1000
   n.dates.sim : 49
   p.stay: 0.99
@@ -28,7 +28,7 @@ params:
 # Introduction
 
 ```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "output/figures/")
+knitr::opts_chunk$set(fig.width=12, fig.height=6, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "output/figures/")
 
 ```
 
@@ -124,7 +124,7 @@ p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
 p <- p + theme(legend.title = element_blank())
 p <- p + xlab("")
 p <- p + scale_x_date(date_labels =  "%b %Y")
-
+p
 
 ```
 The data clean-up consists of the following steps:
@@ -200,12 +200,23 @@ by.location[["Liberia"]] %<>%
 
 by.location[["Liberia"]]$cleanup_step %<>% forcats::fct_inorder()
  
-ggplot(by.location[["Liberia"]], aes(Date, Cases)) +
-    facet_wrap(~cleanup_step) +
-    geom_point() +
-    theme_minimal() +
+p <- ggplot(by.location[["Liberia"]], aes(Date, Cases)) +
+    facet_wrap(~cleanup_step, nrow = 1) +
+    geom_point(size = 1.1, stroke = 0, shape = 16, colour = "gray") +
     theme(axis.text.x=element_text(angle = -80, hjust = 0))
 
+p <- p + theme_bw() +
+        theme(panel.border = element_blank(),
+              panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              axis.line = element_line(colour = "black"),
+              strip.background = element_blank())
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1, size = 5))
+    p <- p + theme(legend.title = element_blank())
+    p <- p + xlab("")
+p <- p + scale_x_date(date_labels =  "%b %Y")
+p <- p + theme(strip.text.x = element_text(size = 3, face = "bold"))
+p <- p + theme(axis.text.y = element_text(size = 1))
 
 ```
 
@@ -218,16 +229,24 @@ by.location %<>% lapply(function(df){
                          return(df)})
 
 
+by.location_weekly <- lapply(by.location, daily.to.weekly) %>%
+                       bind_rows(.id = "Country") %>%
+                       filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
+
 by.location_incid <- bind_rows(by.location, .id = "Country")
 by.location_incid %<>% filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
 
+```
 
-p <- ggplot(by.location_incid , aes(Date, incid)) +
-     geom_point(size = 1.5, stroke = 0, shape = 16, colour = "gray") +
+```{r hm_weekly_incid, eval = TRUE}
+
+by.location_weekly$Date %<>% as.Date
+p <- ggplot(by.location_weekly , aes(Date, incid)) +
+     geom_point(size = 1.5, stroke = 0, shape = 16) +
     facet_wrap(~Country, scales = "free_y", nrow = 6) +
     ylab("Incidence")
 
-    p <- p + theme_bw() +
+p <- p + theme_bw() +
         theme(panel.border = element_blank(),
               panel.grid.major = element_blank(),
               panel.grid.minor = element_blank(),
@@ -238,7 +257,7 @@ p <- ggplot(by.location_incid , aes(Date, incid)) +
     p <- p + xlab("")
     p <- p + scale_x_date(date_labels =  "%b %Y")
 
-ggsave("hm_incidence.png", p)
+p
 
 ```
 
@@ -390,7 +409,7 @@ tmp2 <- filter(weekly.available, Date >= t.min & Date < t.max)
 trng.start <- min(projections_distr$Date) - time_window
 valdtn.end <- max(projections_distr$Date)
 p <- plot.weekly3(tmp2, projections_distr, trng.start, valdtn.end)
-ggsave(outfile, p)
+p
 
 
 ```

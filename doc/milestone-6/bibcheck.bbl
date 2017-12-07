@@ -1,0 +1,25 @@
+\begin{thebibliography}{1}
+
+\bibitem{cori2013new}
+Anne Cori, Neil~M Ferguson, Christophe Fraser, and Simon Cauchemez.
+\newblock A new framework and software to estimate time-varying reproduction
+  numbers during epidemics.
+\newblock {\em American Journal of Epidemiology}, 178(9):1505--1512, 2013.
+
+\bibitem{garske20160308}
+Tini Garske, Anne Cori, Archchun Ariyarajah, Isobel~M. Blake, Ilaria Dorigatti,
+  Tim Eckmanns, Christophe Fraser, Wes Hinsley, Thibaut Jombart, Harriet~L.
+  Mills, Gemma Nedjati-Gilani, Emily Newton, Pierre Nouvellet, Devin Perkins,
+  Steven Riley, Dirk Schumacher, Anita Shah, Maria~D. Van~Kerkhove, Christopher
+  Dye, Neil~M. Ferguson, and Christl~A. Donnelly.
+\newblock Heterogeneities in the case fatality ratio in the west african ebola
+  outbreak 2013{\textendash}2016.
+\newblock {\em Philosophical Transactions of the Royal Society of London B:
+  Biological Sciences}, 372(1721), 2017.
+
+\bibitem{saw1984chebyshev}
+John~G Saw, Mark~CK Yang, and Tse~Chin Mo.
+\newblock Chebyshev inequality with estimated mean and variance.
+\newblock {\em The American Statistician}, 38(2):130--132, 1984.
+
+\end{thebibliography}

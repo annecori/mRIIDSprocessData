@@ -1,0 +1,307 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+
+
+First read in and clean up the data from Health Map. Since these data
+are at national level, we will also aggregate the WHO data at country
+level. HealthMap collects and curates data on the cumulative number
+of cases (C) and deaths (D) stratified by status (suspected, SC/SD, or
+confirmed CC/CD). For data from the WHO, the case status could be
+confirmed, probable or suspected. The final clinical outcome (alive/dead)
+for each case is also recorded. In comparing the two data sets, we sum
+across all four categories in Healthmap and derive incidence data from
+cumulative data.
+
+```{r hmread, echo = FALSE}
+species   <- "Humans"
+disease   <- "Ebola"
+case.type <- "SCC"
+healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
+               read.csv(stringsAsFactors = FALSE) %>%
+               filter(species == species,
+                             disease == disease,
+                             case.type == case.type,
+                             Country %in% unique(WHO_raw$Country) )
+
+healthmap_bycountry <- split(healthmap, healthmap$Country) 
+
+healthmap_weekly    <- healthmap_bycountry %>%
+                       lapply(function(case.count){
+                               location <- case.count$Country[1]
+                               case.count %<>%
+                                  incidence.from.DS1(species, disease,
+                                                   case.type,
+                                                   location,
+                                                   merge_rule = "median") %<>%
+                                 daily.to.weekly }) %>%
+                        bind_rows(.id = "Country")
+
+healthmap_weekly$Date %<>% lubridate::ymd(.)
+
+```
+
+ProMed data is similarly stratfied and we will sum across the
+catgories of suspected and confirmed cases for ProMed.
+
+```{r pmread, echo=FALSE}
+
+promed <- read.csv("data/CaseCounts/raw/ProMED_Ebola_2014-2016.csv",
+                   stringsAsFactors = F)
+promed$Issue.Date %<>% lubridate::dmy_hm(.)
+promed$Issue.Date %<>% format(format = "%m/%d/%y %H:%M")
+
+promed %<>% rename("SC" = "Cumulative.SC",
+                   "SD" = "Cumulative.SD",
+                   "CC" = "Cumulative.CC",
+                   "CD" = "Cumulative.CD",
+                   "HealthMap.Alert.ID" = "HM.Alert.ID")
+
+promed    %<>% filter(species == species,
+                      disease == disease,
+                      Country %in% unique(WHO_raw$Country) )
+
+promed_bycountry <- split(promed, promed$Country) 
+
+promed_weekly    <- promed_bycountry %>%
+                       lapply(function(case.count){
+                               location <- case.count$Country[1]
+                               case.count %<>%
+                                  incidence.from.DS1(species, disease,
+                                                   case.type,
+                                                   location,
+                                                   merge_rule = "median") %<>%
+                                 daily.to.weekly }) %>%
+                        bind_rows(.id = "Country")
+
+promed_weekly$Date %<>% lubridate::ymd(.)
+
+```
+
+
+```{r}
+WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
+              lapply(function(df){
+                      df      %>%
+                      ungroup %>%
+                      select(Date, incid) %>%
+                      daily.to.weekly}) %>%
+                bind_rows(.id = "Country")    
+WHO_weekly$Date       %<>% lubridate::ymd(.)
+
+
+color_scale <- c("HealthMap" = "black", "WHO" = "green", "ProMed" = "red")
+
+p <- list( WHO = WHO_weekly,
+     HealthMap = healthmap_weekly[, c("Country", "Date", "incid")],
+     ProMed    = promed_weekly[, c("Country", "Date", "incid")]) %>%
+    bind_rows(.id = "Source") %>%
+    ggplot(aes(Date, incid, color = Source)) +
+    geom_point(size = 0.8) +
+    facet_grid(Country ~.) +
+    scale_colour_manual(values = color_scale)
+
+
+p <- p + theme_bw() +
+    theme(panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(colour = "black"),
+          strip.background = element_blank())
+p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + theme(legend.title = element_blank())
+p <- p + xlab("")
+p <- p + scale_x_date(date_labels =  "%b %Y")
+
+
+
+
+```
+## Estimating Reproduction number from WHO and Healthmap Data
+
+```{r who_vs_hm_vs_pm}
+
+promed_R <- promed_bycountry %>%
+               lapply(function(case.count){
+                        location <- case.count$Country[1]
+                        case.count %<>%
+                        incidence.from.DS1(species, disease,
+                                           case.type,
+                                           location,
+                                           merge_rule = "median")
+                        start     <- 1:(length(case.count$Date) - time_window)
+                        end       <- start + time_window
+                        end.dates <- case.count$Date[end] 
+                        res       <- EstimateR(case.count$incid,
+                                               T.Start  = start ,
+                                               T.End    = end,
+                                               method   = "NonParametricSI",
+                                               SI.Distr = SI_Distr,
+                                               plot     = FALSE ,
+                                               CV.Posterior = 1 ,
+                                               Mean.Prior   = 1 ,
+                                               Std.Prior    = 0.5)
+                        res$R %<>% cbind(Date = end.dates)
+                        return(res$R)}) %>%
+              bind_rows(.id = "Country")
+
+healthmap_R <- healthmap_bycountry %>%
+               lapply(function(case.count){
+                        location <- case.count$Country[1]
+                        case.count %<>%
+                        incidence.from.DS1(species, disease,
+                                           case.type,
+                                           location,
+                                           merge_rule = "median")
+                        start     <- 1:(length(case.count$Date) - time_window)
+                        end       <- start + time_window
+                        end.dates <- case.count$Date[end] 
+                        res       <- EstimateR(case.count$incid,
+                                               T.Start  = start ,
+                                               T.End    = end,
+                                               method   = "NonParametricSI",
+                                               SI.Distr = SI_Distr,
+                                               plot     = FALSE ,
+                                               CV.Posterior = 1 ,
+                                               Mean.Prior   = 1 ,
+                                               Std.Prior    = 0.5)
+                        res$R %<>% cbind(Date = end.dates)
+                        return(res$R)}) %>%
+              bind_rows(.id = "Country")
+
+WHO_R <- WHO_bycountry    %>%
+         split(.$Country) %>%
+         lapply(function(case.count){
+                  location  <- case.count$Country[1]
+                  start     <- 1:(length(case.count$Date) - time_window)
+                  end       <- start + time_window
+                  end.dates <- case.count$Date[end] 
+                  res       <- EstimateR(case.count$incid,
+                                         T.Start  = start ,
+                                         T.End    = end,
+                                         method   = "NonParametricSI",
+                                         SI.Distr = SI_Distr,
+                                         plot     = FALSE ,
+                                         CV.Posterior = 1 ,
+                                         Mean.Prior   = 1 ,
+                                         Std.Prior    = 0.5)
+                  res$R %<>% cbind(Date = end.dates)
+                  return(res$R)}) %>%
+           bind_rows(.id = "Country")
+
+
+p <- list( WHO = WHO_R, HealthMap = healthmap_R, ProMed = promed_R) %>%
+    bind_rows(.id = "Source") %>%
+    ggplot(aes(Date, `Mean(R)`, color = Source)) +
+    geom_line() +
+    facet_grid(Country ~.)
+
+p <- p + theme_bw() +
+    theme(panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(colour = "black"),
+          strip.background = element_blank())
+p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + theme(legend.title = element_blank())
+p <- p + xlab("")
+p <- p + scale_x_date(date_labels =  "%b %Y")
+p <- p + scale_colour_manual(values = color_scale)
+p <- p + ggtitle("Mean R estimated from incidence data") +
+         theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+The graphs show that the estimates from the three different sources
+closely track each other. Here's another way to visualise this.
+
+```{r hm_who}
+
+HM_vs_WHO <- inner_join(WHO_R, healthmap_R,
+                        by = c("Date", "Country")) %>%
+              select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
+              rename("WHO" = `Mean(R).x`,
+                     "HealthMap" = `Mean(R).y`)
+
+ggplot(HM_vs_WHO, aes(HealthMap, WHO)) +
+    geom_point() +
+    facet_wrap(~Country, nrow = 3) +
+    xlab("R estimated from HealthMap data") +
+    ylab("R estimated from WHO data") +
+    geom_abline(slope = 1)
+```
+
+```{r pm_who}
+
+promed_vs_WHO <- inner_join(WHO_R, promed_R,
+                        by = c("Date", "Country")) %>%
+              select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
+              rename("WHO" = `Mean(R).x`,
+                     "Promed" = `Mean(R).y`)
+
+ggplot(promed_vs_WHO, aes(Promed, WHO)) +
+    geom_point() +
+    facet_wrap(~Country, nrow = 3) +
+    xlab("R estimated from ProMed data") +
+    ylab("R estimated from WHO data") +
+    geom_abline(slope = 1)
+
+
+```
+
+```{r pm_hm}
+
+promed_vs_hm <- inner_join(healthmap_R, promed_R,
+                        by = c("Date", "Country")) %>%
+              select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
+              rename("HealthMap" = `Mean(R).x`,
+                     "ProMed" = `Mean(R).y`)
+
+ggplot(promed_vs_hm, aes(HealthMap, ProMed)) +
+    geom_point() +
+    facet_wrap(~Country, nrow = 3) +
+    xlab("R estimated from HealthMap data") +
+    ylab("R estimated from ProMed data") +
+    geom_abline(slope = 1)
+
+```
+As the above graphs indicates, estimates of the reproduction number
+from ProMed, HealthMap and WHO data are highly correlated (correlation
+coefficient = 0.76, 95% CI = (0.74, 0.78)).
+
+```{r}
+hm_who_pm <- inner_join(WHO_R, healthmap_R,
+                        by = c("Date", "Country")) %>%
+              select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
+              rename("WHO" = `Mean(R).x`,
+                     "HealthMap" = `Mean(R).y`) %>%
+              inner_join(promed_R, by = c("Date", "Country")) %>%
+              rename("ProMed" = `Mean(R)`)  
+
+d <- data.frame(ProMed    = hm_who_pm$ProMed,
+                WHO       = hm_who_pm$WHO,
+                HealthMap = hm_who_pm$HealthMap) %>% na.omit
+
+cor(d)
+#cor.test(HM_vs_WHO$WHO, HM_vs_WHO$HealthMap)
+```

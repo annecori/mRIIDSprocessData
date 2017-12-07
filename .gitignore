@@ -3,3 +3,7 @@ man/*
 NAMESPACE
 DESCRIPTION
 output/*
+*.aux 
+*.log 
+doc/milestone-6/Milestone-6.pdf 
+*.toc

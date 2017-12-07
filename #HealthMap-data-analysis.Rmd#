@@ -1,0 +1,395 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Analysis of Ebola data from HealthMap
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  pow_dist : 2
+  t.proj : 300
+  n.sim : 1000
+  n.dates.sim : 49
+  p.stay: 0.99
+---
+
+# Introduction
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "output/figures/")
+
+```
+
+
+```{r setup}
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+library(EpiEstim)
+devtools::load_all()
+
+pow_dist    <- params$pow_dist
+t.proj      <- params$t.proj
+n.sim       <- params$n.sim
+n.dates.sim <- params$n.dates.sim
+p.stay      <- params$p.stay
+
+```
+
+
+```{r ds1_params}
+
+species   <- "Humans"
+disease   <- "Ebola"
+case.type <- "SCC"
+
+```
+
+# Parameters for Ebola and Reproduction Number Estimation
+
+Culled from [literature](http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/suppl_file/nejmc1414992_appendix.pdf)
+
+
+```{r ebola_params}
+
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7 * 7
+
+```
+
+# Gravity model parameters
+
+```{r gm_params}
+
+pow_N_to <- pow_N_from <- 1
+K        <- 1
+
+```
+
+
+# Data clean-up
+
+Visualising the raw data.
+
+```{r}
+
+healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
+                 read.csv(stringsAsFactors = FALSE)
+
+healthmap %<>% filter(Species == species & Disease == disease)
+
+
+```
+
+```{r hm_rawviz, eval = TRUE}
+
+healthmap.raw <- healthmap %>%
+                 filter(Species == species,
+                               Disease == disease) %>%
+                 select(Issue.Date, SC, SD, CC, CD, Country)
+
+healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
+
+p <- healthmap.raw %>%
+  tidyr::gather(case_type,
+                count, -c(Issue.Date, Country)) %>%
+  ggplot(aes(Issue.Date, count, color = case_type)) +
+  geom_point() +
+  facet_wrap(~Country) +
+  xlab("") + ylab("Cumulative Case Count")
+
+p <- p + theme_bw() +
+    theme(panel.border = element_blank(),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.line = element_line(colour = "black"),
+          strip.background = element_blank())
+p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + theme(legend.title = element_blank())
+p <- p + xlab("")
+p <- p + scale_x_date(date_labels =  "%b %Y")
+
+
+```
+The data clean-up consists of the following steps:
+1. Extract the cumulative case count as a sum of suspected and
+confirmed cases.
+2. Merge duplicate alerts.
+3. Remove outliers and interpolate missing data.
+4. Determine the incidence count from the cumulative case count.
+
+
+```{r}
+
+
+cols.to.keep <- c("Location", "Country", "Disease", "Species",
+                   "HealthMap.Alert.ID", "Headline", "URL",
+                  "Alert.Tag", "Feed.Name", "Lon", "Lat")
+## These are columns we generate ourselves later on
+cols.to.keep <- c(cols.to.keep, "Date", "Cases") 
+
+## params for outlier removal.
+use.last   <- 20
+p.within.k <- 0.50
+k.sd       <- interval.width.for.p(use.last,
+                                   1 - p.within.k) %>%     sqrt %>% `[`(2)
+
+
+by.location <- healthmap %>%
+                split(.$Country) %>%
+                lapply(function(case.count){
+                    case.count %<>% update.cases.column(case.type) 
+                    results <- list(update_cases_col =
+                                        case.count[, c("Date", "Cases")])
+                    case.count %<>% merge.duplicates(cols.to.keep)
+                    results    %<>% c(merge_duplicates =
+                                          list(case.count[, c("Date", "Cases")]))
+                    
+                    case.count %<>% arrange(Date) 
+
+                    not.na          <- which(!is.na(case.count$Cases))
+                    cum.incidence   <- case.count[not.na, c('Date', 'Cases')]
+                    first.row       <- case.count[1, c('Date', 'Cases')]
+                    first.row$Date  <- first.row$Date - 1
+                    first.row$Cases <- 0
+
+                    cum.incidence %<>% rbind(first.row, .)
+
+
+                   cum.incidence %<>%
+                       remove.last.outliers(use.last=use.last, k.sd=k.sd)
+                   results %<>% c(outliers_removed = list(cum.incidence)) 
+
+                   cum.incidence %<>% make_monotonically_increasing
+                   results %<>% c(make_increasing = list(cum.incidence))
+                    
+                   cum.incidence %<>% interpolate.missing.data
+                   results %<>% c(interpolate  = list(cum.incidence))
+
+                   results %<>% bind_rows(.id = "cleanup_step")
+
+                   return(results)}) 
+
+```
+
+```{r lib_eg, eval = FALSE}
+by.location[["Liberia"]]$cleanup_step %<>% factor
+by.location[["Liberia"]] %<>%
+    mutate(cleanup_step = forcats::fct_recode(cleanup_step, 
+                                     "Cases" = "update_cases_col",
+                                     "Merge Duplicates" = "merge_duplicates",
+                                     "Outliers Removed" = "outliers_removed",
+                                     "Make increasing" = "make_increasing",
+                                     "Interpolate" = "interpolate"))
+
+by.location[["Liberia"]]$cleanup_step %<>% forcats::fct_inorder()
+ 
+p <- ggplot(by.location[["Liberia"]], aes(Date, Cases)) +
+    facet_wrap(~cleanup_step) +
+    geom_point(size = 1.5, stroke = 0, shape = 16, colour = "gray") +
+    theme(axis.text.x=element_text(angle = -80, hjust = 0))
+
+
+```
+
+```{r incid_tall, eval = TRUE}
+
+by.location %<>% lapply(function(df){
+                         df %<>% filter(cleanup_step == "interpolate")
+                         df$incid <- c(0, diff(df$Cases))
+                         df %<>% select(-c(cleanup_step, Cases)) 
+                         return(df)})
+
+
+by.location_incid <- bind_rows(by.location, .id = "Country")
+by.location_incid %<>% filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
+
+
+p <- ggplot(by.location_incid , aes(Date, incid)) +
+     geom_point(size = 1.5, stroke = 0, shape = 16, colour = "gray") +
+    facet_wrap(~Country, scales = "free_y", nrow = 6) +
+    ylab("Incidence")
+
+p <- p + theme_bw() +
+        theme(panel.border = element_blank(),
+              panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              axis.line = element_line(colour = "black"),
+              strip.background = element_blank())
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+    p <- p + theme(legend.title = element_blank())
+    p <- p + xlab("")
+    p <- p + scale_x_date(date_labels =  "%b %Y")
+
+ggsave("hm_incidence.png", p)
+
+```
+
+```{r incid_wide, eval = TRUE}
+
+by.location_incid %<>% tidyr::spread(key = Country, value = incid, fill = 0) 
+
+```
+
+We now use the incidence count to estimate reproduction number.
+
+```{r hm_restim, eval = TRUE}
+
+start     <- 1:(length(by.location_incid$Date) - time_window)
+end       <- start + time_window
+end.dates <- by.location_incid[end, "Date"]
+r.estim   <- by.location_incid %>%
+                   select(-Date) %>%
+                   plyr::alply(2, .dims = TRUE, function(incid) {
+                                                 res <- EstimateR(incid[, 1], T.Start = start , T.End = end,
+                                                                  method = "NonParametricSI",
+                                                                  SI.Distr = SI_Distr,
+                                                                  plot = FALSE ,
+                                                                  CV.Posterior = 1 ,
+                                                                  Mean.Prior = 1 ,
+                                                                  Std.Prior = 0.5)
+                                                 res$R %<>% cbind(Date = end.dates)
+                                                 return(res$R)})
+
+lapply(names(r.estim), function(country) {
+    R <- r.estim[[country]]
+    p <- ggplot(R, aes(Date)) +
+        geom_ribbon(aes(ymin = `Quantile.0.025(R)`,
+                        ymax = `Quantile.0.975(R)`),
+                    fill = "grey70") +
+         geom_line(aes(y =  `Mean(R)`)) +
+        theme_minimal() + ylab("Reproduction Number R")
+    ggsave(file = paste0("output/", country, "-R.png"), p)
+})
+
+```
+We assume that the reproduction number remains unchanged for the time
+period over which we wish to project. For each location, distribution of
+r_t at t.proj is r_t over the next n.days.sim.
+
+
+```{r rjt, eval = TRUE}
+
+r.j.t <- r.estim %>%
+           lapply(function(R){
+                     cutoff <- which(R$Date %in% by.location_incid[t.proj, "Date"])
+                     shape  <- R[cutoff, "Mean(R)"]^2 / R[cutoff, "Std(R)"]^2
+                     scale  <- R[cutoff, "Std(R)"]^2 / R[cutoff, "Mean(R)"]
+                     return(rgamma(n.sim, shape = shape,
+                                          scale = scale))}) %>% data.frame
+
+
+
+
+```
+
+Determine the flow matrix for the countries of interest only.
+
+```{r}
+
+ w.africa       <- c("Guinea", "Liberia", "Sierra Leone")
+adm0_centroids <- "data/Geography/GravityModel/raw/adm0_centroids.tsv" %>%
+                   read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
+                   filter(V1 %in% w.africa)
+names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
+flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
+                                     latitude  = adm0_centroids[, "lat"],
+                                     population = adm0_centroids[, "pop"],
+                                     place.names = adm0_centroids[, "country"],
+                                     model = "gravity",
+                                     K = K, pow_N_from = pow_N_from,
+                                     pow_N_to = pow_N_to, pow_dist = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+
+## matrix characterising the population movement between geographical units
+p.stay      <- 0.99 # this can be a vector
+p.movement  <- probability_movement(relative.risk, p.stay)
+
+```
+
+
+At this point, all the pieces are in place. by.location_incid contains the incidence count
+r.j.t contains the estimates of reproduction numbers.
+p.movement conatins the probabilities.
+SI_Distr is the serial interval distribution.
+The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
+taking care of the dimensions of course. Now divide the dataset into
+training and validation sets.
+
+We will now split our data into training and validation sets.
+
+```{r hm_split, eval = TRUE}
+
+training   <- by.location_incid[1:t.proj, ]
+validation <- by.location_incid[(t.proj + 1):nrow(by.location_incid), ]
+
+```
+
+```{r hm_projection, eval = TRUE}
+
+incidence.count <- select(training, -Date)
+incid           <- as.matrix(incidence.count)
+dates.all       <- training$Date %>%
+                       c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+t.max           <- nrow(incidence.count) + n.dates.sim - 1
+
+daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
+                                    r.t   <- as.matrix(r.t)
+                                    out   <- project(incid, r.t, SI_Distr,
+                                                     p.movement, n.dates.sim)
+
+                                    incidence.proj  <- rbind(incidence.count, out)
+                                    incidence.proj %<>% cbind(Date = dates.all)
+                                    return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
+
+
+
+
+```
+
+
+```{r hm_plotslist, eval = TRUE}
+
+weekly.available <- c(training    = list(training),
+                       validation = list(validation)) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
+
+weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
+
+
+projections_distr <- projection_quantiles(weekly.projections)
+outfile <- paste0("output/hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
+write.csv(projections_distr, file = outfile, row.names = F, quote = F)
+
+outfile <- paste0("output/hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+
+t.min <- min(projections_distr$Date) - 77
+t.max <- max(projections_distr$Date) + 49
+tmp2 <- filter(weekly.available, Date >= t.min & Date < t.max)
+trng.start <- min(projections_distr$Date) - time_window
+valdtn.end <- max(projections_distr$Date)
+p <- plot.weekly3(tmp2, projections_distr, trng.start, valdtn.end)
+ggsave(outfile, p)
+
+
+```

@@ -65,7 +65,7 @@
 \def\footnote{\protect\rmarkdownfootnote}
 
 
-\usepackage[section]{placeins}
+\usepackage[below]{placeins}
 
 \begin{document}
 \begin{titlepage}
@@ -83,6 +83,13 @@
 \tableofcontents
 
 \newpage
+
+\begin{figure}
+   \centering
+   \includegraphics[]{ms6-figures/schematic}
+  \caption{Schematic of the Project}
+\end{figure}
+
 \section{Milestone Description}\label{milestone-description}
 
 Increased complexity of the simple model to include data from Milestone
@@ -90,7 +97,7 @@ Increased complexity of the simple model to include data from Milestone
 possible. Explore procedures for multiple models comparison and accounting for
 uncertainty.
 
-\section{General Approach}
+\section{Overview}
 
 In Milestone 4, we presented a simple transmission model that made use of
 historical case counts (data stream 1), information about the
@@ -324,6 +331,7 @@ be seen in Figure~\ref{fig:helpfile}.
   \label{fig:helpfile}
 \end{figure}
 
+\FloatBarrier
 \subsection{Collating data for each data stream}
 \begin{center}
 \begin{figure}
@@ -341,11 +349,12 @@ the results of each step in the pre-processing steps in the workflow.
 
 \begin{figure}
   \centering
-  \includegraphics{ms6-figures/liberia-preprocessing}
+  \includegraphics[]{ms6-figures/liberia-preprocessing2}
   \caption{Illustration of the pre-processing steps on HealthMap incidence
     data for Liberia.}
   \label{fig:wf_example}
 \end{figure}
+\FloatBarrier
 
 \subsection{Model training and validation using data from
 WHO}\label{model-training-and-validation-using-data-from-who}
@@ -367,8 +376,8 @@ of the three data sources were well correlated.
 
 \begin{figure}
     \centering
-        \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-incid-clean}
-        \caption{Comparison of incidence data from WHO, HealthMap and ProMed.}
+        \includegraphics[]{ms6-figures/who_hm_pm_weekly_incid-1}
+        \caption{Comparison of weekly incidence data from WHO, HealthMap and ProMed.}
         \label{fig:incid_comp}
   \end{figure}
 
@@ -381,7 +390,7 @@ The results of the analysis above point toward a potential solution to obtain `p
  level incidence data. One could relay on real-time national data (e.g. Promed/Healthmap) and disaggregate 
 the time-series to obtain district level incidence using spatial information from a ' retrospective'
 time-series at finer scale (i.e. WHO data).
-
+\FloatBarrier
 \subsection{Inference of parameters}
 
 The parameters of the full model detailed in Section~\ref{sec:model} are
@@ -400,13 +409,13 @@ to slight variations in reported incidence.
 
 \begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-R-clean}
+  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-1}
   \caption{Comparison of the reproduction numbers estimated from
         the different sources of the incidence data.}
   \label{fig:r_comp}
 \end{figure}
 
-
+\FloatBarrier
 Then, the spatial spread must be assessed.
 In the interest of simplicity, we assume both
 $\alpha$ and $\beta$ to be $1$. The other two parameters are
@@ -442,7 +451,7 @@ predicted by the model and $n$ is the total number of observations.
   good fit.}
   \label{fig:rms}
 \end{figure}
-
+\FloatBarrier
 \subsection{Predicting Future Cases}\label{predicting-future-cases}
 
 As mentioned earlier, the WHO data consisted of incidence data at the district level. To
@@ -458,9 +467,9 @@ steps are shown in Figure~\ref{fig:hm-incid}.
 
 \begin{figure}
   \centering
-  \includegraphics[]{ms6-figures/hm_incidence}
-  \caption{Incidence data from HealthMap after the pre-processing
-    steps}
+  \includegraphics[]{ms6-figures/hm_weekly_incid-1}
+  \caption{Weekly incidence data from HealthMap after the pre-processing
+    steps.}
   \label{fig:hm-incid}
 \end{figure}
 
@@ -498,7 +507,7 @@ the corresponding figure for projections in April 2015.
     the median incidence.}
   \label{fig:hm-prediction-400}
 \end{figure}
-
+\FloatBarrier
 \subsubsection{Prediction at district level}
 
 Predictions over a 7 week period were carried out at 2 different time points - at 300 and
@@ -547,6 +556,7 @@ capturing the spatial dimension of the epidemic.
     Sierra Leone over a 7 week period beginning in May 2015.}
   \label{fig:sl-map}
 \end{figure}
+\FloatBarrier
 \section{Conclusions and next steps}\label{sec:conclusions}
 
 

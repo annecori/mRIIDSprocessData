@@ -137,3 +137,100 @@ log_likelihoods_atj <- function(observed, predicted){
     lh
 }
 
+
+
+
+projection_quantiles <- function(projections){
+
+    by_date <- split(projections, projections$Date)
+
+    projections_50 <- lapply(by_date, function(df)
+                      summarise_if(df, is.numeric, quantile, probs = 0.5)) %>%
+                      bind_rows(.id = "Date") %>%
+                      tidyr::gather(Country, y, -Date)
+
+    projections_025 <- lapply(by_date, function(df)
+                       summarise_if(df, is.numeric, quantile, probs = 0.025)) %>%
+                       bind_rows(.id = "Date") %>%
+                       tidyr::gather(Country, ymin, -Date)
+
+    projections_975 <- lapply(by_date, function(df)
+                       summarise_if(df, is.numeric, quantile, probs = 0.975)) %>%
+                       bind_rows(.id = "Date") %>%
+                       tidyr::gather(Country, ymax, -Date)
+
+    projections_distr <- left_join(projections_50, projections_025) %>%
+                         left_join(projections_975)
+
+    projections_distr$Date %<>% as.Date
+
+    projections_distr
+
+}
+
+plot.style <- function(p){
+
+    p <- p + theme_bw() +
+        theme(panel.border = element_blank(),
+              panel.grid.major = element_blank(),
+              panel.grid.minor = element_blank(),
+              axis.line = element_line(colour = "black"),
+              strip.background = element_blank())
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+    p <- p + theme(legend.title = element_blank())
+    p <- p + xlab("")
+    p <- p + scale_x_date(date_labels =  "%b %Y")
+    p
+
+}
+
+
+plot.weekly2 <- function(available, projections_distr){
+
+
+    tmp <- tidyr::gather(available, Country, Incidence, -c(Category, Date))
+    tmp$Date %<>% as.Date
+    p   <- ggplot(tmp, aes(Date, Incidence, color = Category)) +
+           geom_point(size = 1, stroke = 0, shape = 16) +
+           facet_wrap(~Country, scales = "free_y")
+    p <- p + scale_color_discrete(labels = c("Training", "Validation"))
+    p <- p + geom_line(data = projections_distr, aes(x = Date, y = y, group = 1),
+                     color = 'black', size = 0.9)
+    p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
+                                                     ymin = ymin,
+                                                     ymax = ymax,
+                                                     group = 1),
+                                                     inherit.aes = FALSE,
+                                                     alpha = 0.5)
+    p <- plot.style(p)
+    p
+
+}
+
+plot.weekly3 <- function(available, projections_distr, trng.start, valdtn.end){
+
+
+    tmp <- tidyr::gather(available, Country, Incidence, -c(Category, Date))
+    tmp$Date %<>% as.Date
+    p   <- ggplot(tmp, aes(Date, Incidence)) +
+           geom_point(size = 1.5, stroke = 0, shape = 16, colour = "gray") +
+           facet_wrap(~Country, scales = "free_y")
+
+    tmp2 <- filter(tmp, Date >= trng.start & Date <= valdtn.end)
+    p <- p + geom_point(data = tmp2, aes(Date, Incidence, color = Category),
+                        size = 1.5, stroke = 0, shape = 16)
+    p <- p + scale_color_discrete(labels = c("Training", "Validation"))
+    p <- p + geom_line(data = projections_distr, aes(x = Date, y = y, group = 1),
+                     color = 'black', size = 0.9)
+    p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
+                                                     ymin = ymin,
+                                                     ymax = ymax,
+                                                     group = 1),
+                                                     inherit.aes = FALSE,
+                                                     alpha = 0.5)
+    p <- plot.style(p)
+    p
+
+}
+
+

@@ -295,7 +295,7 @@ is easier to implement, multi-model averaging should better
 account for both parameters and model uncertainty, i.e. parametric and structural uncertainties.
 
 %%%%%\subsection{Predicting Future Incidence Pattern and Geographical Spread}
-
+\FloatBarrier
 \section{Implementation Details}
 \subsection{Software Package mRIIDS}
 
@@ -308,14 +308,14 @@ modules that will do the inference and the projection.
 
 The software
 package will be published on the R packages repository
-(CRAN). At the moment, it is available on GitHub: github.com/annecori/mRIIDSprocessData (figure 1).
+(CRAN). At the moment, it is available on GitHub: github.com/annecori/mRIIDSprocessData (Figure~\ref{fig:github}).
 
-\begin{figure}
+\begin{figure}[h]
    \centering
   \includegraphics[width=8cm, height = 6cm]{ms6-figures/github-screenshot}
-  \label{fig:github}
   \caption{The software being developed for the project is available
     on GitHub.}
+  \label{fig:github}
 \end{figure}
 
 
@@ -469,7 +469,8 @@ using WHO data and at country level using data from HealthMap.
 \subsubsection{Prediction at country level}
 
 Predictions over a 7 week period were carried out using the incidence
-data provided by HealthMap. The data pre-processing steps detailed in
+data provided by HealthMap. The results for Sierra Leone, Liberia and
+Guinea are presented here. The data pre-processing steps detailed in
 an earlier section were applied. The incidence obtained after these
 steps are shown in Figure~\ref{fig:hm-incid}.
 
@@ -520,9 +521,7 @@ the corresponding figure for projections in April 2015.
 
 Predictions over a 7 week period were carried out at 2 different time points - at 300 and
 500 days from the start of the epidemic (October 2014 and May 2015
-respectively). [[In estimating the reproduction number, previous 7 weeks
-of incidence data were used, DONT understand, especially link with next sentence...]]. 
-It is assumed that the 
+respectively). It is assumed that the 
 transmissibility did not change for the previous 7 weeks (as in
 \citep{team2015west}). This analysis was carried at the sub-national
 levels for Sierra Leone, Liberia and
@@ -575,13 +574,12 @@ disaggregated data from the  2013 to 2016 outbreak of Ebola. The next
 steps of this work include:
 
 \begin{itemize}
-\item estimation of parameters of the model;
+\item estimation of parameters of the model including the influence of
+  the health care capacity;
 \item integrating the uncertainty in parameters in the prediction
   framework;
 \item implement model selection and model averaging modules to account
-  for model uncertainty as well; and
-\item incorporate attributes defined geographically such as health
-  care capacity into the framework.
+  for model uncertainty as well.
 \end{itemize}
 
 

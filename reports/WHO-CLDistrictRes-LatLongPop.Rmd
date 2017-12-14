@@ -1,0 +1,123 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: false
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup}
+library(magrittr)
+library(ggplot2)
+library(dplyr)
+
+```
+
+In the WHO dataset, location of residence was recorded to the second
+administrative level, termed prefecture in Guinea, county in Liberia
+and district in Sierra Leone. There are minor differences between the
+names recorded in the WHO dataset and as available in the dataset
+recording their latitude, longitude and population. We will clean up
+these differences and save the clean files.
+
+```{r who_districts, eval = TRUE}
+
+infile <- here::here("data/CaseCounts/processed/", "WHO_bydistricts.csv")
+WHO_districts <- readr::read_csv(infile) 
+
+```
+
+```{r centroids_merge, eval = TRUE}
+guinea_sierra <- here::here("data","Geography/GravityModel/raw/adm2-fixed.txt") %>%
+                     read.csv(stringsAsFactors = FALSE,
+                              sep = "\t",
+                              header = TRUE) %>%
+                    filter(ADM0 %in% c("Guinea", "Sierra Leone"))  
+
+liberia <- here::here("data", "Geography/GravityModel/raw/adm1_centroids_fixed.tsv") %>%
+                   read.csv(stringsAsFactors = FALSE,
+                            sep = "\t",
+                            header = TRUE) %>%
+                   filter(ADM0 == "Liberia")  
+
+guinea_sierra %<>%
+    select(ADM0, ADM2, Centroid_Lon, Centroid_Lat, Pop) %<>%
+    rename(CL_DistrictRes = ADM2)
+
+liberia %<>%
+    select(ADM0, ADM1, Centroid_Lon, Centroid_Lat, Pop) %<>%
+    rename(CL_DistrictRes = ADM1)
+
+
+all_centroids <- bind_rows(guinea_sierra, liberia) 
+
+
+```
+We now convert all non-ASCII letters to ASCII characters (e.g.,
+accented e is converted to e), remove spaces and convert case.
+
+```{r names_cleanup, eval = TRUE}
+all_centroids$CL_DistrictRes     %<>%
+    iconv(to='ASCII//TRANSLIT')  %<>%
+    gsub("\\'", '', .)  %<>%
+    gsub(' ', '', .) %<>%
+    toupper %<>%
+    factor
+
+all_centroids$ADM0   %<>%
+    gsub(' ', '', .) %<>%
+    toupper 
+
+```
+In the WHO data-set, no distinction has been made between Western
+Urban and Western Rural districts of Sierra Leone. So we treat the
+co-ordinates of Western Urban as those of Western district.
+
+```{r west_urban, eval = TRUE}
+all_centroids$CL_DistrictRes %<>% gsub("WESTERNURBAN", "WESTERN", .)
+
+```
+
+
+Some of the prefectures of Guinea are not represented in the WHO
+data. These are: Gaoual, Koubia, Koundara, Labe, Lelouma, Mamou
+and Mandiana. Hence we will drop these from the data frame of
+centroids.
+
+```{r guinea_missing, eval = TRUE}
+
+missing <- setdiff(unique(all_centroids$CL_DistrictRes),
+                   unique(WHO_districts$CL_DistrictRes))
+
+notmissing    <- !(all_centroids$CL_DistrictRes %in% missing)
+all_centroids <- all_centroids[notmissing, ]
+
+
+all_centroids$CL_DistrictRes %<>% factor
+
+
+```
+
+Both files are now consistent and we can write them out.
+
+```{r centroids_write, eval = TRUE}
+
+outfile <- here::here("data/Geography/GravityModel/processed/", "all_centroids.csv")
+readr::write_csv(all_centroids, path = outfile)
+
+```

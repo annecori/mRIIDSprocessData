@@ -232,5 +232,3 @@ plot.weekly3 <- function(available, projections_distr, trng.start, valdtn.end){
     p
 
 }
-
-

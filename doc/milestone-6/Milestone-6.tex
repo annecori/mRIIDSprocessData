@@ -128,7 +128,7 @@ potentially health care capacity,
 We have also established the procedure for the validation process
 using historical data and are exploring various possibilities for multi-model comparison. 
 
-For the model validation, we rely on both Promed/HealthMap incidence data, which are 
+For the model validation, we rely on both ProMED/HealthMap incidence data, which are 
 at the national scale, and WHO reported data which are at the district level. The advantage 
 of using the more spatially refined WHO data is that it allows increased statistical power to 
 infer the spatial parameters of the model (i.e. more movements occur at finer spatial scale, 
@@ -365,7 +365,7 @@ outbreak in Guinea, Liberia and Sierra Leone. This dataset was cleaned
 and published in \citep{garske20160308} and it is this cleaned version
 of the data that were used in this work. This dataset consists of
 incidence reports at ADM2 level. Thus in using it, we were able to validate the model at a finer spatial resolution than available
-with HealthMap/ProMed data. We refer to this dataset as WHO data
+with HealthMap/ProMED data. We refer to this dataset as WHO data
 throughout the rest of this document.
 
 For data stream 2 i.e., parameters informing the transmissibility of
@@ -391,12 +391,12 @@ of the three data sources were well correlated.
 
 During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data)
 are typically not available in real time due to reporting delay \citep{cori2017key}. A key advantage 
-of relying on Promed/Health data in our project is the real time nature of the data. However this come at the cost
+of relying on ProMED/HealthMap data in our project is the real time nature of the data. However this come at the cost
 of nationally aggregated data.
 
 The results of the analysis above point toward a potential solution to obtain `pseudo real-time' district
- level incidence data. One could relay on real-time national data (e.g. Promed/Healthmap) and disaggregate 
-the time-series to obtain district level incidence using spatial information from a ' retrospective'
+ level incidence data. One could relay on real-time national data (e.g. ProMED/HealthMap) and disaggregate 
+the time-series to obtain district level incidence using spatial information from a `retrospective'
 time-series at finer scale (i.e. WHO data).
 \FloatBarrier
 \subsection{Inference of parameters}
@@ -407,10 +407,10 @@ estimation of $R_{i, t}$ can be obtained using incidence data and knowledge of t
 Such statistical procedure has been implemented in the
 R package EpiEstim. Figure~\ref{fig:r_comp} shows the
 reproduction number estimated assuming constant transmissibility during period of 28 days. 
-Sliding  28 days windows allow us to obtain daily estimate of the reproduction number (see [ref AJE cori ] for details).
+Sliding  28 days windows allow us to obtain daily estimate of the reproduction number (see \citep{cori2013new} for details).
 
 We estimated temporal pattern of the reproduction number for the 3 most affected country in West Africa
-using either data sources (Promed, Healthmap, and WHO).
+using either data sources (Promed, HealthMap, and WHO).
 The high degree of correlation in the estimates of transmissibility from the three
 different data sources shows that the estimation procedure is robust
 to slight variations in reported incidence.

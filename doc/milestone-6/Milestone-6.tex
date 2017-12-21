@@ -120,8 +120,9 @@ account for the multiple data streams initially described.
 
 Therefore, our new complex model has the ability to:
 \begin{itemize}
-\item estimate model parameters: including parameters linked to geographical spread (or
-potentially health care capacity,
+\item estimate model parameters: including parameters that vary
+  spatially such as the probability of movement of populations out of
+  a region/country or the healthcare capacity of different regions/countries;
 \item predict the regional/international spread of Ebola, relying on those parameters' estimates. 
 \end{itemize}
 
@@ -131,8 +132,10 @@ using historical data and are exploring various possibilities for multi-model co
 For the model validation, we rely on both ProMED/HealthMap incidence data, which are 
 at the national scale, and WHO reported data which are at the district level. The advantage 
 of using the more spatially refined WHO data is that it allows increased statistical power to 
-infer the spatial parameters of the model (i.e. more movements occur at finer spatial scale, 
-therefore the `signature' of movement in incidence data is more identifiable at finer scale).
+infer the spatial parameters of the model. That is, since the
+incidence data are available at a finer spatial scale, it is possible
+to infer the influence of the population flow within a country on the spread of the
+disease. 
 This exercise could be viewed as:
 \begin{itemize}
 \item demonstrating the flexible nature of our framework, i.e. 
@@ -380,15 +383,26 @@ used for the reproduction number. This was informed by a review of estimates of 
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
 and ProMED). As can be seen in Figure~\ref{fig:incid_comp}, the incidence time series
-of the three data sources were well correlated.
+of the three data sources were well
+correlated. Figure~\ref{fig:corrplot} shows the strength of the
+correlation between the data from the three different sources.
 
 \begin{figure}
     \centering
-        \includegraphics[]{ms6-figures/who_hm_pm_weekly_incid-1}
+        \includegraphics[width=\textwidth]{ms6-figures/who_hm_pm_weekly_incid-2}
         \caption{Comparison of weekly incidence data from WHO, HealthMap and ProMED.}
         \label{fig:incid_comp}
   \end{figure}
 
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{ms6-figures/correlation-matrix-2}
+    \caption{Correlation matrix between the incidence data from WHO,
+      ProMED and HealthMap. Intensity of blue indicates the strength
+      of the correlation.}
+    \label{fig:corrplot}
+  \end{figure}
 During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data)
 are typically not available in real time due to reporting delay \citep{cori2017key}. A key advantage 
 of relying on ProMED/HealthMap data in our project is the real time nature of the data. However this come at the cost
@@ -417,7 +431,7 @@ to slight variations in reported incidence.
 
 \begin{figure}
   \centering
-  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-1}
+  \includegraphics[width=\textwidth]{ms6-figures/who_vs_hm_vs_pm-2}
   \caption{Comparison of the reproduction numbers estimated from
         the different sources of the incidence data.}
   \label{fig:r_comp}
@@ -583,7 +597,7 @@ steps of this work include:
 \end{itemize}
 
 Overall, we are progressing toward a comprehensive framework to predict the
-spread of infectious diseases. The foundation of this framework is build to
+spread of infectious diseases. The foundation of this framework is built to
 allow:
 \begin{itemize}
 \item integration of multiple data streams, from prior information on 

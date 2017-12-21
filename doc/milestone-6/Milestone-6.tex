@@ -379,13 +379,13 @@ used for the reproduction number. This was informed by a review of estimates of 
 \subsection{Incidence trends from different data sources}
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
-and ProMed). As can be seen in Figure~\ref{fig:incid_comp}, the incidence time series
+and ProMED). As can be seen in Figure~\ref{fig:incid_comp}, the incidence time series
 of the three data sources were well correlated.
 
 \begin{figure}
     \centering
         \includegraphics[]{ms6-figures/who_hm_pm_weekly_incid-1}
-        \caption{Comparison of weekly incidence data from WHO, HealthMap and ProMed.}
+        \caption{Comparison of weekly incidence data from WHO, HealthMap and ProMED.}
         \label{fig:incid_comp}
   \end{figure}
 
@@ -410,7 +410,7 @@ reproduction number estimated assuming constant transmissibility during period o
 Sliding  28 days windows allow us to obtain daily estimate of the reproduction number (see \citep{cori2013new} for details).
 
 We estimated temporal pattern of the reproduction number for the 3 most affected country in West Africa
-using either data sources (Promed, HealthMap, and WHO).
+using either data sources (ProMED, HealthMap, and WHO).
 The high degree of correlation in the estimates of transmissibility from the three
 different data sources shows that the estimation procedure is robust
 to slight variations in reported incidence.
@@ -569,8 +569,8 @@ capturing the spatial dimension of the epidemic.
 
 The integration of the different data streams into the prediction
 framework shows promising results in predicting the risk of spread of
-an outbreak. The model was validated using both gross and
-disaggregated data from the  2013 to 2016 outbreak of Ebola. The next
+an outbreak. The model was validated using both national and
+sub-national data from the  2013 to 2016 outbreak of Ebola. The next
 steps of this work include:
 
 \begin{itemize}
@@ -582,8 +582,29 @@ steps of this work include:
   for model uncertainty as well.
 \end{itemize}
 
-
-
+Overall, we are progressing toward a comprehensive framework to predict the
+spread of infectious diseases. The foundation of this framework is build to
+allow:
+\begin{itemize}
+\item integration of multiple data streams, from prior information on 
+ transmissibility to local health care capacity;
+\item scalability, we demonstrate its use for national and sub-national 
+  predictions. Importantly, accessing incidence data at finer spatial scale allows
+   improved predictions by accounting for fine spatial heterogeneity in parameters' values. 
+   Nevertheless, predictions of national trends and international spread (e.g. from 
+   ProMED/HealthMap data) is possible and yield promising results that could be 
+   critical for real-time assessment;
+\item generic predictions. While our effort are concentrating on predicting the spread of Ebola,
+  the framework build could be applied to other pathogens. This would require slight modifications
+  of the model to account for specificity of other diseases transmission dynamics (e.g. adding an 
+  environmental data stream for vector-borne diseases, or a vaccination coverage data stream for
+  vaccine preventable diseases). Such future modifications will be feasible given the modular nature
+  of our approach.
+\item finally, the open-source nature of our project,  both regarding the data streams 
+  used and the analyses framework, ensure that our results are transparent and 
+  reproducible. The availability of all source data and code on the github platform also means
+  that contributions from external parties could be included to improve predictions.
+\end{itemize}
 
 
 \newpage

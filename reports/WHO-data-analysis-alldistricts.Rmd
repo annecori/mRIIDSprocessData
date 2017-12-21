@@ -119,10 +119,9 @@ To estimate R, we convert from long format to the wide format.
 
 ```{r}
 
-WHO_wide <- WHO_bydistricts %>%
-                    ungroup %>%
-                    select(-Country) %>%
-                    tidyr::spread(CL_DistrictRes, incid, fill = 0)
+infile <- here::here("data",
+                      "CaseCounts/processed/WHO_wide.csv")
+WHO_wide <- readr::read_csv(infile)
 
 
 start     <- 2:(length(WHO_wide$Date) - time_window)

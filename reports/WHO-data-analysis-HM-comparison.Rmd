@@ -2,7 +2,7 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: true
+    keep_tex: false
     fig_caption: true
     latex_engine: pdflatex
 title: 
@@ -20,7 +20,34 @@ bibliography:
 biblio-style: apsr
 endnote: no
 ---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=6, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "figures/")
+```
 
+```{r setup, echo = FALSE}
+library(magrittr)
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(EpiEstim)
+devtools::load_all()
+
+```
+
+# Parameters for Ebola
+
+Culled from literature.
+
+```{r ebola_params, eval = TRUE}
+
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) EpiEstim::DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+time_window <- 7 * 7
+
+```
 
 
 First read in and clean up the data from Health Map. Since these data
@@ -37,12 +64,13 @@ cumulative data.
 species   <- "Humans"
 disease   <- "Ebola"
 case.type <- "SCC"
-healthmap <- "data/CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv" %>%
+wafrica   <- c("Guinea", "Liberia", "Sierra Leone")
+healthmap <- here::here("data" ,"CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv") %>%
                read.csv(stringsAsFactors = FALSE) %>%
                filter(species == species,
                              disease == disease,
                              case.type == case.type,
-                             Country %in% unique(WHO_raw$Country) )
+                             Country %in% wafrica )
 
 healthmap_bycountry <- split(healthmap, healthmap$Country) 
 
@@ -61,13 +89,14 @@ healthmap_weekly$Date %<>% lubridate::ymd(.)
 
 ```
 
-ProMed data is similarly stratfied and we will sum across the
-catgories of suspected and confirmed cases for ProMed.
+ProMED data is similarly stratfied and we will sum across the
+categories of suspected and confirmed cases for ProMED.
 
 ```{r pmread, echo=FALSE}
 
-promed <- read.csv("data/CaseCounts/raw/ProMED_Ebola_2014-2016.csv",
-                   stringsAsFactors = F)
+promed <- here::here("data", "CaseCounts/raw/ProMED_Ebola_2014-2016.csv") 
+promed <- read.csv(promed, stringsAsFactors = FALSE)
+
 promed$Issue.Date %<>% lubridate::dmy_hm(.)
 promed$Issue.Date %<>% format(format = "%m/%d/%y %H:%M")
 
@@ -79,7 +108,7 @@ promed %<>% rename("SC" = "Cumulative.SC",
 
 promed    %<>% filter(species == species,
                       disease == disease,
-                      Country %in% unique(WHO_raw$Country) )
+                      Country %in% wafrica )
 
 promed_bycountry <- split(promed, promed$Country) 
 
@@ -99,7 +128,11 @@ promed_weekly$Date %<>% lubridate::ymd(.)
 ```
 
 
-```{r who_hm_pm_weekly_incid, eval = TRUE}
+```{r whoread, eval = TRUE}
+
+infile <- here::here("data", "CaseCounts/processed/WHO_bycountry.csv")
+WHO_bycountry <- readr::read_csv(infile)
+
 WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
               lapply(function(df){
                       df      %>%
@@ -109,34 +142,57 @@ WHO_weekly <- split(WHO_bycountry, WHO_bycountry$Country) %>%
                 bind_rows(.id = "Country")    
 WHO_weekly$Date       %<>% lubridate::ymd(.)
 
+```
 
-color_scale <- c("HealthMap" = "black", "WHO" = "green", "ProMed" = "red")
+
+```{r weekly_incid_viz, eval = TRUE}
+color_scale <- c("HealthMap" = "black", "WHO" = "green", "ProMED" = "red")
 
 p <- list( WHO = WHO_weekly,
      HealthMap = healthmap_weekly[, c("Country", "Date", "incid")],
-     ProMed    = promed_weekly[, c("Country", "Date", "incid")]) %>%
+     ProMED    = promed_weekly[, c("Country", "Date", "incid")]) %>%
     bind_rows(.id = "Source") %>%
     ggplot(aes(Date, incid, color = Source)) +
     geom_point(size = 0.8) +
-    facet_grid(Country ~.) +
+    facet_grid(Country ~., scales = "free_y") +
     scale_colour_manual(values = color_scale)
 
-
-p <- p + theme_bw() +
-    theme(panel.border = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.line = element_line(colour = "black"),
-          strip.background = element_blank())
-p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + geom_rangeframe() + theme_tufte(base_size = 14) + theme(axis.line = element_line(color = 'black'))
+#p <- p + theme(axis.text.x = element_text(angle = 0, hjust = 1))
 p <- p + theme(legend.title = element_blank())
-p <- p + xlab("")
-p <- p + scale_x_date(date_labels =  "%b %Y")
+p <- p + xlab("") + ylab("Weekly Incidence")
+p <- p + scale_x_date(date_labels =  "%m-%Y")
+
 p
 
-
-
 ```
+
+## Correlation between the incidence data
+
+```{r incid_corrplot, eval = TRUE}
+who <- WHO_weekly
+pm  <- promed_weekly
+hm  <- healthmap_weekly
+
+who$week <- paste(lubridate::year(who$Date), lubridate::week(who$Date), sep = "-")
+hm$week  <- paste(lubridate::year(hm$Date), lubridate::week(hm$Date), sep = "-")
+pm$week  <- paste(lubridate::year(pm$Date), lubridate::week(pm$Date), sep = "-")
+
+hm_who_pm_incid <- inner_join(who, hm,
+                        by = c("week", "Country")) %>%
+              select(Country, week, incid.x, incid.y) %>%
+              rename("WHO" = `incid.x`,
+                     "HealthMap" = `incid.y`) %>%
+              inner_join(pm, by = c("week", "Country")) %>%
+              rename("ProMED" = `incid`) %>%
+              select(WHO, ProMED, HealthMap)
+
+
+M <- cor(hm_who_pm_incid)
+corrplot::corrplot(M, method = "circle", type = "upper")
+#cor.test(HM_vs_WHO$WHO, HM_vs_WHO$HealthMap)
+```
+
 ## Estimating Reproduction number from WHO and Healthmap Data
 
 ```{r who_vs_hm_vs_pm}
@@ -210,22 +266,17 @@ WHO_R <- WHO_bycountry    %>%
            bind_rows(.id = "Country")
 
 
-p <- list( WHO = WHO_R, HealthMap = healthmap_R, ProMed = promed_R) %>%
+p <- list( WHO = WHO_R, HealthMap = healthmap_R, ProMED = promed_R) %>%
     bind_rows(.id = "Source") %>%
     ggplot(aes(Date, `Mean(R)`, color = Source)) +
     geom_line() +
-    facet_grid(Country ~.)
+    facet_grid(Country ~., scale = "free_y")
 
-p <- p + theme_bw() +
-    theme(panel.border = element_blank(),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          axis.line = element_line(colour = "black"),
-          strip.background = element_blank())
-p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + geom_rangeframe() + theme_tufte(base_size = 14) + theme(axis.line = element_line(color = 'black'))
+#p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
 p <- p + theme(legend.title = element_blank())
 p <- p + xlab("")
-p <- p + scale_x_date(date_labels =  "%b %Y")
+p <- p + scale_x_date(date_labels =  "%m-%Y")
 p <- p + scale_colour_manual(values = color_scale)
 p <- p + ggtitle("Mean R estimated from incidence data") +
          theme(plot.title = element_text(hjust = 0.5))
@@ -290,7 +341,8 @@ As the above graphs indicates, estimates of the reproduction number
 from ProMed, HealthMap and WHO data are highly correlated (correlation
 coefficient = 0.76, 95% CI = (0.74, 0.78)).
 
-```{r}
+```{r R_corrplot, eval = TRUE}
+
 hm_who_pm <- inner_join(WHO_R, healthmap_R,
                         by = c("Date", "Country")) %>%
               select(Country, Date, `Mean(R).x`,  `Mean(R).y`) %>%
@@ -299,10 +351,12 @@ hm_who_pm <- inner_join(WHO_R, healthmap_R,
               inner_join(promed_R, by = c("Date", "Country")) %>%
               rename("ProMed" = `Mean(R)`)  
 
-d <- data.frame(ProMed    = hm_who_pm$ProMed,
+d <- data.frame(ProMED    = hm_who_pm$ProMed,
                 WHO       = hm_who_pm$WHO,
                 HealthMap = hm_who_pm$HealthMap) %>% na.omit
 
-cor(d)
+M <- cor(d)
+corrplot::corrplot(M, method = "circle", type = "upper", title = "Correlation between reproduction numbers estimated from WHO, ProMED and HealthMap data")
 #cor.test(HM_vs_WHO$WHO, HM_vs_WHO$HealthMap)
 ```
+

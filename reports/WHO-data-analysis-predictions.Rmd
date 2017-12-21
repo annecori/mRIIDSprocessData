@@ -25,7 +25,7 @@ params:
   n.sim : 2
   n.dates.sim : 49
   p.stay: 0.9
-  ADM0: SIERRALEONE
+  ADM0: LIBERIA
 ---
 
 ```{r global_options, include=FALSE}
@@ -262,6 +262,9 @@ p <- p +  xlab("") +
      theme(axis.text.x = element_text(angle = 45, vjust = 0.2)) +
      theme_tufte() + geom_rangeframe()     
 
-p
-```
+outfile <- paste0(ADM0, "_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+outfile <- here::here("output", outfile)
 
+ggsave(outfile, p)
+
+```

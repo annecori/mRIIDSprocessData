@@ -68,6 +68,18 @@ WHO_raw$CL_DistrictRes %<>% gsub(' ', '', .)  %<>% factor
 
 ```
 
+Some spelling variations between the WHO data and the data set
+containing the district co-ordinates need to be taken
+into account.
+
+```{r spelling_fix, eval = TRUE}
+
+WHO_raw$CL_DistrictRes %<>% factor
+WHO_raw$CL_DistrictRes %<>%
+    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
+                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
+
+```
 
 ## Grouping by districts and interpolating missing data
 
@@ -124,17 +136,6 @@ ggplot(WHO_bycountry, aes(Date, incid)) +
 
 ```
 
-Some spelling variations between the WHO data and the data set
-containing the district co-ordinates need to be taken
-into account.
-
-```{r spelling_fix, eval = TRUE}
-WHO_districts$CL_DistrictRes %<>% factor
-WHO_districts$CL_DistrictRes %<>%
-    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
-                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
-
-```
 
 Write the files.
 

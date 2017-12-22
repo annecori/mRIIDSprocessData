@@ -25,7 +25,7 @@ params:
   n.sim : 2
   n.dates.sim : 49
   p.stay: 0.9
-  ADM0: LIBERIA
+  ADM0: GUINEA
 ---
 
 ```{r global_options, include=FALSE}
@@ -215,8 +215,9 @@ that we can see the trend.
 
 ```{r predictions_viz, eval = TRUE}
 
+date_min <- "2014-08-01"
 date_max <- max(projections_distr$Date) + 45
-full_df  <- filter(incid_wide, Date <= date_max) %>%
+full_df  <- filter(incid_wide, Date >= date_min & Date <= date_max) %>%
             daily.to.weekly %>%
             tidyr::gather(Country, Incidence, -Date)
 
@@ -226,7 +227,9 @@ p <- ggplot(full_df, aes(Date, Incidence)) +
     geom_point(size = 1.2, stroke = 0, shape = 16, color = "gray") +
     facet_wrap(~Country, scales = "free_y")
 
-trng_weekly  <- daily.to.weekly(training)
+p <- p +  theme_tufte() + geom_rangeframe() 
+
+trng_weekly  <- daily.to.weekly(training) %>% filter(Date >= date_min)
 vldtn_weekly <- daily.to.weekly(validation)
 
 tmp <- list(Training = trng_weekly, Validation = vldtn_weekly) %>%
@@ -238,7 +241,7 @@ tmp$Date %<>% as.Date
 p <- p  +
     geom_point(data = tmp,
                aes(Date, Incidence, color = Category, group = 1),
-               size = 1.5, stroke = 0, shape = 16) 
+               size = 1.1, stroke = 0, shape = 16) 
 
 
 
@@ -258,9 +261,10 @@ p <- p +
                     alpha = 0.3)
 
 
-p <- p +  xlab("") +
-     theme(axis.text.x = element_text(angle = 45, vjust = 0.2)) +
-     theme_tufte() + geom_rangeframe()     
+p <- p +  xlab("") + theme(axis.text.x = element_text(angle = 45)) +
+     theme(legend.position="none")
+
+p <- p + scale_x_date(date_labels =  "%m-%y")
 
 outfile <- paste0(ADM0, "_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
 outfile <- here::here("output", outfile)

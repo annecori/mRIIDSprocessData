@@ -145,17 +145,17 @@ projection_quantiles <- function(projections){
     by_date <- split(projections, projections$Date)
 
     projections_50 <- lapply(by_date, function(df)
-                      summarise_if(df, is.numeric, quantile, probs = 0.5)) %>%
+                      summarise_if(df, is.numeric, quantile, probs = 0.5, na.rm = TRUE)) %>%
                       bind_rows(.id = "Date") %>%
                       tidyr::gather(Country, y, -Date)
 
     projections_025 <- lapply(by_date, function(df)
-                       summarise_if(df, is.numeric, quantile, probs = 0.025)) %>%
+                       summarise_if(df, is.numeric, quantile, probs = 0.025, na.rm = TRUE)) %>%
                        bind_rows(.id = "Date") %>%
                        tidyr::gather(Country, ymin, -Date)
 
     projections_975 <- lapply(by_date, function(df)
-                       summarise_if(df, is.numeric, quantile, probs = 0.975)) %>%
+                       summarise_if(df, is.numeric, quantile, probs = 0.975, na.rm = TRUE)) %>%
                        bind_rows(.id = "Date") %>%
                        tidyr::gather(Country, ymax, -Date)
 

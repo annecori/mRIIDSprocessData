@@ -110,6 +110,9 @@ all_centroids <- all_centroids[notmissing, ]
 
 all_centroids$CL_DistrictRes %<>% factor
 
+all_centroids$CL_DistrictRes %<>%
+    plyr::mapvalues(from = c("KISSIDOUGO",  "YOMOU",  "N'ZEREKORE", "GBARPOLU" ),
+                    to   = c("KISSIDOUGOU", "YAMOU",  "NZEREKORE", "GBAPOLU"))
 
 ```
 

@@ -13,30 +13,33 @@ parameters {
  real alpha; // exponent of product of populations
  real gamma; // exponent of distance
 }
-
-model {
+transformed parameters {
   matrix[N, N] pmovement;
+  real total;
   for (i in 1:N){
    for (j in 1:N){
      pmovement[i, j] =
          if_else(i == j, 0,
-			 pop_prod[i, j]^alpha)/distances[i, j]^gamma
+			 pop_prod[i, j]^alpha)/distances[i, j]^gamma;
    }
-   real total;
-   total = sum(pmovement[i, ])
-   pmovement[i, ] = (1 - pstay) * (pmovement[i, ]/total)
+
+   total = sum(pmovement[i, ]);
+   pmovement[i, ] = (1 - pstay) * (pmovement[i, ]/total);
   }
   for (i in 1:N){
-    pmovement[i, i] = 1 - pstay 
+    pmovement[i, i] = 1 - pstay; 
   }
+
+}
+model {
   for (i in 1:N){
     for(t in 2:T){
-     i_t = I[1:i, ]
-     w_t = SI[t - i + 1:t]
-     pij = pmovement[i, ] * (1 - pstay)
+     i_t = I[1:i, ];
+     w_t = SI[t - i + 1:t];
+     pij = pmovement[i, ] * (1 - pstay);
      
-     mu  = ((w_t * i_t) .* R[i, ]) * pij
-     I[i, t] ~ poisson(mu)
+     mu  = ((w_t * i_t) .* R[i, ]) * pij;
+     I[i, t] ~ poisson(mu);
     }
   }
 }

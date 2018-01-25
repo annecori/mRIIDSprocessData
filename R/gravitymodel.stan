@@ -4,8 +4,8 @@ data {
   matrix[N, N] pop_prod ;  // product of populations
   matrix[N, N] distances;  // distance matrix
   matrix[T, N] R;
-  matrix[T, N] I;
-  vector[T]    SI;
+  int  I[T, N];
+  row_vector[T]    SI;
 }
 
 parameters {
@@ -13,6 +13,7 @@ parameters {
  real alpha; // exponent of product of populations
  real gamma; // exponent of distance
 }
+
 transformed parameters {
   matrix[N, N] pmovement;
   real total;
@@ -31,15 +32,21 @@ transformed parameters {
   }
 
 }
+
 model {
-  for (i in 1:N){
-    for(t in 2:T){
-     i_t = I[1:i, ];
-     w_t = SI[t - i + 1:t];
-     pij = pmovement[i, ] * (1 - pstay);
-     
-     mu  = ((w_t * i_t) .* R[i, ]) * pij;
-     I[i, t] ~ poisson(mu);
-    }
-  }
-}
+    for(t in 2:T) {
+     int i_t[t, N];
+     row_vector[t] w_t;
+     row_vector[N] r_t;
+     row_vector[N] mu;
+
+     i_t = I[1:t, ];
+     w_t = SI[T:(T - t + 1)];
+     r_t = R[t, ];
+     mu  = ((w_t * i_t) .* r_t) * pmovement;
+     for(i in 1:N){
+       I[t, i] ~ poisson(mu[i]);
+     }
+   }
+}    
+

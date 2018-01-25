@@ -9,9 +9,9 @@ data {
 }
 
 parameters {
- real pstay;
- real alpha; // exponent of product of populations
- real gamma; // exponent of distance
+ real <lower = 0, upper = 1> pstay;
+ real <lower = 0, upper = 3> alpha; // exponent of product of populations
+ real <lower = 0, upper = 3> gamma; // exponent of distance
 }
 
 transformed parameters {
@@ -30,7 +30,7 @@ transformed parameters {
   for (i in 1:N){
     pmovement[i, i] = 1 - pstay; 
   }
-
+  print("pmovement = ", pmovement);
 }
 
 model {
@@ -39,15 +39,15 @@ model {
 // We can do this in the inference module although not in the projection module.
 
  matrix[T, N] mu;
- for(t in 2:T){
+ for(t in 1:T){
    for(j in 1:N){
     mu[t, j] = 0;
     for(i in 1:N){
      real total2 = 0;
      for(s in 1:t){
-      total2 = total2 + I[i, s] * SI[t - s + 1];
+      total2 = total2 + I[s, i] * SI[t - s + 1];
      }
-     mu[t, j] = mu[t, j] + pmovement[i, j] * R[i, t] * total2;
+     mu[t, j] = mu[t, j] + pmovement[i, j] * R[t, i] * total2;
     }
    }
 }

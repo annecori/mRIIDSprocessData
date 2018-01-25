@@ -34,19 +34,29 @@ transformed parameters {
 }
 
 model {
-    for(t in 2:T) {
-     int i_t[t, N];
-     row_vector[t] w_t;
-     row_vector[N] r_t;
-     row_vector[N] mu;
 
-     i_t = I[1:t, ];
-     w_t = SI[T:(T - t + 1)];
-     r_t = R[t, ];
-     mu  = ((w_t * i_t) .* r_t) * pmovement;
-     for(i in 1:N){
-       I[t, i] ~ poisson(mu[i]);
+// here we calculate mu for each j at time t.
+// We can do this in the inference module although not in the projection module.
+
+ matrix[T, N] mu;
+ for(t in 2:T){
+   for(j in 1:N){
+    mu[t, j] = 0;
+    for(i in 1:N){
+     real total2 = 0;
+     for(s in 1:t){
+      total2 = total2 + I[i, s] * SI[t - s + 1];
      }
+     mu[t, j] = mu[t, j] + pmovement[i, j] * R[i, t] * total2;
+    }
    }
-}    
+}
+print("mu = ", mu);
+// And now we compute the likelihood      
+  for(t in 2:T){
+   for(j in 1:N){
+      I[t, j] ~ poisson(mu[t, j]);
+   }
+  }
+}
 

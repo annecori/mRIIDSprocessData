@@ -1,0 +1,154 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Estimation of model parameters
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  pow_dist : 2
+  t.proj : 300
+  n.sim : 2
+  n.dates.sim : 49
+  p.stay: 0.9
+  ADM0: GUINEA
+---
+
+# Introduction
+
+Load in the data and prepare to feed into Stan.
+
+```{r}
+library(magrittr)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+library(rstan)
+library(EpiEstim)
+
+```
+
+```{r ebola_params, eval = TRUE}
+
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) EpiEstim::DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+
+
+```
+
+
+```{r data_read, eval = TRUE}
+
+infile     <- "WHO_bycountry.csv"
+infile     <- here::here("data/CaseCounts/processed/", infile)
+incid_wide <- readr::read_csv(infile)
+
+guinea_incid <- filter(incid_wide, Country == "Guinea") %>% pull(incid)
+
+```
+
+There are 633 rows in this tibble. Let us start small and check if the
+model converges.
+
+```{r stan_data_prep, eval = TRUE}
+
+T <- 633
+guinea_small <- guinea_incid[1:T]
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+
+guinea_data <- list(T = T, I = guinea_small, SI = SI)
+
+
+```
+
+And get the ball rolling
+
+```{r}
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = guinea_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("p"), probs=c(.1,.5,.9))
+traceplot(fit1, pars = c("p"), inc_warmup = TRUE, nrow = 1)
+
+```
+
+
+
+```{r}
+
+p <- 1.5
+T <- 100
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+
+I <- rep(0, T)
+I[1] <- 100
+muall <- c(0)
+for(t in 2:T){
+    mu <- 0
+    for(s in 1:(t)){
+        mu <- mu + I[s] * SI[t - s + 1]
+    }
+    mu <- mu * p
+    muall <- c(muall, mu)
+    I[t] <- rpois(1, lambda = mu)
+    
+}
+
+sim_data <- list(T = T, I = I, SI = SI)
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("p"), probs=c(.1,.5,.9))
+#traceplot()
+ocode <- readr::read_file("R/gravitymodel.stan")
+sm <- stan_model(model_code = ocode)
+optimizing(sm, data = sim_data, hessian = TRUE)
+
+fit1 <- stan(
+  file = "R/8schools.stan",  # Stan program
+  data = schools_data,    # named list of data
+  chains = 4,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 20000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 1000          # show progress every 'refresh' iterations
+  )
+
+```
+

@@ -28,9 +28,6 @@ params:
   ADM0: GUINEA
 ---
 
-# Introduction
-
-Load in the data and prepare to feed into Stan.
 
 ```{r}
 library(magrittr)
@@ -41,6 +38,19 @@ library(rstan)
 library(EpiEstim)
 
 ```
+
+# Simple model in Stan
+
+We start with defining a very simple model with only one location. The
+model is given by 
+\[
+ I(t) \sim Poisson(R \sum_{s = 0}^{t}{I_{t} ws_{t - s}}).
+\]
+
+The model is tested with simulated data.
+
+# Parameter estimation for simulated data
+Load in the data and prepare to feed into Stan.
 
 ```{r ebola_params, eval = TRUE}
 
@@ -53,6 +63,59 @@ SI_Distr    <- SI_Distr / sum(SI_Distr)
 
 ```
 
+
+```{r}
+
+R <- 1.5
+T <- 100
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+
+I <- rep(0, T)
+I[1] <- 100
+muall <- c(0)
+for(t in 2:T){
+    mu <- 0
+    for(s in 1:(t)){
+        mu <- mu + I[s] * SI[t - s + 1]
+    }
+    mu <- mu * R
+    muall <- c(muall, mu)
+    I[t] <- rpois(1, lambda = mu)
+    
+}
+
+sim_data <- list(T = T, I = I, SI = SI)
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+                                        #traceplot()
+
+```
+
+Stan can also do point estimation through optimization.
+
+```{r stan_optim, eval = FALSE}
+ocode <- readr::read_file("R/gravitymodel.stan")
+sm <- stan_model(model_code = ocode)
+optimizing(sm, data = sim_data, hessian = TRUE)
+
+```
+
+
+
+
+# Parameter estimation for real data
 
 ```{r data_read, eval = TRUE}
 
@@ -98,57 +161,4 @@ traceplot(fit1, pars = c("p"), inc_warmup = TRUE, nrow = 1)
 
 ```
 
-
-
-```{r}
-
-p <- 1.5
-T <- 100
-
-SI_len <- length(SI_Distr)
-SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
-
-I <- rep(0, T)
-I[1] <- 100
-muall <- c(0)
-for(t in 2:T){
-    mu <- 0
-    for(s in 1:(t)){
-        mu <- mu + I[s] * SI[t - s + 1]
-    }
-    mu <- mu * p
-    muall <- c(muall, mu)
-    I[t] <- rpois(1, lambda = mu)
-    
-}
-
-sim_data <- list(T = T, I = I, SI = SI)
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("p"), probs=c(.1,.5,.9))
-#traceplot()
-ocode <- readr::read_file("R/gravitymodel.stan")
-sm <- stan_model(model_code = ocode)
-optimizing(sm, data = sim_data, hessian = TRUE)
-
-fit1 <- stan(
-  file = "R/8schools.stan",  # Stan program
-  data = schools_data,    # named list of data
-  chains = 4,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 20000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 1000          # show progress every 'refresh' iterations
-  )
-
-```
 

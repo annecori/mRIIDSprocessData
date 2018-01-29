@@ -33,7 +33,9 @@ project <-  function(incid, R, si, pij, n.days = 7){
     out   <- matrix(0, nrow = n.days, ncol = n.loc) %>% rbind(incid, .)
     start <- nrow(incid) + 1
     end   <- nrow(out)
-    ws    <- c(si, rep(0, end - length(si))) %>% rev
+    if(length(si) < end)
+         ws <- c(si, rep(0, end - length(si))) %>% rev
+    else ws <- rev(si)
     for(i in start:end){
         i_t      <- out[1:i, ]
         w_t      <- utils::tail(ws, i)

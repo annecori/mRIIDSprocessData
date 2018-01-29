@@ -5,7 +5,7 @@ data {
 }
 
 parameters {
- real <lower = 0, upper = 4> p;
+ real <lower = 0, upper = 4> R;
 }
 
 
@@ -15,7 +15,7 @@ model {
       for(s in 1:t){
         mu = mu + I[s] * SI[t - s + 1];
       }
-      mu = mu * p;
+      mu = mu * R;
       target += poisson_lpmf(I[t] | mu);
   }
 }

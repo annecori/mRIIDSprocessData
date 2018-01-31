@@ -112,6 +112,121 @@ optimizing(sm, data = sim_data, hessian = TRUE)
 
 ```
 
+# Simulated using mRIIDS package
+
+Simulate incidence using our very own projection module.
+
+```{r}
+I0 <- c(90)
+incid <- as.matrix(I0, 1, 1)
+R <- 0.5
+pij <- 1 # probability of staying at i
+n.days <- 5
+SI <- SI[1:(n.days + 1)] 
+I <- project(incid, R, SI, pij, n.days)
+I <- c(I0, I)
+sim_data <- list(T = length(I), I = I, SI = SI)
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+```
+
+R > 1
+
+```{r}
+
+I0 <- c(90)
+incid <- as.matrix(I0, 1, 1)
+R <- 1.5
+pij <- 1 # probability of staying at i
+n.days <- 5
+SI <- SI[1:(n.days + 1)] 
+I <- project(incid, R, SI, pij, n.days)
+I <- c(I0, I)
+sim_data <- list(T = length(I), I = I, SI = SI)
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+```
+
+More data should help one assumes.
+
+```{r}
+
+I0 <- c(90)
+incid <- as.matrix(I0, 1, 1)
+R <- 1.5
+pij <- 1 # probability of staying at i
+n.days <- 35
+SI <- SI_Distr[1:(n.days + 1)] 
+I <- project(incid, R, SI, pij, n.days)
+I <- c(I0, I)
+sim_data <- list(T = length(I), I = I, SI = SI)
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+```
+
+Vary the initial conditions.
+
+
+```{r}
+
+I0 <- c(10, 20, 30, 15)
+incid <- as.matrix(I0, 4, 1)
+R <- 1.5
+pij <- 1 # probability of staying at i
+n.days <- 35
+SI <- SI_Distr[1:(n.days + 1)] 
+I <- project(incid, R, SI, pij, n.days)
+I <- c(I0, I)
+sim_data <- list(T = length(I), I = I, SI = SI_Distr[1:length(I)])
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+```
+
+# Array of reproduction numbers
 
 
 
@@ -156,8 +271,10 @@ fit1 <- stan(
   refresh = 500          # show progress every 'refresh' iterations
 )
 
-print(fit1, pars=c("p"), probs=c(.1,.5,.9))
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
 traceplot(fit1, pars = c("p"), inc_warmup = TRUE, nrow = 1)
+
+
 
 ```
 

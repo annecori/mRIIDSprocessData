@@ -45,3 +45,28 @@ project <-  function(incid, R, si, pij, n.days = 7){
     }
     return(out[start:nrow(out), ])
 }
+
+
+## same as project except that R is a matrix of t * n allowing
+## reproduction number to vary temporally as well as spatially.
+project2 <-  function(incid, R, si, pij, n.days = 7){
+
+    n.loc <- ncol(incid)
+    out   <- matrix(0, nrow = n.days, ncol = n.loc) %>% rbind(incid, .)
+    start <- nrow(incid) + 1
+    end   <- nrow(out)
+    if(length(si) < end)
+         ws <- c(si, rep(0, end - length(si))) %>% rev
+    else ws <- rev(si)
+    for(i in start:end){
+        i_t      <- out[1:i, ]
+        w_t      <- utils::tail(ws, i)
+        r_t      <- R[i, ]
+        mu       <- lambda.j.t(pij, r_t, i_t, w_t)
+        out[i, ] <- rpois(n.loc, mu)
+
+    }
+    return(out[start:nrow(out), ])
+}
+
+

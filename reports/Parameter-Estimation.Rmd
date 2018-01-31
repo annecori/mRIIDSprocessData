@@ -36,6 +36,7 @@ library(ggplot2)
 library(dplyr)
 library(rstan)
 library(EpiEstim)
+devtools::load_all()
 
 ```
 
@@ -50,6 +51,7 @@ model is given by
 The model is tested with simulated data.
 
 # Parameter estimation for simulated data
+
 Load in the data and prepare to feed into Stan.
 
 ```{r ebola_params, eval = TRUE}
@@ -229,6 +231,45 @@ print(fit1, pars=c("R"), probs=c(.1,.5,.9))
 # Array of reproduction numbers
 
 
+
+```{r}
+
+I0 <- 110
+incid <- as.matrix(I0, 1, 1)
+R <- c(rep(1.5, times = 8), rep(1.1, times = 7), rep(0.3, times = 7))
+R <- as.matrix(R, ncol = 1)
+pij <- 1 # probability of staying at i
+n.days <- 21
+SI <- SI_Distr[1:(n.days + 1)] 
+I1 <- project2(incid, R, SI, pij, n.days)
+I1 <- c(I0, I1)
+
+```
+
+
+And now fitting.
+
+```{r}
+sim_data <- list(T = length(I1),
+                 I = I1,
+                 SI = SI_Distr[1:length(I1)],
+                 num_windows = 3,
+                 windows_end = c(8, 15, length(I1)))
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 1,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+```
+Looks like it is working as expected!
 
 # Parameter estimation for real data
 

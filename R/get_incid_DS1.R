@@ -35,17 +35,19 @@
 incidence.from.DS1 <- function(case.count,
                        species,
                        disease,
-                       case.type = c("SCC", "SC", "CC", "SCD", "SD", "CD", "ALL"),
+                       case.type = c("SCC", "SC", "CC", "SCD",
+                                      "SD", "CD", "ALL"),
                        location,
-                       merge_rule = c("median"))
-{
+                       merge_rule = c("median")){
 
   case.type <- match.arg(case.type)
   merge_rule <- match.arg(merge_rule)
 
   ####################################
-  ### cols.to.keep contains a list of column names to be merged in case of duplicated entries
-  ### if a column name does not exist and is not needed apart from merging, it is ignored.
+  ### cols.to.keep contains a list of column names to be merged
+  ### in case of duplicated entries
+  ### if a column name does not exist and is not needed apart from
+  ### merging, it is ignored.
   ####################################
 
   cols.to.keep <- c("Location", "Country", "Disease", "Species",
@@ -54,9 +56,10 @@ incidence.from.DS1 <- function(case.count,
   cols.to.keep <- c(cols.to.keep, "Date", "Cases") # these are columns we generate ourselves later on
 
   # If column names are not as expected, stop right here.
-  good.colnames <- c("Disease","Species","Issue.Date","Location","Country")
-  if(!check.columns(case.count, good.colnames))
-    stop("Input data should have columns named:Disease, Species, Issue.Date, Location, Country")
+  good.colnames <- c("Disease", "Species", "Issue.Date", "Location", "Country")
+  if( !check.columns(case.count, good.colnames))
+    stop("Input data should have columns named:Disease, Species,
+          Issue.Date, Location, Country")
 
   ####################################
   ### select appropriate species and disease

@@ -42,8 +42,9 @@ devtools::load_all()
 
 # Simple model in Stan
 
-We start with defining a very simple model with only one location. The
-model is given by 
+We start with defining a very simple model with only one 
+location. 
+The model is given by 
 \[
  I(t) \sim Poisson(R \sum_{s = 0}^{t}{I_{t} ws_{t - s}}).
 \]
@@ -59,7 +60,9 @@ Load in the data and prepare to feed into Stan.
 mean_SI     <- 14.2
 CV_SI       <- 9.6 / 14.2
 SItrunc     <- 40
-SI_Distr    <- sapply(0:SItrunc, function(e) EpiEstim::DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e,
+                                                     mean_SI,
+                                                     mean_SI * CV_SI))
 SI_Distr    <- SI_Distr / sum(SI_Distr)
 
 
@@ -72,7 +75,8 @@ R <- 1.5
 T <- 100
 
 SI_len <- length(SI_Distr)
-SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+SI <- if(T < SI_len) SI_Distr[1:T]
+      else c(SI_Distr, rep(0, T - SI_len))
 
 I <- rep(0, T)
 I[1] <- 100
@@ -330,18 +334,25 @@ guinea_incid <- filter(incid_wide, Country == "Guinea") %>% pull(incid)
 
 ```
 
-There are 633 rows in this tibble. Let us start small and check if the
-model converges.
+Discard the initial 200 days when the incidence count is really low. 
 
-```{r stan_data_prep, eval = TRUE}
+```{r}
 
-T <- 633
-guinea_small <- guinea_incid[1:T]
+I <- guinea_incid[201:600]
+windows_end <- seq(40, length(I), by = 40)
+num_windows <- length(windows_end)
+T <- windows_end[num_windows]
 
 SI_len <- length(SI_Distr)
 SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+  
+sim_data <- list(T = T,
+                 I = I,
+                 SI = SI,
+                 num_windows = num_windows,
+                 windows_end = windows_end)
 
-guinea_data <- list(T = T, I = guinea_small, SI = SI)
+
 
 
 ```
@@ -351,8 +362,8 @@ And get the ball rolling
 ```{r}
 fit1 <- stan(
   file = "R/gravitymodel.stan",  # Stan program
-  data = guinea_data,    # named list of data
-  chains = 1,             # number of Markov chains
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
   warmup = 1000,          # number of warmup iterations per chain
   iter = 5000,            # total number of iterations per chain
   cores = 2,              # number of cores (using 2 just for the vignette)
@@ -366,4 +377,68 @@ traceplot(fit1, pars = c("p"), inc_warmup = TRUE, nrow = 1)
 
 ```
 
+The numbers look sensible, we will carry out diagnostics later.
+
+## Scenario 2
+
+Use the entire dataset.
+
+```{r}
+
+time_window <- 49
+windows_end <- seq(time_window, length(guinea_incid), by = time_window)
+num_windows <- length(windows_end)
+T <- windows_end[num_windows]
+I <- guinea_incid[seq(T)]
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+  
+sim_data <- list(T = T,
+                 I = I,
+                 SI = SI,
+                 num_windows = num_windows,
+                 windows_end = windows_end)
+
+
+
+
+```
+
+And get the ball rolling
+
+```{r}
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+traceplot(fit1, pars = c("R"), inc_warmup = TRUE, nrow = 5)
+
+
+
+```
+
+## Estimate R using EpiEstim
+
+```{r restim, eval = TRUE}
+windows_start <- seq(1, by = time_window, length.out = length(windows_end))
+r.estim   <- EpiEstim::EstimateR(I,
+                                 T.Start = windows_start ,
+                                 T.End = windows_end,
+                                 method = "NonParametricSI",
+                                 SI.Distr = SI_Distr,
+                                 plot = FALSE ,
+                                 CV.Posterior = 1 ,
+                                 Mean.Prior = 1 ,
+                                 Std.Prior = 0.5)
+
+
+```
 

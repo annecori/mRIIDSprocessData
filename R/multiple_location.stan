@@ -1,12 +1,31 @@
 data {
   int <lower = 1> T; // Time points
   int <lower = 1> N; // Number of locations
-  matrix<lower = 0>[T, N]  I;
-  row_vector[T]    SI;
-  // For each location, how many windows must T be split 
-  // into? There is 1 R_t for each window.  
-  int num_windows[N];
-  // For each location, end index of each window
-  int windows_end[sum(num_windows)] ; 
-  
+  int <lower = 0>  I[T, N];
+  row_vector[T + 1]    SI;
+  int <lower = 0> rindex[T, N];
+  int num_Rjt ;
 }
+
+parameters {
+ real <lower = 0> R[num_Rjt];
+}
+
+model{
+  for( t in 1:T){
+    for( j in 1:N){
+      real mu = 0;
+      // Calculate mu[ t, j]
+      for( i in 1:N){
+        real tmp = 0;
+        for( s in 1:t){
+	  tmp = tmp + I[ s, i] * SI[ t - s + 1];
+	}
+	tmp = tmp * R[ rindex[ t, i]];
+	mu = mu + tmp;
+      } // end of computing mu[ t, j]
+      target += poisson_lpmf(I[ t, j] | mu);
+    }
+  }
+}
+

@@ -46,7 +46,7 @@ We start with defining a very simple model with only one
 location. 
 The model is given by 
 \[
- I(t) \sim Poisson(R \sum_{s = 0}^{t}{I_{t} ws_{t - s}}).
+ I(t) \sim Poisson(R_t \sum_{s = 0}^{t}{I_{t} ws_{t - s}}).
 \]
 
 The model is tested with simulated data.
@@ -67,172 +67,6 @@ SI_Distr    <- SI_Distr / sum(SI_Distr)
 
 
 ```
-
-
-```{r}
-
-R <- 1.5
-T <- 100
-
-SI_len <- length(SI_Distr)
-SI <- if(T < SI_len) SI_Distr[1:T]
-      else c(SI_Distr, rep(0, T - SI_len))
-
-I <- rep(0, T)
-I[1] <- 100
-muall <- c(0)
-for(t in 2:T){
-    mu <- 0
-    for(s in 1:(t)){
-        mu <- mu + I[s] * SI[t - s + 1]
-    }
-    mu <- mu * R
-    muall <- c(muall, mu)
-    I[t] <- rpois(1, lambda = mu)
-    
-}
-
-sim_data <- list(T = T, I = I, SI = SI)
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-                                        #traceplot()
-
-```
-
-Stan can also do point estimation through optimization.
-
-```{r stan_optim, eval = FALSE}
-ocode <- readr::read_file("R/gravitymodel.stan")
-sm <- stan_model(model_code = ocode)
-optimizing(sm, data = sim_data, hessian = TRUE)
-
-```
-
-# Simulated using mRIIDS package
-
-Simulate incidence using our very own projection module.
-
-```{r}
-I0 <- c(90)
-incid <- as.matrix(I0, 1, 1)
-R <- 0.5
-pij <- 1 # probability of staying at i
-n.days <- 5
-SI <- SI[1:(n.days + 1)] 
-I <- project(incid, R, SI, pij, n.days)
-I <- c(I0, I)
-sim_data <- list(T = length(I), I = I, SI = SI)
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-
-```
-
-R > 1
-
-```{r}
-
-I0 <- c(90)
-incid <- as.matrix(I0, 1, 1)
-R <- 1.5
-pij <- 1 # probability of staying at i
-n.days <- 5
-SI <- SI[1:(n.days + 1)] 
-I <- project(incid, R, SI, pij, n.days)
-I <- c(I0, I)
-sim_data <- list(T = length(I), I = I, SI = SI)
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-
-```
-
-More data should help one assumes.
-
-```{r}
-
-I0 <- c(90)
-incid <- as.matrix(I0, 1, 1)
-R <- 1.5
-pij <- 1 # probability of staying at i
-n.days <- 35
-SI <- SI_Distr[1:(n.days + 1)] 
-I <- project(incid, R, SI, pij, n.days)
-I <- c(I0, I)
-sim_data <- list(T = length(I), I = I, SI = SI)
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-
-```
-
-Vary the initial conditions.
-
-
-```{r}
-
-I0 <- c(10, 20, 30, 15)
-incid <- as.matrix(I0, 4, 1)
-R <- 1.5
-pij <- 1 # probability of staying at i
-n.days <- 35
-SI <- SI_Distr[1:(n.days + 1)] 
-I <- project(incid, R, SI, pij, n.days)
-I <- c(I0, I)
-sim_data <- list(T = length(I), I = I, SI = SI_Distr[1:length(I)])
-
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 1,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-
-```
-
-# Array of reproduction numbers
 
 ## Example 1
 
@@ -330,56 +164,19 @@ infile     <- "WHO_bycountry.csv"
 infile     <- here::here("data/CaseCounts/processed/", infile)
 incid_wide <- readr::read_csv(infile)
 
-guinea_incid <- filter(incid_wide, Country == "Guinea") %>% pull(incid)
+guinea_incid <- filter(incid_wide, Country == "Guinea") %>%
+                pull(incid)
+
+lbr_incid <- filter(incid_wide, Country == "Liberia") %>%
+                pull(incid)
+
+sl_incid <- filter(incid_wide, Country == "Sierra Leone") %>%
+                pull(incid)
+ 
 
 ```
 
-Discard the initial 200 days when the incidence count is really low. 
-
-```{r}
-
-I <- guinea_incid[201:600]
-windows_end <- seq(40, length(I), by = 40)
-num_windows <- length(windows_end)
-T <- windows_end[num_windows]
-
-SI_len <- length(SI_Distr)
-SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
-  
-sim_data <- list(T = T,
-                 I = I,
-                 SI = SI,
-                 num_windows = num_windows,
-                 windows_end = windows_end)
-
-
-
-
-```
-
-And get the ball rolling
-
-```{r}
-fit1 <- stan(
-  file = "R/gravitymodel.stan",  # Stan program
-  data = sim_data,    # named list of data
-  chains = 5,             # number of Markov chains
-  warmup = 1000,          # number of warmup iterations per chain
-  iter = 5000,            # total number of iterations per chain
-  cores = 2,              # number of cores (using 2 just for the vignette)
-  refresh = 500          # show progress every 'refresh' iterations
-)
-
-print(fit1, pars=c("R"), probs=c(.1,.5,.9))
-traceplot(fit1, pars = c("p"), inc_warmup = TRUE, nrow = 1)
-
-
-
-```
-
-The numbers look sensible, we will carry out diagnostics later.
-
-## Scenario 2
+## Using incidence from Guinea
 
 Use the entire dataset.
 
@@ -408,6 +205,7 @@ sim_data <- list(T = T,
 And get the ball rolling
 
 ```{r}
+
 fit1 <- stan(
   file = "R/gravitymodel.stan",  # Stan program
   data = sim_data,    # named list of data
@@ -421,6 +219,9 @@ fit1 <- stan(
 print(fit1, pars=c("R"), probs=c(.1,.5,.9))
 traceplot(fit1, pars = c("R"), inc_warmup = TRUE, nrow = 5)
 
+from_stan <- summary(fit1)
+from_stan <- from_stan$summary
+from_stan <- from_stan[-13, c("mean", "sd", "2.5%", "25%",  "50%", "75%", "97.5%")]
 
 
 ```
@@ -439,6 +240,251 @@ r.estim   <- EpiEstim::EstimateR(I,
                                  Mean.Prior = 1 ,
                                  Std.Prior = 0.5)
 
+from_epiestim <- r.estim$R[, c("Mean(R)", "Std(R)",
+                               "Quantile.0.025(R)",
+                               "Quantile.0.25(R)",
+                               "Median(R)",
+                               "Quantile.0.75(R)",
+                               "Quantile.0.975(R)")]
+
+rownames(from_epiestim) <- rownames(from_stan)
+colnames(from_epiestim) <- colnames(from_stan)
+
+
+from_stan     <- tibble::rownames_to_column(data.frame(from_stan))
+from_epiestim <- tibble::rownames_to_column(data.frame(from_epiestim))
+
+```
+And now compare them visually.
+
+```{r}
+compare <- list(stan = from_stan, epiestim = from_epiestim)
+compare <- bind_rows(compare, .id = "Source")
+compare <- tidyr::gather(compare,
+                         key = "variable",
+                         value = "value", -c(Source, rowname))
+
+compare$rowname %<>% factor(levels = c("R[1]", "R[2]",
+                                       "R[3]", "R[4]",
+                                       "R[5]", "R[6]",
+                                       "R[7]", "R[8]",
+                                       "R[9]", "R[10]",
+                                       "R[11]", "R[12]"))
+                                       
+
+ggplot(compare, aes(rowname, value, color = Source)) +
+    geom_point(position = "jitter") +
+    facet_wrap(~variable) +
+    theme_minimal()
+
 
 ```
 
+
+
+## Using incidence from Liberia
+
+Use the entire dataset.
+
+```{r}
+lbr_incid   %<>% `[`(1:329) ## only non-NAs 
+time_window <- 49
+windows_end <- seq(time_window, length(lbr_incid), by = time_window)
+num_windows <- length(windows_end)
+T <- windows_end[num_windows]
+I <- lbr_incid[seq(T)]
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+  
+sim_data <- list(T = T,
+                 I = I,
+                 SI = SI,
+                 num_windows = num_windows,
+                 windows_end = windows_end)
+
+
+
+
+```
+
+And get the ball rolling
+
+```{r}
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+traceplot(fit1, pars = c("R"), inc_warmup = TRUE, nrow = 5)
+
+lbr_stan <- summary(fit1)
+lbr_stan <- lbr_stan$summary
+lbr_stan <- lbr_stan[-7, c("mean", "sd", "2.5%", "25%",  "50%", "75%", "97.5%")]
+
+
+```
+
+## Estimate R using EpiEstim
+
+```{r restim, eval = TRUE}
+windows_start <- seq(1, by = time_window, length.out = length(windows_end))
+r.estim   <- EpiEstim::EstimateR(I,
+                                 T.Start = windows_start ,
+                                 T.End = windows_end,
+                                 method = "NonParametricSI",
+                                 SI.Distr = SI_Distr,
+                                 plot = FALSE ,
+                                 CV.Posterior = 1 ,
+                                 Mean.Prior = 1 ,
+                                 Std.Prior = 0.5)
+
+lbr_epiestim <- r.estim$R[, c("Mean(R)", "Std(R)",
+                               "Quantile.0.025(R)",
+                               "Quantile.0.25(R)",
+                               "Median(R)",
+                               "Quantile.0.75(R)",
+                               "Quantile.0.975(R)")]
+
+rownames(lbr_epiestim) <- rownames(lbr_stan)
+colnames(lbr_epiestim) <- colnames(lbr_stan)
+
+
+lbr_stan     <- tibble::rownames_to_column(data.frame(lbr_stan))
+lbr_epiestim <- tibble::rownames_to_column(data.frame(lbr_epiestim))
+
+```
+And now compare them visually.
+
+```{r}
+compare <- list(stan = lbr_stan, epiestim = lbr_epiestim)
+compare <- bind_rows(compare, .id = "Source")
+compare <- tidyr::gather(compare,
+                         key = "variable",
+                         value = "value", -c(Source, rowname))
+
+compare$rowname %<>% factor(levels = c("R[1]", "R[2]",
+                                       "R[3]", "R[4]",
+                                       "R[5]", "R[6]",
+                                       "R[7]", "R[8]",
+                                       "R[9]", "R[10]",
+                                       "R[11]", "R[12]"))
+                                       
+
+ggplot(compare, aes(rowname, value, color = Source)) +
+    geom_point(position = "jitter") +
+    facet_wrap(~variable) +
+    theme_minimal()
+
+
+```
+## Using incidence from Sierra Leone
+
+Use the entire dataset.
+
+```{r}
+
+time_window <- 49
+windows_end <- seq(time_window, length(sl_incid), by = time_window)
+num_windows <- length(windows_end)
+T <- windows_end[num_windows]
+I <- sl_incid[seq(T)]
+
+SI_len <- length(SI_Distr)
+SI <- if(T < SI_len) SI_Distr[1:T] else c(SI_Distr, rep(0, T - SI_len))
+  
+sim_data <- list(T = T,
+                 I = I,
+                 SI = SI,
+                 num_windows = num_windows,
+                 windows_end = windows_end)
+
+
+
+
+```
+
+And get the ball rolling
+
+```{r}
+
+fit1 <- stan(
+  file = "R/gravitymodel.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+traceplot(fit1, pars = c("R"), inc_warmup = TRUE, nrow = 5)
+
+sl_stan <- summary(fit1)
+sl_stan <- sl_stan$summary
+sl_stan <- sl_stan[-13, c("mean", "sd", "2.5%", "25%",  "50%", "75%", "97.5%")]
+
+
+```
+
+## Estimate R using EpiEstim
+
+```{r restim, eval = TRUE}
+windows_start <- seq(1, by = time_window, length.out = length(windows_end))
+r.estim   <- EpiEstim::EstimateR(I,
+                                 T.Start = windows_start ,
+                                 T.End = windows_end,
+                                 method = "NonParametricSI",
+                                 SI.Distr = SI_Distr,
+                                 plot = FALSE ,
+                                 CV.Posterior = 1 ,
+                                 Mean.Prior = 1 ,
+                                 Std.Prior = 0.5)
+
+sl_epiestim <- r.estim$R[, c("Mean(R)", "Std(R)",
+                               "Quantile.0.025(R)",
+                               "Quantile.0.25(R)",
+                               "Median(R)",
+                               "Quantile.0.75(R)",
+                               "Quantile.0.975(R)")]
+
+rownames(sl_epiestim) <- rownames(sl_stan)
+colnames(sl_epiestim) <- colnames(sl_stan)
+
+
+sl_stan     <- tibble::rownames_to_column(data.frame(sl_stan))
+sl_epiestim <- tibble::rownames_to_column(data.frame(sl_epiestim))
+
+```
+And now compare them visually.
+
+```{r}
+compare <- list(stan = sl_stan, epiestim = sl_epiestim)
+compare <- bind_rows(compare, .id = "Source")
+compare <- tidyr::gather(compare,
+                         key = "variable",
+                         value = "value", -c(Source, rowname))
+
+compare$rowname %<>% factor(levels = c("R[1]", "R[2]",
+                                       "R[3]", "R[4]",
+                                       "R[5]", "R[6]",
+                                       "R[7]", "R[8]",
+                                       "R[9]", "R[10]",
+                                       "R[11]", "R[12]"))
+                                       
+
+ggplot(compare, aes(rowname, value, color = Source)) +
+    geom_point(position = "jitter") +
+    facet_wrap(~variable) +
+    theme_minimal()
+
+
+```

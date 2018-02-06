@@ -49,6 +49,7 @@ project <-  function(incid, R, si, pij, n.days = 7){
 
 ## same as project except that R is a matrix of t * n allowing
 ## reproduction number to vary temporally as well as spatially.
+## n is the number of locations and t = nrow(incid) + n.days
 project2 <-  function(incid, R, si, pij, n.days = 7){
 
     n.loc <- ncol(incid)

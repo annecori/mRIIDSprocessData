@@ -12,7 +12,7 @@ parameters {
 }
 
 model{
-  for( t in 1:T){
+  for( t in 2:T){
     for( j in 1:N){
       real mu = 0;
       // Calculate mu[ t, j]

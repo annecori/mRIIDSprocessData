@@ -19,10 +19,10 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 150
+  t.proj : 35
   n.sim : 1000
-  n.dates.sim : 49
-  p.stay: 0.99
+  n.dates.sim : 28
+  p.stay: 1
 ---
 
 # Introduction

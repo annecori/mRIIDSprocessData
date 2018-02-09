@@ -11,7 +11,7 @@ parameters {
  real <lower = 0> R[num_Rjt];
 }
 
-model{
+model {
   for( t in 2:T){
     for( j in 1:N){
       real mu = 0;
@@ -28,4 +28,5 @@ model{
     }
   }
 }
+
 

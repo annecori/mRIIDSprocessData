@@ -1,0 +1,386 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Estimation of Model Parameters
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  pow_dist : 2
+  t.proj : 300
+  n.sim : 2
+  n.dates.sim : 49
+  p.stay: 0.9
+  ADM0: GUINEA
+---
+
+
+```{r}
+library(magrittr)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+library(rstan)
+library(EpiEstim)
+devtools::load_all()
+
+```
+
+
+# Parameter estimation for simulated data
+
+Load in the data and prepare to feed into Stan.
+
+```{r ebola_params, eval = TRUE}
+
+mean_SI  <- 14.2
+CV_SI    <- 9.6 / 14.2
+SItrunc  <- 40
+SI_Distr <- sapply(0:SItrunc,
+                   function(e) DiscrSI(e,
+                                       mean_SI,
+                                       mean_SI * CV_SI))
+SI_Distr <- SI_Distr / sum(SI_Distr)
+
+
+```
+
+# Multiple locations
+
+## Model
+
+Incidence at location $i$ at time $t$ is given by
+\[
+  I_{i, t} \sim Poisson(\lambda_{i, t}),
+\]
+where 
+\[
+ \lambda_{i, t} = \sum_{i = 1}^{n}{R_{i, t}
+                                   \sum_{s = 1}^{t}{I_{i, s} 
+								   \omega_{t - s + 1}}}.
+\]
+
+## Simulated Data
+
+### Example 1
+
+```{r}
+n.days <- 7
+I0  <- matrix(c(100, 200, 300), nrow = 1)
+R   <- matrix(c(1.1, 1.5, 1.7), nrow = nrow(I0) + n.days,
+                                ncol = 3, byrow = TRUE)
+si  <- SI_Distr
+pij <- diag(c(1, 1, 1))
+
+
+I <- project2(incid = I0, R = R, si = si, pij = pij, n.days = n.days)
+
+```
+Preparing data for feeding into Stan.
+
+```{r}
+
+I  <- rbind( I0, I)
+T  <- nrow(I)
+N  <- ncol(I)
+
+SI <- SI_Distr[ 1:( T + 1)]
+rindex <- matrix(c(1, 2, 3), nrow = T, ncol = N, byrow = TRUE)
+num_Rjt <- 3
+
+sim_data <- list(T = T, N = N, I = I, SI = SI, rindex = rindex,
+                 num_Rjt = num_Rjt)
+
+fit1 <- stan(
+  file = "R/multiple_location.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500          # show progress every 'refresh' iterations
+)
+
+print(fit1, pars=c("R"), probs=c(.01, .1,.5,.9))
+
+```
+
+
+### Example 2
+
+```{r}
+n.days <- 56
+T1  <- 28
+T2  <- 28
+I0  <- matrix(c(100, 110, 150), nrow = 1)
+R1  <- matrix(c(2.1, 1.5, 1.7), nrow = nrow(I0) + T1,
+              ncol = 3, byrow = TRUE)
+R2  <- matrix(c(1, 1.1, 1.2), nrow = T2,
+              ncol = 3, byrow = TRUE)
+
+R   <- rbind(R1, R2) 
+si  <- SI_Distr
+
+pij <- diag(c(1, 1, 1))
+
+I <- project2(incid = I0, R = R, si = si, pij = pij,
+              n.days = n.days)
+
+
+
+```
+Preparing data for feeding into Stan.
+
+```{r}
+
+#I  <- rbind( I0, I)
+T  <- nrow(I)
+N  <- ncol(I)
+
+SI <- SI_Distr[ 1:( T + 1)]
+SI[which(is.na(SI))] <- 0
+#rindex1 <- c(rep(1, 18), rep(2, 18))
+#rindex2 <- rindex1 + 2
+                                        #rindex3 <- rindex2 + 2
+
+rindex1 <- matrix(c(1, 2, 3), nrow = 28,
+                  ncol = 3, byrow = T)
+rindex2 <- matrix(c(4, 5, 6), nrow = 28,
+                  ncol = 3, byrow = T)
+rindex  <- rbind(rindex1, rindex2) 
+num_Rjt <- 6
+
+sim_data <- list(T = T, N = N, I = I, SI = SI, rindex = rindex,
+                 num_Rjt = num_Rjt)
+
+fit1 <- stan(
+  file = "R/multiple_location.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500)          # show progress every 'refresh' iterations
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+
+
+```
+
+
+The fitted model has draws from the posterior distribution.
+We can use these samples to project forward.
+
+```{r prediction, eval = TRUE}
+
+list_of_draws <- extract(fit1)
+r_samples <- list_of_draws[["R"]]
+dates <- seq(from = as.Date("2018-02-07"), by = "1 day",
+             length.out = nrow(I))
+
+#index <- sample(seq(20000), 5000, replace = F)
+daily_projections <- plyr::alply(r_samples, 1, 
+                                 function(r.t){
+                                     R1  <- matrix(r.t[1:N],
+                                                   nrow = 29,
+                                                   ncol = 3, 
+                                                   byrow = T)
+                                     R2  <- matrix(r.t[(N + 1):
+                                                       num_Rjt],
+                                                   nrow = 28,
+                                                   ncol = 3,
+                                                   byrow = T)
+                                     R   <- rbind(R1, R2) 
+                                     out <- project2(I0,
+                                                     R,
+                                                     SI_Distr,
+                                                     pij,
+                                                     n.days) 
+                                     projected <- out
+                                     projected %<>%
+                                      as.data.frame(.) 
+                                     
+                                     projected$Date <- dates
+                                     return(projected)})
+
+
+
+tmp <- bind_rows(daily_projections)
+projections_distr <- projection_quantiles(tmp)
+
+
+I_df <- as.data.frame(I) 
+I_df$Date <- dates
+I_df %<>% tidyr::gather("Country", "Incidence", -Date)
+
+
+I_df$Date %<>% as.Date
+p   <- ggplot(I_df, aes(Date, Incidence)) +
+           geom_point(size = 2, stroke = 0, shape = 16) +
+           facet_wrap(~Country, scales = "free_y")
+p <- p + geom_line(data = projections_distr,
+                   aes(x = Date, y = y, group = 1),
+                     color = 'black', size = 0.9)
+p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
+                                                   ymin = ymin,
+                                                   ymax = ymax,
+                                                   group = 1),
+                     inherit.aes = FALSE,
+                     alpha = 0.5)
+
+p
+
+
+```
+
+### Example 3
+
+Let us increase the number of locations and the length of time.
+
+
+```{r}
+n.days <- 105
+N   <- 6 # num of locations 
+I0  <- matrix(sample(50:200, N), nrow = 1)
+T1  <- 28 
+R1  <- matrix(runif(N, min = 0.5, max = 4),
+              nrow = nrow(I0) + T1,
+              ncol = N, byrow = TRUE)
+R2  <- matrix(runif(N, min = 0.5, max = 3),
+              nrow = T1,
+              ncol = N, byrow = TRUE)
+
+R3  <- matrix(runif(N, min = 0.5, max = 2),
+              nrow = T1,
+              ncol = N, byrow = TRUE)
+R4  <- matrix(runif(N, min = 0.5, max = 1),
+              nrow = 21,
+              ncol = N, byrow = TRUE)
+R <- rbind(R1, R2, R3, R4)
+si  <- SI_Distr
+pij <- matrix(1, nrow = N, ncol = N)
+
+
+I <- project2(incid = I0, R = R, si = si, pij = pij,
+              n.days = n.days)
+
+```
+Preparing data for feeding into Stan.
+
+```{r}
+
+I  <- rbind( I0, I)
+T  <- nrow(I)
+N  <- ncol(I)
+
+SI <- SI_Distr[ 1:( T + 1)]
+#rindex1 <- c(rep(1, 18), rep(2, 18))
+#rindex2 <- rindex1 + 2
+                                        #rindex3 <- rindex2 + 2
+
+rindex1 <- matrix(c(1, 2, 3), nrow = 14, ncol = 3, byrow = T)
+rindex2 <- matrix(c(4, 5, 6), nrow = 8, ncol = 3, byrow = T)
+rindex  <- rbind(rindex1, rindex2) 
+num_Rjt <- 6
+
+sim_data <- list(T = T, N = N, I = I, SI = SI, rindex = rindex,
+                 num_Rjt = num_Rjt)
+
+fit1 <- stan(
+  file = "R/multiple_location.stan",  # Stan program
+  data = sim_data,    # named list of data
+  chains = 5,             # number of Markov chains
+  warmup = 1000,          # number of warmup iterations per chain
+  iter = 5000,            # total number of iterations per chain
+  cores = 2,              # number of cores (using 2 just for the vignette)
+  refresh = 500)          # show progress every 'refresh' iterations
+
+print(fit1, pars=c("R"), probs=c(.1,.5,.9))
+
+
+
+```
+
+
+The fitted model has draws from the posterior distribution.
+We can use these samples to project forward.
+
+```{r prediction, eval = TRUE}
+
+list_of_draws <- extract(fit1)
+r_samples <- list_of_draws[["R"]]
+dates <- seq(from = as.Date("2018-02-07"), by = "1 day",
+             length.out = 22)
+
+daily_projections <- plyr::alply(r_samples, 1, 
+                                 function(r.t){
+                                     R1  <- matrix(r.t[1:N],
+                                                   nrow = 14,
+                                                   ncol = 3, 
+                                                   byrow = T)
+                                     R2  <- matrix(r.t[(N + 1):
+                                                       num_Rjt],
+                                                   nrow = 8,
+                                                   ncol = 3,
+                                                   byrow = T)
+                                     R   <- rbind(R1, R2) 
+                                     out <- project2(I0,
+                                                     R,
+                                                     SI_Distr,
+                                                     pij,
+                                                     n.days) 
+                                     projected <- rbind(I0,
+                                                        out)
+                                     projected %<>%
+                                      as.data.frame(.) 
+                                     
+                                     projected$Date <- dates
+                                     return(projected)})
+
+
+
+tmp <- bind_rows(daily_projections)
+projections_distr <- projection_quantiles(tmp)
+
+
+I_df <- as.data.frame(I) 
+I_df$Date <- dates
+I_df %<>% tidyr::gather("Country", "Incidence", -Date)
+
+
+I_df$Date %<>% as.Date
+p   <- ggplot(I_df, aes(Date, Incidence)) +
+           geom_point(size = 2, stroke = 0, shape = 16) +
+           facet_wrap(~Country, scales = "free_y")
+p <- p + geom_line(data = projections_distr,
+                   aes(x = Date, y = y, group = 1),
+                     color = 'black', size = 0.9)
+p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
+                                                   ymin = ymin,
+                                                   ymax = ymax,
+                                                   group = 1),
+                     inherit.aes = FALSE,
+                     alpha = 0.5)
+
+p
+
+
+```
+
+
+

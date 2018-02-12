@@ -111,6 +111,17 @@ r.estim   <- by.location_incid %>%
 
 ```
 
+```{r write_r, eval = FALSE}
+
+lapply(names(r.estim), function(country) {
+    R <- r.estim[[country]]
+    outfile <- paste0("output/", country, "-R.csv")
+    write.csv(R, file = outfile, row.names = F, quote = F)
+})
+
+
+```
+
 ```{r hm_r_viz, eval = TRUE}
 
 lapply(names(r.estim), function(country) {

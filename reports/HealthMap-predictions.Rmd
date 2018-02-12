@@ -83,7 +83,8 @@ K        <- 1
 Read in cleaned-up and wide formatted data. 
 
 ```{r hm_dataload, eval = TRUE}
-hm_wide <- here::here("data", "CaseCounts/processed/HealthMap_Ebola_wide.csv")
+hm_wide <- here::here("data",
+                      "CaseCounts/processed/HealthMap_Ebola_wide.csv")
 by.location_incid <- readr::read_csv(hm_wide)
 
 ```

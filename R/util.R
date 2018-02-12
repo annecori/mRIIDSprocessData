@@ -232,3 +232,25 @@ plot.weekly3 <- function(available, projections_distr, trng.start, valdtn.end){
     p
 
 }
+
+
+## Given a vector R return a nrow * ncol matrix where
+## R[1:ncol] will be inserted in rows 1 to change_at[1].
+## Similarly R[ncol + 1: (2 * ncol)] will be inserted from
+## change_at[1] + 1 to row_indices[2] and so on.
+## for example makeRmatrix(c(1, 2, 3), 3, 4, c(4)) will return
+## [ 1 2 3
+##   1 2 3
+##   1 2 3
+##   1 2 3] and makeRmatrix(c(1, 2, 3), 1, 9, c(5, 7)) returns
+## [1 1 1 1 2 2 3 3 3]
+
+makeRmatrix <- function( R, ncol, nrow, change_at){
+
+    split_at <- seq(from = 1, to = nrow, by = ncol)
+    split_R  <- unname(split(R, cumsum(seq(R) %in%  split_at)))
+    num_rows <- diff(c(1, change_at, nrow + 1))
+
+    out <- mapply(rep, x = split_R, times = num_rows)
+    matrix(unlist(out), byrow = T, ncol = ncol)
+}

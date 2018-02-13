@@ -131,7 +131,8 @@ lapply(names(r.estim), function(country) {
                         ymax = `Quantile.0.975(R)`),
                     fill = "grey70") +
          geom_line(aes(y =  `Mean(R)`)) +
-        theme_minimal() + ylab("Reproduction Number R")
+         theme_minimal() +
+         ylab("Reproduction Number R")
     ggsave(file = paste0("figures/", country, "-R.png"), p)
 })
 

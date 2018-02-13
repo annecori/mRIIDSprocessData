@@ -179,7 +179,7 @@ flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
-p.stay      <- 0.99 # this can be a vector
+#p.stay      <- 0.99 # this can be a vector
 p.movement  <- probability_movement(relative.risk, p.stay)
 
 ```

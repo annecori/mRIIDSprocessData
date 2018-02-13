@@ -5,7 +5,7 @@ data {
   row_vector[T + 1]    SI;
   int <lower = 0> rindex[T, N];
   int num_Rjt ;
-  real pstay;
+  real pstay[N, N];
 }
 
 parameters {
@@ -22,12 +22,7 @@ model {
         for( s in 1:t){
 	  tmp = tmp + I[ s, i] * SI[ t - s + 1];
 	}
-	if(i == j){
-          tmp = tmp * pstay * R[ rindex[ t, i]];
-	}  else {
-          tmp = tmp * (1 - pstay)
-	            * R[ rindex[ t, i]];
-        }		    
+        tmp = tmp * pstay[i, j] * R[ rindex[ t, i]];
 	mu = mu + tmp;
       } // end of computing mu[ t, j]
       target += poisson_lpmf(I[ t, j] | mu);

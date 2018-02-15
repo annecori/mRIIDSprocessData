@@ -2,8 +2,8 @@
 ##'
 ##' .. content for \details{} ..
 ##' @param p_ij : row vector of length n where n is the number of locations. Each entry is the probability of flow from i to j.
-##' @param r_t : n X t matrix. Entry ij is the reproduction number at location i and time j.
-##' @param i_t : n X t matrix. Entry ij is the incidence count at location j and time j.
+##' @param r_t : t X n matrix. Entry ij is the reproduction number at location j and time i.
+##' @param i_t : t X n matrix. Entry ij is the incidence count at location j and time i.
 ##' @param w_t : column vector of length t. Samples from the serial distribution.
 ##' @title
 ##' @return the mean of the Poisson distribution determining the distribution of incidences at location j at time t.
@@ -30,14 +30,17 @@ lambda.j.t <- function(pij, r.t, incidence, ws){
 project <-  function(incid, R, si, pij, n.days = 7){
 
     n.loc <- ncol(incid)
-    out   <- matrix(0, nrow = n.days, ncol = n.loc) %>% rbind(incid, .)
+    out   <- matrix(0, nrow = n.days, ncol = n.loc)
+    out   <- rbind(incid, out)
     start <- nrow(incid) + 1
     end   <- nrow(out)
     if(length(si) < end)
-         ws <- c(si, rep(0, end - length(si))) %>% rev
-    else ws <- rev(si)
+         ws <- c(si, rep(0, end - length(si)))
+    else ws <- si
+
+    ws <- rev(ws)
     for(i in start:end){
-        i_t      <- out[1:i, ]
+        i_t      <- out[seq_len(i), ]
         w_t      <- utils::tail(ws, i)
         mu       <- lambda.j.t(pij, R, i_t, w_t)
         out[i, ] <- rpois(n.loc, mu)
@@ -65,7 +68,6 @@ project2 <-  function(incid, R, si, pij, n.days = 7){
         r_t      <- R[i, ]
         mu       <- lambda.j.t(pij, r_t, i_t, w_t)
         out[i, ] <- rpois(n.loc, mu)
-
     }
     return(out[start:nrow(out), ])
 }

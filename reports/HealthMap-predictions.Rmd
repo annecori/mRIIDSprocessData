@@ -19,9 +19,9 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 35
+  t.proj : 56
   n.sim : 1000
-  n.dates.sim : 28
+  n.dates.sim : 8
   p.stay: 1
 ---
 
@@ -50,7 +50,7 @@ p.stay      <- params$p.stay
 
 ```{r hm_wafrica, eval = TRUE}
 
-w.africa       <- c("Guinea", "Liberia", "Sierra Leone")
+w.africa <- c("Guinea", "Liberia", "Sierra Leone")
 
 ```
 # Parameters for Ebola and Reproduction Number Estimation
@@ -92,7 +92,7 @@ We now use the incidence count to estimate reproduction number.
 
 ```{r hm_restim, eval = TRUE}
 
-start     <- 1:(length(by.location_incid$Date) - time_window)
+start     <- 2:(length(by.location_incid$Date) - time_window)
 end       <- start + time_window
 end.dates <- by.location_incid[end, "Date"]
 r.estim   <- by.location_incid %>%
@@ -122,7 +122,7 @@ lapply(names(r.estim), function(country) {
 
 ```
 
-```{r hm_r_viz, eval = TRUE}
+```{r hm_r_viz, eval = FALSE}
 
 lapply(names(r.estim), function(country) {
     R <- r.estim[[country]]
@@ -236,12 +236,27 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.
 
 
 projections_distr <- projection_quantiles(weekly.projections)
-outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
-outfile <- here::here("output", outfile)
-write.csv(projections_distr, file = outfile, row.names = F, quote = F)
+#outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
+#outfile <- here::here("output", outfile)
+#write.csv(projections_distr, file = outfile, row.names = F, quote = F)
 
-outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
-outfile <- here::here("output", outfile)
+#outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+#outfile <- here::here("output", outfile)
 
+
+```
+
+```{r webapp, eval = TRUE}
+
+tmp <- reshape(projections_distr, idvar='Date',
+               timevar='Country',direction='wide')
+tmp$Projections_from <- by.location_incid[t.proj,]$Date
+outfile   <-  paste0("hm-dates_sim-",  n.dates.sim, ".csv")
+outfile   <- here::here("output", outfile) 
+col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+
+write.table(tmp, outfile,  
+            sep = ",", col.names = col.names, append = T,
+            row.names = F, quote = F)
 
 ```

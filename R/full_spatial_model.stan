@@ -14,7 +14,7 @@ data {
 
 parameters {
  real <lower = 0> R[num_Rjt];
- real <lower = 0> gamma;
+ real <lower = 0, upper = 3> gamma;
  real <lower = 0, upper = 1> pstay;
 }
 

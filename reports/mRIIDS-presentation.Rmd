@@ -1,0 +1,62 @@
+---
+title: "Mapping the Risk of International Infectious Disease Spread (MRIIDS)"
+subtitle: "Funded through USAID’s 'Combating Zika and Future Threats: A Grand Challenge for Development' program"
+author: "Sangeeta Bhatia"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+# Problem Statement
+
+world more connected; more diseases; spreading faster etc.
+---
+
+# Role of internet surveillance
+
+Internet surveillance - useful but reliable?
+---
+
+# ProMed, HealthMap and HealthSites
+
+Introduce partners
+---
+
+# Model
+
+
+---
+
+# Results - comparison of data from WHO, HealthMap and ProMed
+
+
+
+---
+
+# Prediction - at country level
+
+---
+
+
+# Prediction - at district level
+
+---
+
+# Spread over space and time.
+
+
+
+---
+
+# Next steps
+
+

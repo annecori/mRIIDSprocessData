@@ -139,7 +139,7 @@ pij    <- probability_movement(relative.risk = r.risk,
 
 ```{r}
 
-wafrica <- c("Liberia", "Sierra Leone")
+wafrica <- c("Liberia", "Sierra Leone", "Guinea")
 adm0_centroids <- here::here("data", "Geography/GravityModel/raw/adm0_centroids.tsv") %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
                    filter(V1 %in% wafrica)
@@ -190,7 +190,7 @@ I <- project2(incid = I0, R = R_sim, si = SI_Distr,
 who_wide <- here::here("data/CaseCounts/processed",
                        "WHO_bycountry_wide.csv") %>%
             readr::read_csv(.) %>%
-            filter(Date > "2014-06-30" &
+            filter(Date > "2014-05-30" &
                    Date < "2015-01-15") %>%
             select(Date, wafrica)
 

@@ -1,6 +1,6 @@
-##' .. check if the input vector is monotonically not decreasing ..
-##' This means that seq[i] should be greater than or equal to seq[i-1] for all i
-##' .. content for \details{} ..
+##' Check if the input vector is monotonically not decreasing
+##' @details This means that seq[i] should be greater than or equal to seq[i-1] for all i
+##'
 ##' @title
 ##' @return a list of indices at which the function is not (not drecreasing). That is, return i if seq[i] <= seq[i+1]].
 ##' If there is no such index, return a list of length 0.
@@ -10,12 +10,12 @@ is_monotonically_increasing <- function(vec){
     which(differences < 0) %>% return
 }
 
-##' .. Test if the last data point is within the prediction interval returned by prediction.interval ..
+##' Test if the last data point is within the prediction interval returned by prediction.interval
 ##'
 ##' @details k.sd controls the proportion of the data that you want to grab. If this value is large, greater variance
 ##' will be tolerated.
 ##' @seealso chebyshev.ineq.sample for the proportion *outside* a certain interval around the mean
-##' @title
+##' @title Tests for outlier.
 ##' @param Cases numeric vector
 ##' @param use.last number of points preceeding the last one to be used for estimation. If this is more than
 ##' the number of available data points, all points are used.
@@ -37,10 +37,11 @@ is.outlier <- function(Cases, use.last, k.sd){
     else return(FALSE)
 }
 
-##' .. If the last datapoint is an outlier, remove it ..
-##' .. Do this until there is no outlier at the end.
+##' @title Outlier Removal
+##' @details If the last datapoint is an outlier, remove it
+##' Do this until there is no outlier at the end.
 ##' @seealso
-##' @title
+##'
 ##' @return
 ##' @author Sangeeta Bhatia
 remove.last.outliers <- function(cum.incidence, use.last=20, k.sd=6){

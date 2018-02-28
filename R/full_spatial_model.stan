@@ -10,6 +10,8 @@ data {
   real alpha;
   real beta;
   real K;
+  real prior_mean;
+  real prior_std;
 }
 
 parameters {
@@ -19,11 +21,16 @@ parameters {
 }
 
 model {
-// For a given value of gamma, first calculate
-// pmovement. Then proceed as before.
+
   real flow[N, N];
   real row_total;
   real pmovement[N, N];
+  real a = ( prior_mean / prior_std)^2;
+  real b = ( prior_std ^ 2)/ prior_mean;
+  R ~ gamma(a, b);  
+// For a given value of gamma, first calculate
+// pmovement. Then proceed as before.
+
   for(r in 1:N){
     for(c in 1:N){
       if(r == c){

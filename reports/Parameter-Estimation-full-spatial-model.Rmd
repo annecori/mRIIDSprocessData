@@ -21,7 +21,7 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 200
+  t.proj : 300
   n.sim : 5000
   n.dates.sim : 49
   time_window: 49
@@ -203,13 +203,18 @@ rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
 
 ## Real data
 
-
 ```{r who_data, eval = TRUE}
 
+## who_wide <- here::here("data/CaseCounts/processed",
+##                       "WHO_bycountry_wide.csv") %>%
+##            readr::read_csv(.) %>%
+##            select(Date, wafrica)
+
 who_wide <- here::here("data/CaseCounts/processed",
-                       "WHO_bycountry_wide.csv") %>%
+                      "HealthMap_Ebola_wide.csv") %>%
             readr::read_csv(.) %>%
-            select(Date, wafrica)
+            filter(Date > "2014-05-15") %>%
+           mutate_if(is.numeric, as.integer)
 
 extra <- nrow(who_wide) %% 7
 if( extra != 0){
@@ -238,7 +243,7 @@ rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
 
 Collect data for feeding into Stan into a named list.
 
-```{r data_prep1, eval = simulated_data}
+```{r data_prep1, eval = TRUE}
 
 stan_data <- list(T = T, N = N, I = I, SI = SI,
                  rindex     = rindex,
@@ -250,23 +255,6 @@ stan_data <- list(T = T, N = N, I = I, SI = SI,
                  K = 1,
                  prior_mean = 1,
                  prior_std = 0.5)                  
-
-```
-
-
-```{r data_prep2, eval = !simulated_data}
-
-stan_data <- list(T = T, N = N, I = I, SI = SI,
-                  rindex = rindex,
-                  num_Rjt = num_Rjt,
-                  population =  adm0_centroids[, "pop"],
-                  dist_mat = distances,
-                  alpha = 1,
-                  beta = 1,
-                  K = K,
-                  prior_mean = 1,
-                  prior_std = 0.5)
-                  
 
 ```
 

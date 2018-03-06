@@ -2,7 +2,7 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: false
+    keep_tex: true
     fig_caption: true
     latex_engine: pdflatex
 title: Estimation of Model Parameters
@@ -11,7 +11,7 @@ author:
   affiliation: Imperial College London
 abstract: 
 keywords: 
-date: "`Sys.Date()`"
+date: "`r Sys.Date()`"
 geometry: margin=1in
 fontfamily: mathpazo
 fontsize: 11pt
@@ -21,8 +21,8 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 300
-  n.sim : 5000
+  t.proj : 161
+  n.sim : 1000
   n.dates.sim : 49
   time_window: 49
   K: 1
@@ -213,8 +213,7 @@ rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
 who_wide <- here::here("data/CaseCounts/processed",
                       "HealthMap_Ebola_wide.csv") %>%
             readr::read_csv(.) %>%
-            filter(Date > "2014-05-15") %>%
-           mutate_if(is.numeric, as.integer)
+            mutate_if(is.numeric, as.integer)
 
 extra <- nrow(who_wide) %% 7
 if( extra != 0){
@@ -223,7 +222,7 @@ if( extra != 0){
         who_wide %<>% head(-extra)
 }
 
-
+who_wide %<>%  filter(Date > "2014-06-01") 
 I_who <- select(who_wide, -Date) %>% `[`(seq_len(t.proj + n_days),)
 dates <- pull(who_wide, Date)  %>% `[`(seq_len(t.proj + n_days))
 I <- I_who[seq_len(t.proj), ]
@@ -267,7 +266,7 @@ model_file <- here::here("R", "full_spatial_model.stan")
 fit1 <- stan(
   file = model_file,  
   data = stan_data,   
-  chains = 5,        
+  chains = 3,        
   warmup = 1000,     
   iter = 2000,       
   cores = 2,         
@@ -280,6 +279,9 @@ fit1 <- stan(
 print(fit1, pars=c("R"), probs=c(.01, .1,.5,.9))
 print(fit1, pars=c("gamma"), probs=c(.01, .1,.5,.9))
 print(fit1, pars=c("pstay"), probs=c(.01, .1,.5,.9))
+rhat_file <- here::here("output/figures", paste0(t.proj, ".png"))
+stan_rhat(fit1, pars = c("R", "gamma", "pstay")) %>%
+     ggsave(rhat_file, .)
 
 ```
 
@@ -336,42 +338,39 @@ daily_projections <- lapply(index, function(row){
                                                      SI_Distr,
                                                      pij,
                                                      n_days) 
-                                     projected <- rbind(I0,
-                                                        out)
-                                     projected %<>%
+                                     out %<>%
                                       as.data.frame(.) 
                                      
-                                     projected$Date <- dates
-                                     return(projected)})
+                                     out$Date <- tail(dates, nrow(out))
+                                     return(out)})
 
 
 ```
 
-```{r plot_fit, eval = !simulated_data}
-tmp <- bind_rows(daily_projections)
-projections_distr <- projection_quantiles(tmp)
+```{r weekly, eval = !simulated_data}
 
+weekly_projections <- lapply(daily_projections, daily.to.weekly) %>%
+                      bind_rows(.)
+projections_distr <- projection_quantiles(weekly_projections)
 
-I_df      <- as.data.frame(I_who) 
-I_df$Date <- dates
-I_df %<>% tidyr::gather("Country", "Incidence", -Date)
+weekly.available <- c(training    =
+                          list(who_wide[seq_len(t.proj), ]),
+                      validation =
+                          list(who_wide[t.proj:(t.proj + n_days), ])) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
 
+trng.start <- pull(who_wide, Date)[t.proj] - time_window
+vldtn.end  <- pull(who_wide, Date)[t.proj] + n_days
+p <- plot.weekly3(weekly.available,
+                  projections_distr, trng.start,
+                  vldtn.end)
 
-I_df$Date %<>% as.Date
-p   <- ggplot(I_df, aes(Date, Incidence)) +
-           geom_point(size = 2, stroke = 0, shape = 16) +
-           facet_grid(Country ~ ., scales = "free_y")
-p <- p + geom_line(data = projections_distr,
-                   aes(x = Date, y = y, group = 1),
-                     color = 'black', size = 0.9)
-p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
-                                                   ymin = ymin,
-                                                   ymax = ymax,
-                                                   group = 1),
-                     inherit.aes = FALSE,
-                     alpha = 0.5)
-p <- p + geom_vline(xintercept = dates[change_at])
-outname <- paste0(Sys.Date(), "-", N, "-", T, ".pdf")
+```
+
+```{r plot_save, eval = TRUE}
+
+outname <- paste0("healthmap-", t.proj, "-", n_days, ".png")
 outfile <- here::here("output/figures", outname)
 ggsave(outfile, p)
 
@@ -380,6 +379,7 @@ ggsave(outfile, p)
 
 
 ```{r test_sim, eval = simulated_data}
+
 I_df <- as.data.frame(I)
 I_df %<>% tibble::rownames_to_column(.)
 I_tall <- tidyr::gather(I_df, var, val, -rowname)

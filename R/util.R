@@ -213,15 +213,15 @@ plot.weekly3 <- function(available, projections_distr, trng.start, valdtn.end){
     tmp <- tidyr::gather(available, Country, Incidence, -c(Category, Date))
     tmp$Date %<>% as.Date
     p   <- ggplot(tmp, aes(Date, Incidence)) +
-           geom_point(size = 1.5, stroke = 0, shape = 16, colour = "gray") +
-           facet_wrap(~Country, scales = "free_y")
+           geom_point(size = 2, stroke = 0, shape = 16, colour = "gray") +
+           facet_wrap(~Country, scales = "free_y", nrow = 3)
 
     tmp2 <- filter(tmp, Date >= trng.start & Date <= valdtn.end)
     p <- p + geom_point(data = tmp2, aes(Date, Incidence, color = Category),
-                        size = 1.5, stroke = 0, shape = 16)
+                        size = 2, stroke = 0, shape = 16)
     p <- p + scale_color_discrete(labels = c("Training", "Validation"))
     p <- p + geom_line(data = projections_distr, aes(x = Date, y = y, group = 1),
-                     color = 'black', size = 0.9)
+                     color = 'black', size = 1)
     p <- p + geom_ribbon(data = projections_distr, aes(x = Date,
                                                      ymin = ymin,
                                                      ymax = ymax,

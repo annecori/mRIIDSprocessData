@@ -1,10 +1,11 @@
 ---
 title: "Mapping the Risk of International Infectious Disease Spread (MRIIDS)"
 subtitle: "Funded through USAID’s 'Combating Zika and Future Threats: A Grand Challenge for Development' program"
-author: "Sangeeta Bhatia"
+author: "Sangeeta Bhatia, Anne Cori and Pierre Nouvellet"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   xaringan::moon_reader:
+    css: ["default", "default-fonts", "hygge"]
     lib_dir: libs
     nature:
       highlightStyle: github
@@ -16,37 +17,56 @@ output:
 options(htmltools.dir.version = FALSE)
 ```
 
-# Problem Statement
+# Our Brave New World
 
-world more connected; more diseases; spreading faster etc.
+.center[![](figures/real-transport-and-communication-costs.png)]
+
 ---
 
-# Role of internet surveillance
+# Big Brother Is Watching
 
-Internet surveillance - useful but reliable?
+.center[![](figures/digital-surveillance.png)]
 ---
 
-# ProMed, HealthMap and HealthSites
+# Crisis Response 
+
+.center[![](figures/who-ebola-response-team.png)]
+---
+
+# mRIIDS
+.center[![](figures/mriids-beta.png)]
+
+---
+# Project partners - ProMed, HealthMap and HealthSites
 
 .center[![Partners](milestone-6/ms6-figures/logo.png)]
 ---
 
 # Project Schematic
+
 .center[![schematic](milestone-6/ms6-figures/schematic.png)]
 
 ---
 # Model
 
+Excpected number of cases at a location is influenced by
+1. local past incidence;
+2. pathogen characteristics - reproduction number, serial interval;
+3. local health access quality; 
+4. movement between neighboring locations
+
 $$I_{j, t} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
   R_{t, i} \sum_{s = 1}^{t}{I_{i, t - s} w_{s}}\right)} \right),$$
 where
 $$R_{t, i} := f(haq_i, R_0, t).$$
+
 $haq_i$ is a measure of health access quality index at a given location.
 
 ---
 # Movement between spatial units
-$$p_{i \rightarrow j} = (1 - p_{stay}^i)\frac{\phi_{i \rightarrow
-  j}}{\sum_{x}{\phi_{i \rightarrow
+Approximated by a phenomenological model (e.g. gravity or radiation model), or informed by other sources such as air or road traffic data.
+
+$$p_{i \rightarrow j} = (1 - p_{stay}^i)\frac{\phi_{i \rightarrow j}}{\sum_{x}{\phi_{i \rightarrow
   j}}}$$
 
 ---

@@ -21,13 +21,14 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 161
+  t.proj : 301
   n.sim : 1000
   n.dates.sim : 49
   time_window: 49
   K: 1
   pow_N_from: 1
   pow_N_to: 1
+  ADM0: SIERRALEONE
 ---
 
 
@@ -57,6 +58,7 @@ n_days      <- params$n.dates.sim
 n_samples   <- params$n.sim
 time_window <- params$time_window
 t.proj      <- params$t.proj
+ADM0        <- params$ADM0
 
 ```
 ## Gravity model parameters
@@ -97,7 +99,17 @@ SI_Distr <- SI_Distr / sum(SI_Distr)
 
 
 ```
+## Incidence Data
 
+```{r incid_data, eval = TRUE}
+
+who_wide <- paste0(ADM0, "_wide.csv") %>%
+            here::here("data/CaseCounts/processed", .) %>%
+            readr::read_csv(.)
+
+who_wide %<>% filter(Date > "2014-06-01") 
+
+```
 
 ## Centroids and populations 
 
@@ -105,20 +117,35 @@ We will use information for actual places even when using simulated
 data.
 
 
-```{r}
+```{r adm0, eval = FALSE}
 
 wafrica <- c("Liberia", "Sierra Leone", "Guinea")
-adm0_centroids <- here::here("data", "Geography/GravityModel/raw/adm0_centroids.tsv") %>%
+centroids <- here::here("data", "Geography/GravityModel/raw/centroids.tsv") %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
                    filter(V1 %in% wafrica)
-names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
+names(centroids) <- c("country", "id", "lon", "lat", "pop")
 
-distances <- geosphere::distm(cbind( adm0_centroids[, "lon"],
-                                     adm0_centroids[, "lat"]))
 
 ```
 
+```{r adm1, eval = TRUE}
 
+infile <- here::here("data/Geography/GravityModel/processed/",
+                     "all_centroids.csv")
+
+centroids <- readr::read_csv(infile) %>% 
+                   filter(ADM0 == ADM0) 
+
+districts <- data.frame(CL_DistrictRes = colnames(who_wide)[-1])
+centroids <- left_join(districts, centroids)
+
+```
+
+```{r distmat, eval = TRUE}
+distances <- geosphere::distm(cbind( centroids[, "lon"],
+                                     centroids[, "lat"]))
+
+```
 ## Simulate Data
 
 
@@ -151,10 +178,10 @@ Simulate movement probability matrix.
 
 ```{r pij_sim, eval = simulated_data}
 
-flow.matrix <- flow_matrix(longitude = adm0_centroids[, "lon"],
-                           latitude  = adm0_centroids[, "lat"],
-                           population = adm0_centroids[, "pop"],
-                           place.names = adm0_centroids[, "country"],
+flow.matrix <- flow_matrix(longitude = centroids[, "lon"],
+                           latitude  = centroids[, "lat"],
+                           population = centroids[, "pop"],
+                           place.names = centroids[, "country"],
                            model = "gravity",
                            K = K, pow_N_from = pow_N_from,
                            pow_N_to = pow_N_to, pow_dist = pow_dist)
@@ -194,8 +221,10 @@ SI[ which( is.na(SI))] <- 0
 
 change_at <- seq(from = 14, to = n_days, by = time_window)
 
-num_Rjt   <-  n_loc * (length( change_at) + 1)
-rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
+##num_Rjt   <-  n_loc * (length( change_at) + 1)
+num_Rjt <- length( change_at) + 1
+
+rindex  <- makeRmatrix(rvector, nrow = T, ncol = N,
                          change_at = change_at)
 
 
@@ -210,10 +239,12 @@ rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
 ##            readr::read_csv(.) %>%
 ##            select(Date, wafrica)
 
-who_wide <- here::here("data/CaseCounts/processed",
-                      "HealthMap_Ebola_wide.csv") %>%
-            readr::read_csv(.) %>%
-            mutate_if(is.numeric, as.integer)
+#who_wide <- here::here("data/CaseCounts/processed",
+#                      "HealthMap_Ebola_wide.csv") %>%
+#            readr::read_csv(.) %>%
+#            mutate_if(is.numeric, as.integer)
+
+
 
 extra <- nrow(who_wide) %% 7
 if( extra != 0){
@@ -222,7 +253,7 @@ if( extra != 0){
         who_wide %<>% head(-extra)
 }
 
-who_wide %<>%  filter(Date > "2014-06-01") 
+
 I_who <- select(who_wide, -Date) %>% `[`(seq_len(t.proj + n_days),)
 dates <- pull(who_wide, Date)  %>% `[`(seq_len(t.proj + n_days))
 I <- I_who[seq_len(t.proj), ]
@@ -232,9 +263,10 @@ N <- ncol(I)
 SI <- SI_Distr[ 1:( T + 1)]
 SI[ which( is.na(SI))] <- 0
 
-change_at <- seq(from = 1, to = T, by = time_window)
-num_Rjt   <-  N * (length( change_at) + 1)
-rindex    <- makeRmatrix(seq_len(num_Rjt), nrow = T, ncol = N,
+change_at <- seq(from = time_window + 1, to = T, by = time_window)
+num_Rjt   <- length( change_at) + 1
+rvector   <- rep(seq_len(num_Rjt), each = N) 
+rindex    <- makeRmatrix(rvector, nrow = T, ncol = N,
                          change_at = change_at)
 
 ```
@@ -247,7 +279,7 @@ Collect data for feeding into Stan into a named list.
 stan_data <- list(T = T, N = N, I = I, SI = SI,
                  rindex     = rindex,
                  num_Rjt    = num_Rjt,
-                 population =  adm0_centroids[, "pop"],
+                 population =  centroids[, "pop"],
                  dist_mat = distances,
                  alpha = 1,
                  beta = 1,
@@ -309,18 +341,14 @@ I0    <- I[seq_len(t.proj), ]  %>% as.matrix
 n_loc <- N
 
 daily_projections <- lapply(index, function(row){
-                                     r.t   <- r_samples[row, ]
                                      gamma <- gamma_samples[row]
                                      pstay <- pstay_samples[row]
-                                     R_posterior <-
-                                         makeRmatrix(r.t,
-                                                     nrow = t.proj + n_days,
-                                                     ncol = n_loc,
-                                                     change_at = change_at)
-                                     flowmat <- flow_matrix(longitude = adm0_centroids[, "lon"],
-                                                            latitude  = adm0_centroids[, "lat"],
-                                                            population = adm0_centroids[, "pop"],
-                                                            place.names = adm0_centroids[, "country"],
+                                     R_posterior <- apply(rindex, c(1, 2),
+                                                          function(i) r_samples[row, i])
+                                     flowmat <- flow_matrix(longitude = centroids[, "lon"],
+                                                            latitude  = centroids[, "lat"],
+                                                            population = centroids[, "pop"],
+                                                            place.names = centroids[, "CL_DistrictRes"],
                                                             model = "gravity",
                                                             K = K, pow_N_from = pow_N_from,
                                                             pow_N_to = pow_N_to, pow_dist = gamma)
@@ -370,7 +398,7 @@ p <- plot.weekly3(weekly.available,
 
 ```{r plot_save, eval = TRUE}
 
-outname <- paste0("healthmap-", t.proj, "-", n_days, ".png")
+outname <- paste0(ADM0, "-", t.proj, "-", n_days, ".png")
 outfile <- here::here("output/figures", outname)
 ggsave(outfile, p)
 

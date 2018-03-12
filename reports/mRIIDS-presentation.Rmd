@@ -62,40 +62,45 @@ $$R_{t, i} := f(haq_i, R_0, t).$$
 
 $haq_i$ is a measure of health access quality index at a given location.
 
+
 ---
 # Movement between spatial units
-Approximated by a phenomenological model (e.g. gravity or radiation model), or informed by other sources such as air or road traffic data.
+Approximated by a phenomenological model (e.g. gravity<sup>1</sup> or radiation model<sup>2</sup>), or informed by other sources such as air or road traffic data.
 
 $$p_{i \rightarrow j} = (1 - p_{stay}^i)\frac{\phi_{i \rightarrow j}}{\sum_{x}{\phi_{i \rightarrow
   j}}}$$
+  
+.footnote[[1] Grosche, T., Rothlauf, F., & Heinzl, A. (2007). Gravity models for airline passenger volume estimation. Journal of Air Transport Management, 13(4), 175-183.
 
+[2] Simini, F., González, M. C., Maritan, A., & Barabási, A. L. (2012). A universal model for mobility and migration patterns. Nature, 484(7392), 96.]
 ---
+
 
 # Incidence from WHO, HealthMap and ProMed
 
-.center[![](milestone-6/ms6-figures/who_hm_pm_weekly_incid-2.pdf)]
+.center[![](figures/who_hm_pm_weekly_incid-2.png)]
 
 ---
 # Reproduction Number from WHO, HealthMap and ProMed
 
-.center[![](milestone-6/ms6-figures/who_vs_hm_vs_pm-2.pdf)]
+.center[![](figures/who_vs_hm_vs_pm-2.png)]
 
 ---
-# Prediction - at country level
+# Prediction using data from HealthMap
 
----
-
-
-# Prediction - at district level
+.center[![](figures/healthmap-91-49.png)]
 
 ---
 
-# Spread over space and time.
-
-
-
+# Prediction using data from HealthMap
+.center[![](figures/healthmap-189-49.png)]
 ---
 
-# Next steps
+# Prediction - at district level (WHO data)
+
+.center[![](figures/SIERRALEONE-91-49.png)]
+
+
+
 
 

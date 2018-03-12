@@ -41,7 +41,7 @@ project <-  function(incid, R, si, pij, n.days = 7){
     if(ncol(R) != ncol(incid)){
         stop(" R should be a either a 1 X N or T X N matrix.")
     }
-    if(nrow(R) != nrow(incid){
+    if(nrow(R) != nrow(incid)){
         if(nrow(R) != 1){
             stop("R should be a either a 1 X N or T X N matrix.")
         }

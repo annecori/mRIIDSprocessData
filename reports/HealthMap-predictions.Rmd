@@ -19,7 +19,7 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 56
+  t.proj : 98
   n.sim : 1000
   n.dates.sim : 8
   p.stay: 1

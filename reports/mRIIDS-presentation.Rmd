@@ -55,8 +55,8 @@ Excpected number of cases at a location is influenced by
 3. local health access quality; 
 4. movement between neighboring locations
 
-$$I_{j, t} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
-  R_{t, i} \sum_{s = 1}^{t}{I_{i, t - s} w_{s}}\right)} \right),$$
+$$I_{t, j} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
+  R_{t, i} \sum_{s = 1}^{t}{I_{t - s, i} w_{s}}\right)} \right),$$
 where
 $$R_{t, i} := f(haq_i, R_0, t).$$
 
@@ -75,7 +75,14 @@ $$p_{i \rightarrow j} = (1 - p_{stay}^i)\frac{\phi_{i \rightarrow j}}{\sum_{x}{\
 [2] Simini, F., González, M. C., Maritan, A., & Barabási, A. L. (2012). A universal model for mobility and migration patterns. Nature, 484(7392), 96.]
 ---
 
+# Models of movement
 
+Gravity model
+
+$$\phi_{ij} = k\frac{N_i^{\alpha} N_j^{\beta}}{d_{ij}^{\gamma}}$$
+Radiation model
+$$\phi_{ij} = T_i \frac{N_i N_j}{(N_i + s_{ij})(N_i + N_j + s_{ij})}$$
+---
 # Incidence from WHO, HealthMap and ProMed
 
 .center[![](figures/who_hm_pm_weekly_incid-2.png)]

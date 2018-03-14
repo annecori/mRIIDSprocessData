@@ -2,7 +2,7 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: true
+    keep_tex: false
     fig_caption: true
     latex_engine: pdflatex
 title: Estimation of Model Parameters
@@ -201,7 +201,7 @@ pij <- probability_movement(relative.risk, p.stay)
 ```{r sim_data2, eval = simulated_data}
 ## matrix characterising the population movement between geographical units
 
-I <- project2(incid = I0, R = R_sim, si = SI_Distr,
+I <- project(incid = I0, R = R_sim, si = SI_Distr,
               pij = pij,
               n.days = n_days)
 
@@ -254,18 +254,50 @@ if( extra != 0){
 }
 
 
-I_who <- select(who_wide, -Date) %>% `[`(seq_len(t.proj + n_days),)
+
+SI <- SI_Distr[ 1:( t.proj + 1)]
+SI[ which( is.na(SI))] <- 0
+
+change_at <- seq(from = time_window + 1, to = t.proj, by = time_window)
+```
+
+We now have to decide on the number of parameters we wish to 
+introduce in the model - whether we want to estimate R for 
+each location in each time window. We can reduce the number of
+parameters by grouping the contiguous districts and estimating 
+R for each group rather than each district. For instance, for 
+Sierra Leone, we will create 3 groups lumping all the districts
+in Western and Southern provinces into 1 group, those in 
+Eastern province into another and the Northern districts into 
+a third group.
+
+To do this, we will rearrange the columns of incidence data
+frame to put together the districts in each group.
+
+```{r}
+I_who <- select(who_wide, -Date) %>%
+          `[`(seq_len(t.proj + n_days),)
+I_who %<>%
+    select(KAILAHUN, KONO,
+           BOMBALI, KAMBIA, KOINADUGU, PORTLOKO, TONKOLILI,
+           BO, BONTHE, MOYAMBA, PUJEHUN, WESTERN, KENEMA)
+
+
 dates <- pull(who_wide, Date)  %>% `[`(seq_len(t.proj + n_days))
 I <- I_who[seq_len(t.proj), ]
 T <- t.proj
 N <- ncol(I)
 
-SI <- SI_Distr[ 1:( T + 1)]
-SI[ which( is.na(SI))] <- 0
 
-change_at <- seq(from = time_window + 1, to = T, by = time_window)
-num_Rjt   <- length( change_at) + 1
-rvector   <- rep(seq_len(num_Rjt), each = N) 
+```
+
+```{r}
+num_groups <- 3
+## number of provinces in each group.
+group_strength <- c(eastern = 2, northern = 5, southern = 6)
+num_Rjt   <- num_groups * (length( change_at) + 1)
+rvector   <- mapply(rep, seq_len(num_Rjt), group_strength) %>%
+              unlist
 rindex    <- makeRmatrix(rvector, nrow = T, ncol = N,
                          change_at = change_at)
 
@@ -298,7 +330,7 @@ model_file <- here::here("R", "full_spatial_model.stan")
 fit1 <- stan(
   file = model_file,  
   data = stan_data,   
-  chains = 3,        
+  chains = 1,      
   warmup = 1000,     
   iter = 2000,       
   cores = 2,         
@@ -329,8 +361,24 @@ list_of_draws <- rstan::extract(fit1)
 r_samples     <- list_of_draws[["R"]]
 gamma_samples <- list_of_draws[["gamma"]]
 pstay_samples <- list_of_draws[["pstay"]]
+```
 
+Take a look at the posterior distribution of R.
 
+```{r}
+
+tmp <- data.frame(r_samples)
+colnames(tmp) <- paste0("R[", 1:21, "]")
+tmp %<>% tidyr::gather(R, value)
+tmp$R %<>% factor(levels = paste0("R[", 1:21, "]"))
+
+ggplot(tmp, aes(value)) +
+    geom_histogram() +
+    facet_wrap( ~ R)
+
+```
+
+```{r}
 index <- sample(seq_len(nrow(r_samples)), n_samples)
 #index <- seq_len(n_samples)
 
@@ -361,7 +409,7 @@ daily_projections <- lapply(index, function(row){
 
                                      pij <- probability_movement(rel_risk, pstay)
                                      
-                                     out <- project2(I0,
+                                     out <- project(I0,
                                                      R_posterior,
                                                      SI_Distr,
                                                      pij,

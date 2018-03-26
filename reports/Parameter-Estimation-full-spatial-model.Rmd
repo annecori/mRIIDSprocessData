@@ -23,12 +23,12 @@ params:
   pow_dist : 2
   t.proj : 301
   n.sim : 1000
-  n.dates.sim : 49
-  time_window: 49
+  n.dates.sim : 35
+  time_window: 42
   K: 1
   pow_N_from: 1
   pow_N_to: 1
-  ADM0: SIERRALEONE
+  ADM0: healthmap
 ---
 
 
@@ -101,13 +101,13 @@ SI_Distr <- SI_Distr / sum(SI_Distr)
 ```
 ## Incidence Data
 
-```{r incid_data, eval = TRUE}
+```{r incid_data, eval = FALSE}
 
 who_wide <- paste0(ADM0, "_wide.csv") %>%
             here::here("data/CaseCounts/processed", .) %>%
             readr::read_csv(.)
 
-who_wide %<>% filter(Date > "2014-06-01") 
+who_wide %<>% filter(Date > "2014-07-07") 
 
 ```
 
@@ -117,10 +117,10 @@ We will use information for actual places even when using simulated
 data.
 
 
-```{r adm0, eval = FALSE}
+```{r adm0, eval = TRUE}
 
 wafrica <- c("Liberia", "Sierra Leone", "Guinea")
-centroids <- here::here("data", "Geography/GravityModel/raw/centroids.tsv") %>%
+centroids <- here::here("data", "Geography/GravityModel/raw/adm0_centroids.tsv") %>%
                    read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
                    filter(V1 %in% wafrica)
 names(centroids) <- c("country", "id", "lon", "lat", "pop")
@@ -128,7 +128,7 @@ names(centroids) <- c("country", "id", "lon", "lat", "pop")
 
 ```
 
-```{r adm1, eval = TRUE}
+```{r adm1, eval = FALSE}
 
 infile <- here::here("data/Geography/GravityModel/processed/",
                      "all_centroids.csv")
@@ -239,11 +239,12 @@ rindex  <- makeRmatrix(rvector, nrow = T, ncol = N,
 ##            readr::read_csv(.) %>%
 ##            select(Date, wafrica)
 
-#who_wide <- here::here("data/CaseCounts/processed",
-#                      "HealthMap_Ebola_wide.csv") %>%
-#            readr::read_csv(.) %>%
-#            mutate_if(is.numeric, as.integer)
+who_wide <- here::here("data/CaseCounts/processed",
+                      "HealthMap_Ebola_wide.csv") %>%
+            readr::read_csv(.) %>%
+            mutate_if(is.numeric, as.integer)
 
+who_wide %<>% filter(Date > "2014-07-01")
 
 
 extra <- nrow(who_wide) %% 7
@@ -253,12 +254,15 @@ if( extra != 0){
         who_wide %<>% head(-extra)
 }
 
+I_who <- select(who_wide, -Date) %>%
+          `[`(seq_len(t.proj + n_days),)
 
 
 SI <- SI_Distr[ 1:( t.proj + 1)]
 SI[ which( is.na(SI))] <- 0
 
 change_at <- seq(from = time_window + 1, to = t.proj, by = time_window)
+
 ```
 
 We now have to decide on the number of parameters we wish to 
@@ -274,19 +278,21 @@ a third group.
 To do this, we will rearrange the columns of incidence data
 frame to put together the districts in each group.
 
-```{r}
-I_who <- select(who_wide, -Date) %>%
-          `[`(seq_len(t.proj + n_days),)
+```{r regroup, eval = FALSE}
+
 I_who %<>%
     select(KAILAHUN, KONO,
            BOMBALI, KAMBIA, KOINADUGU, PORTLOKO, TONKOLILI,
            BO, BONTHE, MOYAMBA, PUJEHUN, WESTERN, KENEMA)
 
+```
 
+```{r}
 dates <- pull(who_wide, Date)  %>% `[`(seq_len(t.proj + n_days))
 I <- I_who[seq_len(t.proj), ]
 T <- t.proj
 N <- ncol(I)
+
 
 
 ```
@@ -294,7 +300,7 @@ N <- ncol(I)
 ```{r}
 num_groups <- 3
 ## number of provinces in each group.
-group_strength <- c(eastern = 2, northern = 5, southern = 6)
+group_strength <- c(eastern = 1, northern = 1, southern = 1)
 num_Rjt   <- num_groups * (length( change_at) + 1)
 rvector   <- mapply(rep, seq_len(num_Rjt), group_strength) %>%
               unlist
@@ -330,8 +336,8 @@ model_file <- here::here("R", "full_spatial_model.stan")
 fit1 <- stan(
   file = model_file,  
   data = stan_data,   
-  chains = 1,      
-  warmup = 1000,     
+  chains = 3,      
+  warmup = 500,     
   iter = 2000,       
   cores = 2,         
   refresh = 500)     
@@ -361,16 +367,17 @@ list_of_draws <- rstan::extract(fit1)
 r_samples     <- list_of_draws[["R"]]
 gamma_samples <- list_of_draws[["gamma"]]
 pstay_samples <- list_of_draws[["pstay"]]
+
 ```
 
 Take a look at the posterior distribution of R.
 
-```{r}
+```{r r_posterior, eval = TRUE}
 
 tmp <- data.frame(r_samples)
-colnames(tmp) <- paste0("R[", 1:21, "]")
+colnames(tmp) <- paste0("R[", seq_len(num_Rjt), "]")
 tmp %<>% tidyr::gather(R, value)
-tmp$R %<>% factor(levels = paste0("R[", 1:21, "]"))
+tmp$R %<>% factor(levels = paste0("R[", seq_len(num_Rjt), "]"))
 
 ggplot(tmp, aes(value)) +
     geom_histogram() +
@@ -378,7 +385,7 @@ ggplot(tmp, aes(value)) +
 
 ```
 
-```{r}
+```{r project, eval = TRUE}
 index <- sample(seq_len(nrow(r_samples)), n_samples)
 #index <- seq_len(n_samples)
 
@@ -396,7 +403,7 @@ daily_projections <- lapply(index, function(row){
                                      flowmat <- flow_matrix(longitude = centroids[, "lon"],
                                                             latitude  = centroids[, "lat"],
                                                             population = centroids[, "pop"],
-                                                            place.names = centroids[, "CL_DistrictRes"],
+                                                            place.names = centroids[, "country"],
                                                             model = "gravity",
                                                             K = K, pow_N_from = pow_N_from,
                                                             pow_N_to = pow_N_to, pow_dist = gamma)
@@ -429,6 +436,9 @@ weekly_projections <- lapply(daily_projections, daily.to.weekly) %>%
                       bind_rows(.)
 projections_distr <- projection_quantiles(weekly_projections)
 
+```
+
+```{r}
 weekly.available <- c(training    =
                           list(who_wide[seq_len(t.proj), ]),
                       validation =
@@ -446,7 +456,13 @@ p <- plot.weekly3(weekly.available,
 
 ```{r plot_save, eval = TRUE}
 
-outname <- paste0(ADM0, "-", t.proj, "-", n_days, ".png")
+paste0(ADM0, "-",
+       t.proj, "-",
+       n_days, "-", time_window, ".csv") %>%
+    here::here("output", .) %>%
+    readr::write_csv(x = projections_distr, path = .)
+
+outname <- paste0(ADM0, "-", t.proj, "-", n_days, "-", time_window, ".png")
 outfile <- here::here("output/figures", outname)
 ggsave(outfile, p)
 

@@ -117,9 +117,9 @@ promed_weekly    <- promed_bycountry %>%
                                location <- case.count$Country[1]
                                case.count %<>%
                                   incidence.from.DS1(species, disease,
-                                                   case.type,
-                                                   location,
-                                                   merge_rule = "median") %<>%
+                                                     case.type,
+                                                     location,
+                                                     merge_rule = "median") %<>%
                                  daily.to.weekly }) %>%
                         bind_rows(.id = "Country")
 

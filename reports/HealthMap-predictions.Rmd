@@ -95,16 +95,17 @@ We now use the incidence count to estimate reproduction number.
 start     <- 2:(length(by.location_incid$Date) - time_window)
 end       <- start + time_window
 end.dates <- by.location_incid[end, "Date"]
-r.estim   <- by.location_incid %>%
-                   select(-Date) %>%
-    plyr::alply(2, .dims = TRUE, function(incid) {
+r.estim   <- select(by.location_incid, -Date) %>%
+             plyr::alply(2, .dims = TRUE, function(incid) {
                                                  I <- pull(incid, 1)
-                                                 res <- EstimateR(I, T.Start = start , T.End = end,
+                                                 res <- EstimateR(I,
+                                                                  T.Start = start,
+                                                                  T.End = end,
                                                                   method = "NonParametricSI",
                                                                   SI.Distr = SI_Distr,
-                                                                  plot = FALSE ,
-                                                                  CV.Posterior = 1 ,
-                                                                  Mean.Prior = 1 ,
+                                                                  plot = FALSE,
+                                                                  CV.Posterior = 1,
+                                                                  Mean.Prior = 1,
                                                                   Std.Prior = 0.5)
                                                  res$R %<>% cbind(Date = end.dates)
                                                  return(res$R)})
@@ -189,7 +190,7 @@ At this point, all the pieces are in place. by.location_incid contains the incid
 r.j.t contains the estimates of reproduction numbers.
 p.movement conatins the probabilities.
 SI_Distr is the serial interval distribution.
-The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
+The model is: lambda_j_t = p.movement * (incidence * r_t) * serial_interval
 taking care of the dimensions of course. Now divide the dataset into
 training and validation sets.
 

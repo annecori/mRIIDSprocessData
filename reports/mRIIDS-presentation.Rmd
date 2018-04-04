@@ -33,7 +33,7 @@ options(htmltools.dir.version = FALSE)
 .center[![](figures/who-ebola-response-team.png)]
 ---
 
-# mRIIDS
+# mRIIDS - Mapping the Risk of International Infectious Disease Spread
 .center[![](figures/mriids-beta.png)]
 
 ---
@@ -44,16 +44,20 @@ options(htmltools.dir.version = FALSE)
 
 # Project Schematic
 
-.center[![schematic](milestone-6/ms6-figures/schematic.png)]
+.center[.largeimg[![schematic](figures/schematic.png)]]
 
 ---
 # Model
 
 Excpected number of cases at a location is influenced by
-1. local past incidence;
-2. pathogen characteristics - reproduction number, serial interval;
-3. local health access quality; 
-4. movement between neighboring locations
+
++ local past incidence;
+
++ pathogen characteristics - reproduction number, serial interval;
+
++ local health access quality; 
+
++ movement between neighboring locations
 
 $$I_{t, j} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
   R_{t, i} \sum_{s = 1}^{t}{I_{t - s, i} w_{s}}\right)} \right),$$
@@ -81,7 +85,10 @@ Gravity model
 
 $$\phi_{ij} = k\frac{N_i^{\alpha} N_j^{\beta}}{d_{ij}^{\gamma}}$$
 Radiation model
-$$\phi_{ij} = T_i \frac{N_i N_j}{(N_i + s_{ij})(N_i + N_j + s_{ij})}$$
+$$\phi_{ij} = {\phi}_i \frac{N_i N_j}{(N_i + s_{ij})(N_i + N_j + s_{ij})}$$
+---
+# HealthMap and ProMed data pre-processing
+.center[![](figures/liberia-preprocessing2.png)]
 ---
 # Incidence from WHO, HealthMap and ProMed
 
@@ -91,6 +98,20 @@ $$\phi_{ij} = T_i \frac{N_i N_j}{(N_i + s_{ij})(N_i + N_j + s_{ij})}$$
 # Reproduction Number from WHO, HealthMap and ProMed
 
 .center[![](figures/who_vs_hm_vs_pm-2.png)]
+
+---
+# Parameter estimation - prior on Reproduction Number
+.center[![](figures/rprior.png)]
+
+---
+# MCMC time!
+
+.center[![](figures/rstan.png)]
+
+---
+# Posterior Distribution of Reproduction Number
+
+.center[![](figures/r_posterior.png)]
 
 ---
 # Prediction using data from HealthMap
@@ -108,6 +129,16 @@ $$\phi_{ij} = T_i \frac{N_i N_j}{(N_i + s_{ij})(N_i + N_j + s_{ij})}$$
 .center[![](figures/SIERRALEONE-91-49.png)]
 
 
+---
+# Next steps
+
++ Include health care capacity in the model.
+
++ Informative priors for model parameters.
+
++ Model averaging to account for model uncertainty.
+
++ How best to choose the window for estimating the reproduction number?
 
 
 

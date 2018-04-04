@@ -65,6 +65,10 @@
 \def\footnote{\protect\rmarkdownfootnote}
 
 
+%% More space between rows
+\usepackage{booktabs}
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+
 \usepackage[below]{placeins}
 
 \begin{document}
@@ -399,20 +403,34 @@ correlation between the data from the three different sources.
     \centering
     \includegraphics[width=0.5\textwidth]{ms6-figures/correlation-matrix-2}
     \caption{Correlation matrix between the incidence data from WHO,
-      ProMED and HealthMap. Intensity of blue and size of the circles indicates the strength
-      of the correlation. All correlation coefficients were  
-      highly statistically significant with p-value < 0.001.}
+      ProMED and HealthMap. \textbf{The strength of the correlation is
+      indicated by the size and colour of the circles.
+      Deeper shades of blue indicate high correlation. The figure
+      shows that the data collected by ProMed and HealthMap exhibit a
+      high degree of correlation with the data collected by WHO
+      indicating that ProMed/HealthMap data are reliable.} All
+      correlation coefficients were  highly statistically significant
+      with p-value < 0.001.}
     \label{fig:corrplot}
   \end{figure}
 During an emergency, such as the West Africa epidemics, spatially refined data (such as the WHO data)
 are typically not available in real time due to reporting delay \citep{cori2017key}. A key advantage 
 of relying on ProMED/HealthMap data in our project is the real time nature of the data. However this come at the cost
-of nationally aggregated data.
+of nationally aggregated data. \textbf{That is, these data are usually
+available as country-level aggregated data. The coarseness of the data
+has implications for the analysis that can be carried out. For
+instance, with gross data, it is not possible to carry out analysis at
+fine spatial scale, forecast at a sub-national level or understand how an
+epidemic is spreading within a country.}
 
 The results of the analysis above point toward a potential solution to obtain `pseudo real-time' district
  level incidence data. One could relay on real-time national data (e.g. ProMED/HealthMap) and disaggregate 
 the time-series to obtain district level incidence using spatial information from a `retrospective'
-time-series at finer scale (i.e. WHO data).
+time-series at finer scale (i.e. WHO data). \textbf{This analysis can
+ be carried out as and when the data from sub-national level starts
+ becoming available. We are still experimenting with this idea but in
+ principle, it would be possible to use historical data to carry out
+ this analysis.}
 \FloatBarrier
 \subsection{Inference of parameters}
 
@@ -542,10 +560,67 @@ transmissibility did not change for the previous 7 weeks (as in
 levels for Sierra Leone, Liberia and
 Guinea as well as across the 55 districts in the three countries.
 Figure~\ref{fig:sl-predictions} illustrates the results for
-Sierra Leone.  Figure~\ref{fig:sl-map} compared the observed and
+Sierra Leone. Figure~\ref{fig:sl-map} compared the observed and
 predicted spatial spread of the epidemic over a 7 week period
 beginning in May 2015. It can be seen that the model performs well at
 capturing the spatial dimension of the epidemic.
+
+\textbf{The model fits the data well and is able to capture the
+  strength and direction of the trend. Table~\ref{tab:fitgoodness}
+  shows the percentage of data points that lie within the 95\%
+  confidence interval of the predictions.
+  The analysis is computationally
+  light and can be carried out in real time. \newline If the direction
+  of the incidence trend is reversed (i.e., case numbers start
+  declining after a period of growth or vice
+  versa), the model does a poor job since an underlying assumption of
+  the model is that things will continue unchanged.
+  This inherent shortcoming can be addressed for example by including
+  impact of interventions in the model. However, this comes at a cost
+  of increased complexity and requires additional data that may not be
+  available in real-time.}
+
+
+
+
+\begin{table}\centering
+  \ra{1.3}
+  \begin{tabular}{@{}lrr@{}}\toprule
+    District & Prediction at 300 days & Prediction at 500 days \\
+    \midrule
+    Bo &  57.1 & 71.4 \\
+    
+    Bombali & 14.3 & 42.9 \\
+    
+    Kailahun & 42.9 & 0 \\
+    
+    Kambia & 28.6 & 71.4 \\
+    
+    Kenema & 42.9 & 85.7 \\
+    
+    Koinadugu & 14.3 & 14.3 \\
+    
+    Kono & 85.7 &  42.9 \\
+    
+    Moyamba & 14.3 & 28.6\\
+    
+    Port Loko & 14.3 & 28.6\\
+    
+    Pujehun & 71.4 & 28.6\\
+
+    Tonkolili & 0 & 42.9 \\
+    
+    Western & 28 & 0 \\
+\end{tabular}
+\caption{Percentage of data points (weekly incidence counts)that
+lie within the predicted 95\% confidence interval. The performance of
+the model ranges from poor where none of the points lie in the
+interval to excellent (85\%).}
+    \label{tab:fitgoodness}
+  
+  \end{table}
+
+
 
 \begin{figure}
   \centering

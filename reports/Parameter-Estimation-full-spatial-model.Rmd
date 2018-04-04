@@ -22,7 +22,7 @@ endnote: no
 params:
   pow_dist : 2
   t.proj : 301
-  n.sim : 1000
+  n.sim : 100
   n.dates.sim : 35
   time_window: 42
   K: 1
@@ -337,8 +337,8 @@ fit1 <- stan(
   file = model_file,  
   data = stan_data,   
   chains = 3,      
-  warmup = 500,     
-  iter = 2000,       
+  warmup = 50,     
+  iter = 200,       
   cores = 2,         
   refresh = 500)     
 
@@ -403,7 +403,7 @@ daily_projections <- lapply(index, function(row){
                                      flowmat <- flow_matrix(longitude = centroids[, "lon"],
                                                             latitude  = centroids[, "lat"],
                                                             population = centroids[, "pop"],
-                                                            place.names = centroids[, "country"],
+                                                            place_names = centroids[, "country"],
                                                             model = "gravity",
                                                             K = K, pow_N_from = pow_N_from,
                                                             pow_N_to = pow_N_to, pow_dist = gamma)

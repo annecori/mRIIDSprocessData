@@ -21,11 +21,11 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 300
-  n.sim : 2
-  n.dates.sim : 49
+  t.proj : 500
+  n.sim : 1000
+  n.dates.sim : 50
   p.stay: 0.9
-  ADM0: GUINEA
+  ADM0: SIERRALEONE
 ---
 
 ```{r global_options, include=FALSE}
@@ -53,7 +53,7 @@ ADM0        <- params$ADM0
 
 ```{r data_read, eval = TRUE}
 infile     <- paste0(ADM0, "_wide.csv") 
-infile     <- here::here("data/CaseCounts/processed/", infile)
+infile     <- here::here("data/CaseCounts/processed", infile)
 incid_wide <- readr::read_csv(infile)
 
 ```
@@ -142,15 +142,16 @@ incidence data and movement matrix are in the same order.
 
 ```{r pmovement, eval = TRUE}
 
-infile <- here::here("data/Geography/GravityModel/processed/", "all_centroids.csv")
+infile <- here::here("data/Geography/GravityModel/processed",
+                     "all_centroids.csv")
 centroids <- readr::read_csv(infile) %>% 
                    filter(ADM0 == ADM0) 
 districts <- data.frame(CL_DistrictRes = colnames(incid_wide)[-1])
 centroids <- left_join(districts, centroids)
 
-flow.matrix  <- flow_matrix(longitude   = centroids[, "Centroid_Lon"],
-                            latitude    = centroids[, "Centroid_Lat"],
-                            population  = centroids[, "Pop"],
+flow.matrix  <- flow_matrix(longitude   = centroids[, "lon"],
+                            latitude    = centroids[, "lat"],
+                            population  = centroids[, "pop"],
                             place.names = centroids[, "CL_DistrictRes"],
                             model = "gravity", K = K,
                             pow_N_from = pow_N_from,
@@ -270,5 +271,43 @@ outfile <- paste0(ADM0, "_projections_", p.stay, "_", pow_dist, "_", t.proj, ".p
 outfile <- here::here("output", outfile)
 
 ggsave(outfile, p)
+
+```
+
+# Evaluating Goodness-of-Fit
+## Proportion of weekly incidence points that fall inside the 95% CI
+
+```{r}
+tmp2 <- dplyr::left_join(projections_distr, tmp,
+                         by = c("Date", "Country"))
+
+filter(tmp2, ymin < Incidence & Incidence < ymax)
+
+```
+
+## Coefficient of Determination
+
+For $k$ spatial units,
+
+\[ R^2 = 1 - \frac{SS_{res}}{SS_{tot}},\]
+
+where 
+
+\[ SS_{res} = \sum_{i = 1}^n{y_i - \hat{y_i}},\]
+
+and
+\[ SS_{tot} = \sum_{k}{\sum_{i = 1}^n{y_{i, k} - \bar{y_k}}}.\]
+
+```{r}
+
+ss_res <- (tmp2$Incidence - tmp2$y)^2 %>% sum
+group_means <- group_by(tmp2, Country) %>%
+               summarise_at("Incidence", mean) %>%
+               rename(mean = Incidence)
+
+tmp2 <- left_join(tmp2, group_means, by = "Country")
+ss_tot <- (tmp2$Incidence - tmp2$mean)^2 %>% sum
+
+r2 <- 1 - (ss_res / ss_tot)
 
 ```

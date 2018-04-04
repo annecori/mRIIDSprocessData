@@ -1,5 +1,5 @@
 .Rhistory
-man/*
+
 output/*
 *.aux 
 *.log 
@@ -11,3 +11,5 @@ output/*
 *.pdf
 .Rproj.user
 reports/*.pdf
+/.RData
+/.Rbuildignore

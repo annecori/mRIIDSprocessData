@@ -69,7 +69,7 @@ flow_matrix <- function(longitude,
     distances <- geosphere::distm(cbind(longitude, latitude))
     distances <-
       distances[lower.tri(distances)] # Extract the distances vector
-    pairs     <- combn(2, length(latitude))
+    pairs     <- combn(length(latitude), 2)
     n_from    <- population[pairs[1, ]]
     n_to      <- population[pairs[2, ]]
 
@@ -80,8 +80,8 @@ flow_matrix <- function(longitude,
     colnames(flow_mat) <- place_names
     ## fill in the matrix from the vectors
     flow_from_to <- flow_vector(n_from, n_to, distances, model, ...)
-    flow.matrix[lower.tri(flow.matrix)] <- flow_from_to
-    flow_mat <- t(flow_matrix) # fill out the upper triangle
+    flow_mat[lower.tri(flow_mat)] <- flow_from_to
+    flow_mat <- t(flow_mat) # fill out the upper triangle
 
     flow_to_from <- flow_vector(n_to, n_from, distances, model, ...)
     flow_mat[lower.tri(flow_mat)] <-

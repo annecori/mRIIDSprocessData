@@ -23,7 +23,7 @@ params:
   pow_dist : 2
   t.proj : 500
   n.sim : 1000
-  n.dates.sim : 50
+  n.dates.sim : 49
   p.stay: 0.9
   ADM0: SIERRALEONE
 ---
@@ -172,21 +172,65 @@ incid     <- as.matrix(select(training, -Date))
 dates.all <- pull(training, Date) %>%
              c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max     <- t.proj + n.dates.sim - 1
-
+dates_forecast <-  seq(from = max(training$Date) + 1,
+                       length.out = n.dates.sim,
+                       by = 1)
 
 daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     r.t   <- as.matrix(r.t)
                                     out   <- project(incid, r.t, SI_Distr,
-                                                     p.movement, n.dates.sim) 
-                                    incidence.proj <- rbind(incid, out)
-                                    incidence.proj %<>% data.frame(check.names = F)
-                                    incidence.proj %<>% cbind(Date = dates.all)
-                                    return(incidence.proj[(nrow(training) + 1):t.max, ])})
+                                                     p.movement, n.dates.sim)
+                                    out <- data.frame(out)
+                                    out$Date <- dates_forecast
+                                    #incidence.proj <- rbind(incid, out)
+                                    #incidence.proj %<>% data.frame(check.names = F)
+                                    #incidence.proj %<>% cbind(Date = dates.all)
+                                        #return(incidence.proj[(nrow(training) + 1):t.max, ])
+                                    out})
 
 
 weekly_projections <- lapply(daily_projections, daily.to.weekly) %>% bind_rows(.)
 
 ```
+## Aggregating district predictions 
+
+```{r, eval = FALSE}
+
+num_samples <- 2
+random_sample <- list()
+districts <- select(incid_wide, -Date) %>% colnames
+for (district in districts){
+    idx    <- sample(1:1000, num_samples)
+    draw   <- daily_projections[idx]
+    d_sims <- lapply(draw, function(x){
+                              select(x, sim = district)})
+    d_sims %<>% bind_cols(.)
+    d_sims$district <- district
+    d_sims$date <- dates_forecast
+    random_sample %<>% c(list(d_sims))
+}
+
+
+
+shuffle_cols <- function(df){
+    df[ , sample(ncol(df))]
+}
+
+national <- bind_rows(random_sample) %>%
+             split(.$date) %>%
+             lapply(function(x)
+                       select(x, starts_with("sim")) %>%
+                       shuffle_cols %>% colSums) 
+             
+
+national <- lapply(national,
+                   function(x)
+                       data.frame(matrix(x, nrow = 1))) %>%
+             bind_rows(.id = "date")
+
+```
+
+## Quantiles for district predictions
 
 ```{r predictions_write, eval = TRUE}
 
@@ -207,12 +251,26 @@ readr::write_csv(daily_projections_distr, path = outfile)
 
 ```
 
+
 # Forecast visualisation
 
 The plot consists of the following elements: the training and
 validation sets, distribution of the predictions (quantiles) and some
 data beyond the last date for which prediction has been carried out so
 that we can see the trend.
+
+```{r obs_weekly, eval = TRUE}
+
+trng_weekly  <- daily.to.weekly(training) 
+vldtn_weekly <- daily.to.weekly(validation)
+
+tmp <- list(Training = trng_weekly, Validation = vldtn_weekly) %>%
+        bind_rows(.id = "Category")  %>%
+        tidyr::gather(Country, Incidence, -c(Date, Category))
+
+tmp$Date %<>% as.Date
+
+```
 
 ```{r predictions_viz, eval = TRUE}
 
@@ -230,14 +288,6 @@ p <- ggplot(full_df, aes(Date, Incidence)) +
 
 p <- p +  theme_tufte() + geom_rangeframe() 
 
-trng_weekly  <- daily.to.weekly(training) %>% filter(Date >= date_min)
-vldtn_weekly <- daily.to.weekly(validation)
-
-tmp <- list(Training = trng_weekly, Validation = vldtn_weekly) %>%
-        bind_rows(.id = "Category")  %>%
-        tidyr::gather(Country, Incidence, -c(Date, Category))
-
-tmp$Date %<>% as.Date
 
 p <- p  +
     geom_point(data = tmp,
@@ -281,8 +331,15 @@ ggsave(outfile, p)
 tmp2 <- dplyr::left_join(projections_distr, tmp,
                          by = c("Date", "Country"))
 
-filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
-    group_by(Country) %>% summarise(100 * n()/7)
+num_districts <- length(unique(tmp2$Country))
+
+goodness <- filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
+            group_by(Date) %>% summarise(n()/num_districts)
+
+            
+
+here::here("output", paste0("goodness_fit_", t.proj, ".csv")) %>%
+       readr::write_csv(x = goodness, path = .)
 
 ```
 

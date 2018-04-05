@@ -281,7 +281,8 @@ ggsave(outfile, p)
 tmp2 <- dplyr::left_join(projections_distr, tmp,
                          by = c("Date", "Country"))
 
-filter(tmp2, ymin < Incidence & Incidence < ymax)
+filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
+    group_by(Country) %>% summarise(100 * n()/7)
 
 ```
 

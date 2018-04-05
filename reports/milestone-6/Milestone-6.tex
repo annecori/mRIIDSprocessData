@@ -402,13 +402,15 @@ correlation between the data from the three different sources.
   \begin{figure}
     \centering
     \includegraphics[width=0.5\textwidth]{ms6-figures/correlation-matrix-2}
-    \caption{Correlation matrix between the incidence data from WHO,
-      ProMED and HealthMap. \textbf{The strength of the correlation is
+    \caption{Correlation matrix between the weekly incidence data from WHO,
+      ProMED and HealthMap aggregatated at country level. \textbf{The strength of the correlation is
       indicated by the size and colour of the circles.
       Deeper shades of blue indicate high correlation. The figure
-      shows that the data collected by ProMed and HealthMap exhibit a
-      high degree of correlation with the data collected by WHO
-      indicating that ProMed/HealthMap data are reliable.} All
+      shows that the data collected by event based survelliance
+      systems (ProMed and HealthMap) exhibit a
+      high degree of correlation with the data collated by WHO
+      indicating that  event based survelliance data are consistent with data
+      from WHO.} All
       correlation coefficients were  highly statistically significant
       with p-value < 0.001.}
     \label{fig:corrplot}
@@ -417,9 +419,7 @@ During an emergency, such as the West Africa epidemics, spatially refined data (
 are typically not available in real time due to reporting delay \citep{cori2017key}. A key advantage 
 of relying on ProMED/HealthMap data in our project is the real time nature of the data. However this come at the cost
 of nationally aggregated data. \textbf{That is, these data are usually
-available as country-level aggregated data. The coarseness of the data
-has implications for the analysis that can be carried out. For
-instance, with gross data, it is not possible to carry out analysis at
+available as country-level aggregated data.  With such data, it is not possible to carry out analysis at
 fine spatial scale, forecast at a sub-national level or understand how an
 epidemic is spreading within a country.}
 
@@ -428,8 +428,10 @@ The results of the analysis above point toward a potential solution to obtain `p
 the time-series to obtain district level incidence using spatial information from a `retrospective'
 time-series at finer scale (i.e. WHO data). \textbf{This analysis can
  be carried out as and when the data from sub-national level starts
- becoming available. We are still experimenting with this idea but in
- principle, it would be possible to use historical data to carry out
+ becoming available. We are still experimenting with the
+ disaggregation method  but in
+ principle, it would be possible to use historical data or data from
+ earlier in the epidemic to carry out
  this analysis.}
 \FloatBarrier
 \subsection{Inference of parameters}

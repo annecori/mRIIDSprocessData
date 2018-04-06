@@ -21,8 +21,8 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 500
-  n.sim : 1000
+  t.proj : 300
+  n.sim : 5000
   n.dates.sim : 49
   p.stay: 0.9
   ADM0: SIERRALEONE
@@ -194,13 +194,13 @@ weekly_projections <- lapply(daily_projections, daily.to.weekly) %>% bind_rows(.
 ```
 ## Aggregating district predictions 
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 
-num_samples <- 2
+num_samples <- 2000
 random_sample <- list()
 districts <- select(incid_wide, -Date) %>% colnames
 for (district in districts){
-    idx    <- sample(1:1000, num_samples)
+    idx    <- sample(seq_len(n.sim), num_samples)
     draw   <- daily_projections[idx]
     d_sims <- lapply(draw, function(x){
                               select(x, sim = district)})
@@ -220,16 +220,48 @@ national <- bind_rows(random_sample) %>%
              split(.$date) %>%
              lapply(function(x)
                        select(x, starts_with("sim")) %>%
-                       shuffle_cols %>% colSums) 
-             
+                        rowwise() %>%
+                        shuffle_cols() %>%
+                        colSums) 
 
-national <- lapply(national,
-                   function(x)
-                       data.frame(matrix(x, nrow = 1))) %>%
-             bind_rows(.id = "date")
+
+national %<>%  lapply(function(x)
+                         data.frame(matrix(x, nrow = 1))) %>%
+                 bind_rows(.id = "Date")
+
+national$Date %<>% as.Date
+national_weekly <- daily.to.weekly(national)
+
+national_distr <- tidyr::gather(national_weekly, sim, val, -Date) %>%
+                   projection_quantiles
+                 
 
 ```
 
+## WHO weekly country data
+
+```{r}
+
+incid_country <- select(incid_wide, -Date) %>% rowSums
+
+incid_weekly <- data.frame(Date = incid_wide$Date,
+                           incid = incid_country) %>% daily.to.weekly
+
+date_min <- "2014-08-01"
+small <- filter(incid_weekly, Date > date_min)
+p <- ggplot(small, aes(as.Date(Date), incid)) + geom_point()
+p <- p + geom_point(data = national_distr, aes(Date, y), col = "red")
+p <- p + geom_ribbon(data = national_distr,
+                aes(x = Date,
+                    ymin = ymin,
+                    ymax = ymax,
+                    group = 1),
+                    inherit.aes = FALSE,
+                    alpha = 0.3)
+p <- p + theme_tufte()
+p <- p + xlab("Date") + ylab("Weekly Incidence")
+
+```
 ## Quantiles for district predictions
 
 ```{r predictions_write, eval = TRUE}

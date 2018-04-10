@@ -182,7 +182,7 @@ are raised to some power.
 In practice, \( \alpha \) and \( \beta \) are assumed to be $1$. The
 exponent \( \gamma \) modulates the effects distance on the flow of
 populations. A large value of \( \gamma \) indicates that the
-distances traveled by populations tend to be short.
+distances travelled by populations tend to be short.
 
 The relative risk of spread at a location \(j\) from a location \(i\)
 is thus the population flow into location \(j\) from location \(i\).
@@ -403,13 +403,13 @@ correlation between the data from the three different sources.
     \centering
     \includegraphics[width=0.5\textwidth]{ms6-figures/correlation-matrix-2}
     \caption{Correlation matrix between the weekly incidence data from WHO,
-      ProMED and HealthMap aggregatated at country level. \textbf{The strength of the correlation is
+      ProMED and HealthMap aggregated at country level. \textbf{The strength of the correlation is
       indicated by the size and colour of the circles.
       Deeper shades of blue indicate high correlation. The figure
-      shows that the data collected by event based survelliance
-      systems (ProMed and HealthMap) exhibit a
+      shows that the data collected by event based surveillance
+      systems (ProMED and HealthMap) exhibit a
       high degree of correlation with the data collated by WHO
-      indicating that  event based survelliance data are consistent with data
+      indicating that  event based surveillance data are consistent with data
       from WHO.} All
       correlation coefficients were  highly statistically significant
       with p-value < 0.001.}
@@ -567,60 +567,53 @@ predicted spatial spread of the epidemic over a 7 week period
 beginning in May 2015. It can be seen that the model performs well at
 capturing the spatial dimension of the epidemic.
 
-\textbf{The model fits the data well and is able to capture the
-  strength and direction of the trend. Table~\ref{tab:fitgoodness}
-  shows the percentage of data points that lie within the 95\%
-  confidence interval of the predictions.
-  The analysis is computationally
-  light and can be carried out in real time. \newline If the direction
-  of the incidence trend is reversed (i.e., case numbers start
+{\bfseries The model fits the data well and is able to capture the
+  strength and direction of the trend. The analysis is computationally
+  light and can be carried out in real time.
+
+  The model uses the local past to make short term predictions about
+  incidence trends. Thus when the direction
+  of the incidence trend is reversed in the prediction window, (i.e., case numbers start
   declining after a period of growth or vice
-  versa), the model does a poor job since an underlying assumption of
-  the model is that things will continue unchanged.
+  versa), the model performance is poor. For example, notice the
+  growth predicted in Port Loko in the top panel in
+  Figure~\ref{fig:sl-predictions} that is consistent with the growth
+  in the preceding period but inconsistent with the observed decline. 
   This inherent shortcoming can be addressed for example by including
   impact of interventions in the model. However, this comes at a cost
   of increased complexity and requires additional data that may not be
-  available in real-time.}
-
-
-
-
-\begin{table}\centering
-  \ra{1.3}
-  \begin{tabular}{@{}lrr@{}}\toprule
-    District & Prediction at 300 days & Prediction at 500 days \\
-    \midrule
-    Bo &  57.1 & 71.4 \\
-    
-    Bombali & 14.3 & 42.9 \\
-    
-    Kailahun & 42.9 & 0 \\
-    
-    Kambia & 28.6 & 71.4 \\
-    
-    Kenema & 42.9 & 85.7 \\
-    
-    Koinadugu & 14.3 & 14.3 \\
-    
-    Kono & 85.7 &  42.9 \\
-    
-    Moyamba & 14.3 & 28.6\\
-    
-    Port Loko & 14.3 & 28.6\\
-    
-    Pujehun & 71.4 & 28.6\\
-
-    Tonkolili & 0 & 42.9 \\
-    
-    Western & 28 & 0 \\
-\end{tabular}
-\caption{Percentage of data points (weekly incidence counts)that
-lie within the predicted 95\% confidence interval. The performance of
-the model ranges from poor where none of the points lie in the
-interval to excellent (85\%).}
-    \label{tab:fitgoodness}
+  available in real-time. At the same time, the model as implemented
+  currently is very simple and makes use of very limited data (case
+  counts, pathogen specific information and local geography). As more
+  data streams are incorporated into the model (for example,
+  information about health care), we expect that the
+  model would perform better.
   
-  \end{table}
+  Another important factor that determines the accuracy of model
+  predictions is the time window over which predictions are made.
+  Figure~\ref{fig:gf} shows the proportion of districts for which the
+  observed weekly incidence count is contained in the predicted 95\%
+  CI. In general, predictions in the short term (2-3 weeks) are more
+  accurate than over longer periods ($>$ 3 weeks).
+
+  Counting the number of districts that were ``called'' correctly is
+  an intuitive way of assessing the fit of the model. However it may
+  not be sufficient to assess the quality of the fit. We are exploring
+  the use of more rigorous measures of model assessment
+  (e.g. \citep{funk2016real}).These would be included in future work.
+  }
+
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{ms6-figures/goodness_districts.png}
+    \caption{Assessing the model fit for 7-week predictions at 300 and 500
+      days. The y-axis the proportion of districts for which the predicted
+      95\% CI contained the observed weekly incidence count.}
+    \label{fig:gf}
+  \end{figure}
+
+
+
 
 
 

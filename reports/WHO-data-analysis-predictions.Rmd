@@ -11,7 +11,7 @@ author:
   affiliation: Imperial College London
 abstract: 
 keywords: 
-date: "Y"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 geometry: margin=1in
 fontfamily: mathpazo
 fontsize: 11pt
@@ -21,8 +21,8 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 300
-  n.sim : 5000
+  t.proj : 500
+  n.sim : 1000
   n.dates.sim : 49
   p.stay: 0.9
   ADM0: SIERRALEONE
@@ -118,6 +118,21 @@ r.estim   <- select(training, -Date)  %>%
 
 ```
 
+Write the reproduction numbers out for future analysis.
+
+```{r}
+district_rs <- lapply(r.estim, function(df)
+                                  filter(df,
+                                         Date == training$Date[t.proj]))
+
+district_rs <- bind_rows(district_rs, .id = "Country")
+
+here::here("output", paste0("district_Rs_", t.proj, ".csv")) %>%
+    readr::write_csv(x = district_rs, path = .)
+
+```
+
+
 We use the estimated R at t.proj to be the R for the window over which
 predictions are being carried out.
 
@@ -140,7 +155,18 @@ Calculate the probability of movement between locations. There is some
 extra arranging of variables here to ensure that the columns in the
 incidence data and movement matrix are in the same order.
 
-```{r pmovement, eval = TRUE}
+```{r adm0_centroids, eval = FALSE}
+
+centroids <- here::here("data/Geography/GravityModel/raw",
+                     "adm0_centroids.tsv") %>%
+             readr::read_tsv(., col_names = c("CL_DistrictRes", "id",
+                                     "lon", "lat", "pop")) %>% 
+                   filter(CL_DistrictRes %in% names(incid_wide)[-1]) 
+
+
+```
+
+```{r districts_coord, eval = TRUE}
 
 infile <- here::here("data/Geography/GravityModel/processed",
                      "all_centroids.csv")
@@ -148,11 +174,14 @@ centroids <- readr::read_csv(infile) %>%
                    filter(ADM0 == ADM0) 
 districts <- data.frame(CL_DistrictRes = colnames(incid_wide)[-1])
 centroids <- left_join(districts, centroids)
+```
 
-flow.matrix  <- flow_matrix(longitude   = centroids[, "lon"],
-                            latitude    = centroids[, "lat"],
-                            population  = centroids[, "pop"],
-                            place.names = centroids[, "CL_DistrictRes"],
+
+```{r pmovement, eval = TRUE}
+flow.matrix  <- flow_matrix(longitude   = centroids$lon,
+                            latitude    = centroids$lat,
+                            population  = centroids$pop,
+                            place.names = centroids$CL_DistrictRes,
                             model = "gravity", K = K,
                             pow_N_from = pow_N_from,
                             pow_N_to   = pow_N_to,
@@ -182,11 +211,7 @@ daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                                      p.movement, n.dates.sim)
                                     out <- data.frame(out)
                                     out$Date <- dates_forecast
-                                    #incidence.proj <- rbind(incid, out)
-                                    #incidence.proj %<>% data.frame(check.names = F)
-                                    #incidence.proj %<>% cbind(Date = dates.all)
-                                        #return(incidence.proj[(nrow(training) + 1):t.max, ])
-                                    out})
+                                    out })
 
 
 weekly_projections <- lapply(daily_projections, daily.to.weekly) %>% bind_rows(.)
@@ -194,7 +219,13 @@ weekly_projections <- lapply(daily_projections, daily.to.weekly) %>% bind_rows(.
 ```
 ## Aggregating district predictions 
 
-```{r, eval = TRUE}
+We have $N$ simulations for predictions. This means that for each 
+district we have $N$ simulated numbers. To obtain the aggregated
+national counts, for each date, draw a random sample of size $k$ from 
+the $N$ simulated numbers for each district. Shuffle each sample and 
+add.
+
+```{r agg_country, eval = FALSE}
 
 num_samples <- 2000
 random_sample <- list()
@@ -237,10 +268,21 @@ national_distr <- tidyr::gather(national_weekly, sim, val, -Date) %>%
                  
 
 ```
+And write them out.
+
+```{r agg_write, eval = FALSE}
+
+paste0(ADM0, "_aggregated_projections_weekly_", p.stay,
+       "_", pow_dist, "_", t.proj, ".csv") %>%
+here::here("output", .) %>%
+readr::write_csv(x = national_distr, path = .)
+
+
+```
 
 ## WHO weekly country data
 
-```{r}
+```{r who_weekly, eval = FALSE}
 
 incid_country <- select(incid_wide, -Date) %>% rowSums
 
@@ -304,7 +346,7 @@ tmp$Date %<>% as.Date
 
 ```
 
-```{r predictions_viz, eval = TRUE}
+```{r predictions_viz, eval = FALSE}
 
 date_min <- "2014-08-01"
 date_max <- max(projections_distr$Date) + 45
@@ -359,19 +401,19 @@ ggsave(outfile, p)
 # Evaluating Goodness-of-Fit
 ## Proportion of weekly incidence points that fall inside the 95% CI
 
-```{r}
+```{r, eval = TRUE}
 tmp2 <- dplyr::left_join(projections_distr, tmp,
                          by = c("Date", "Country"))
 
-num_districts <- length(unique(tmp2$Country))
+#num_districts <- length(unique(tmp2$Country))
 
-goodness <- filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
-            group_by(Date) %>% summarise(n()/num_districts)
+#goodness <- filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
+#            group_by(Date) %>% summarise(n()/num_districts)
 
             
 
-here::here("output", paste0("goodness_fit_", t.proj, ".csv")) %>%
-       readr::write_csv(x = goodness, path = .)
+here::here("output", paste0(ADM0, "_goodness_fit_", t.proj, ".csv")) %>%
+       readr::write_csv(x = tmp2, path = .)
 
 ```
 
@@ -388,7 +430,7 @@ where
 and
 \[ SS_{tot} = \sum_{k}{\sum_{i = 1}^n{y_{i, k} - \bar{y_k}}}.\]
 
-```{r}
+```{r, eval = FALSE}
 
 ss_res <- (tmp2$Incidence - tmp2$y)^2 %>% sum
 group_means <- group_by(tmp2, Country) %>%

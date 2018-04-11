@@ -51,7 +51,7 @@ Read in data prepared using the above code chunks.
 infile <- here::here("data", "CaseCounts/processed/WHO_bydistricts.csv")
 WHO_bydistricts <- readr::read_csv(infile)
 
-outfile <- here::here("data", "CaseCounts/processed/WHO_bycountry.csv")
+infile <- here::here("data", "CaseCounts/processed/WHO_bycountry.csv")
 WHO_bycountry   <- readr::read_csv(infile)
 
 ```

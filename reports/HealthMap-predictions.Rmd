@@ -21,8 +21,8 @@ params:
   pow_dist : 1
   t.proj : 400
   n.sim : 1000
-  n.dates.sim : 49
-  p.stay: 0.99
+  n.dates.sim : 8
+  p.stay: 1
 ---
 
 # Introduction
@@ -50,7 +50,7 @@ p.stay      <- params$p.stay
 
 ```{r hm_wafrica, eval = TRUE}
 
-w.africa       <- c("Guinea", "Liberia", "Sierra Leone")
+w.africa <- c("Guinea", "Liberia", "Sierra Leone")
 
 ```
 # Parameters for Ebola and Reproduction Number Estimation
@@ -83,7 +83,8 @@ K        <- 1
 Read in cleaned-up and wide formatted data. 
 
 ```{r hm_dataload, eval = TRUE}
-hm_wide <- here::here("data", "CaseCounts/processed/HealthMap_Ebola_wide.csv")
+hm_wide <- here::here("data",
+                      "CaseCounts/processed/HealthMap_Ebola_wide.csv")
 by.location_incid <- readr::read_csv(hm_wide)
 
 ```
@@ -91,26 +92,38 @@ We now use the incidence count to estimate reproduction number.
 
 ```{r hm_restim, eval = TRUE}
 
-start     <- 1:(length(by.location_incid$Date) - time_window)
+start     <- 2:(length(by.location_incid$Date) - time_window)
 end       <- start + time_window
 end.dates <- by.location_incid[end, "Date"]
-r.estim   <- by.location_incid %>%
-                   select(-Date) %>%
-    plyr::alply(2, .dims = TRUE, function(incid) {
+r.estim   <- select(by.location_incid, -Date) %>%
+             plyr::alply(2, .dims = TRUE, function(incid) {
                                                  I <- pull(incid, 1)
-                                                 res <- EstimateR(I, T.Start = start , T.End = end,
+                                                 res <- EstimateR(I,
+                                                                  T.Start = start,
+                                                                  T.End = end,
                                                                   method = "NonParametricSI",
                                                                   SI.Distr = SI_Distr,
-                                                                  plot = FALSE ,
-                                                                  CV.Posterior = 1 ,
-                                                                  Mean.Prior = 1 ,
+                                                                  plot = FALSE,
+                                                                  CV.Posterior = 1,
+                                                                  Mean.Prior = 1,
                                                                   Std.Prior = 0.5)
                                                  res$R %<>% cbind(Date = end.dates)
                                                  return(res$R)})
 
 ```
 
-```{r hm_r_viz, eval = TRUE}
+```{r write_r, eval = FALSE}
+
+lapply(names(r.estim), function(country) {
+    R <- r.estim[[country]]
+    outfile <- paste0("output/", country, "-R.csv")
+    write.csv(R, file = outfile, row.names = F, quote = F)
+})
+
+
+```
+
+```{r hm_r_viz, eval = FALSE}
 
 lapply(names(r.estim), function(country) {
     R <- r.estim[[country]]
@@ -119,7 +132,8 @@ lapply(names(r.estim), function(country) {
                         ymax = `Quantile.0.975(R)`),
                     fill = "grey70") +
          geom_line(aes(y =  `Mean(R)`)) +
-        theme_minimal() + ylab("Reproduction Number R")
+         theme_minimal() +
+         ylab("Reproduction Number R")
     ggsave(file = paste0("figures/", country, "-R.png"), p)
 })
 
@@ -166,7 +180,7 @@ flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
 relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
 
 ## matrix characterising the population movement between geographical units
-p.stay      <- 0.99 # this can be a vector
+#p.stay      <- 0.99 # this can be a vector
 p.movement  <- probability_movement(relative.risk, p.stay)
 
 ```
@@ -176,7 +190,7 @@ At this point, all the pieces are in place. by.location_incid contains the incid
 r.j.t contains the estimates of reproduction numbers.
 p.movement conatins the probabilities.
 SI_Distr is the serial interval distribution.
-The model is: lambda.j.t = p.movement * (incidence * r_t) * serial_interval
+The model is: lambda_j_t = p.movement * (incidence * r_t) * serial_interval
 taking care of the dimensions of course. Now divide the dataset into
 training and validation sets.
 
@@ -229,10 +243,19 @@ weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.
 
 
 projections_distr <- projection_quantiles(weekly.projections)
-outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
-outfile <- here::here("output", outfile)
-write.csv(projections_distr, file = outfile, row.names = F, quote = F)
+#outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
+#outfile <- here::here("output", outfile)
+#write.csv(projections_distr, file = outfile, row.names = F, quote = F)
 
+#outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+#outfile <- here::here("output", outfile)
+
+
+```
+
+```{r webapp, eval = TRUE}
+
+<<<<<<< HEAD
 
 tmp <- select(weekly.available, -Category) %>%
         tidyr::gather(Country, Incidence, -Date)
@@ -247,5 +270,16 @@ here::here("output",
 outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
 outfile <- here::here("output", outfile)
 
+## tmp <- reshape(projections_distr, idvar='Date',
+##               timevar='Country',direction='wide')
+## tmp$Projections_from <- by.location_incid[t.proj,]$Date
+## outfile   <-  paste0("hm-dates_sim-",  n.dates.sim, ".csv")
+## outfile   <- here::here("output", outfile) 
+## col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+
+
+## write.table(tmp, outfile,  
+##            sep = ",", col.names = col.names, append = T,
+##            row.names = F, quote = F)
 
 ```

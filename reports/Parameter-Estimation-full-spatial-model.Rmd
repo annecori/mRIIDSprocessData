@@ -1,0 +1,485 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: false
+    fig_caption: true
+    latex_engine: pdflatex
+title: Estimation of Model Parameters
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  pow_dist : 2
+  t.proj : 301
+  n.sim : 100
+  n.dates.sim : 35
+  time_window: 42
+  K: 1
+  pow_N_from: 1
+  pow_N_to: 1
+  ADM0: healthmap
+---
+
+
+```{r setup, eval = TRUE}
+library(magrittr)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+library(rstan)
+library(EpiEstim)
+devtools::load_all()
+
+simulated_data <- FALSE
+
+```
+
+# Multiple locations with full spatial model
+
+The parameters we are now estimating are $p_{stay}$, $R_t^i$ and $\gamma$.
+
+
+
+## User supplied parameters
+
+```{r}
+n_days      <- params$n.dates.sim
+n_samples   <- params$n.sim
+time_window <- params$time_window
+t.proj      <- params$t.proj
+ADM0        <- params$ADM0
+
+```
+## Gravity model parameters
+
+Parameters that are not being estimated.
+
+```{r gm_params, eval = TRUE}
+
+K          <- params$K
+pow_N_from <- params$pow_N_from
+pow_N_to   <- params$pow_N_to
+
+```
+If data are being simulated, we need these as well.
+
+```{r, eval = simulated_data}
+
+pow_dist <- params$pow_dist
+p.stay   <- params$p.stay
+
+```
+
+
+## Ebola parameters
+
+
+
+```{r ebola_params, eval = TRUE}
+
+mean_SI  <- 14.2
+CV_SI    <- 9.6 / 14.2
+SItrunc  <- 40
+SI_Distr <- sapply(0:SItrunc,
+                   function(e) DiscrSI(e,
+                                       mean_SI,
+                                       mean_SI * CV_SI))
+SI_Distr <- SI_Distr / sum(SI_Distr)
+
+
+```
+## Incidence Data
+
+```{r incid_data, eval = FALSE}
+
+who_wide <- paste0(ADM0, "_wide.csv") %>%
+            here::here("data/CaseCounts/processed", .) %>%
+            readr::read_csv(.)
+
+who_wide %<>% filter(Date > "2014-07-07") 
+
+```
+
+## Centroids and populations 
+
+We will use information for actual places even when using simulated
+data.
+
+
+```{r adm0, eval = TRUE}
+
+wafrica <- c("Liberia", "Sierra Leone", "Guinea")
+centroids <- here::here("data", "Geography/GravityModel/raw/adm0_centroids.tsv") %>%
+                   read.csv(stringsAsFactors = FALSE, sep = "\t", header = FALSE) %>%
+                   filter(V1 %in% wafrica)
+names(centroids) <- c("country", "id", "lon", "lat", "pop")
+
+
+```
+
+```{r adm1, eval = FALSE}
+
+infile <- here::here("data/Geography/GravityModel/processed/",
+                     "all_centroids.csv")
+
+centroids <- readr::read_csv(infile) %>% 
+                   filter(ADM0 == ADM0) 
+
+districts <- data.frame(CL_DistrictRes = colnames(who_wide)[-1])
+centroids <- left_join(districts, centroids)
+
+```
+
+```{r distmat, eval = TRUE}
+distances <- geosphere::distm(cbind( centroids[, "lon"],
+                                     centroids[, "lat"]))
+
+```
+## Simulate Data
+
+
+```{r sim_data, eval = simulated_data}
+n_loc  <- 3
+n_days <- 60
+I0     <- matrix(sample(10:100, n_loc, replace = T),
+                 nrow = 1)
+
+
+change_at <- 31
+#change_at <- seq(from = 29, to = n_days, by = 28)
+set.seed(42)
+#Rjt1 <- runif(n_loc, min = 2, max = 3) 
+Rjt2 <- runif(n_loc, min = 1, max = 2)
+#Rjt3 <- runif(n_loc, min = 1, max = 2)
+Rjt4 <- runif(n_loc, min = 0, max = 1)
+Rjt  <- c(Rjt2, Rjt4)
+R_sim  <- makeRmatrix( Rjt,
+                       ncol = n_loc,
+                       nrow = n_days + nrow(I0),
+                       change_at = change_at)
+
+#pij <- matrix(c(0.9, 0.06, 0.08,
+#                0.03, 0.9, 0.02,
+#                0.07, 0.04, 0.9), nrow = 3, ncol = 3)
+```
+
+Simulate movement probability matrix.
+
+```{r pij_sim, eval = simulated_data}
+
+flow.matrix <- flow_matrix(longitude = centroids[, "lon"],
+                           latitude  = centroids[, "lat"],
+                           population = centroids[, "pop"],
+                           place.names = centroids[, "country"],
+                           model = "gravity",
+                           K = K, pow_N_from = pow_N_from,
+                           pow_N_to = pow_N_to, pow_dist = pow_dist)
+
+
+## Relative risk
+relative.risk <- flow.matrix / rowSums(flow.matrix, na.rm=TRUE)
+
+
+
+pij <- probability_movement(relative.risk, p.stay)
+
+
+```
+
+
+```{r sim_data2, eval = simulated_data}
+## matrix characterising the population movement between geographical units
+
+I <- project(incid = I0, R = R_sim, si = SI_Distr,
+              pij = pij,
+              n.days = n_days)
+
+```
+
+```{r sim_data_collect, eval = simulated_data}
+
+I     <- rbind( I0, I)
+dates <- seq(from = Sys.Date(),
+             length.out = nrow(I),
+             by = "1 day")
+T  <- nrow(I)
+N  <- ncol(I)
+
+SI <- SI_Distr[ 1:( T + 1)]
+SI[ which( is.na(SI))] <- 0
+
+change_at <- seq(from = 14, to = n_days, by = time_window)
+
+##num_Rjt   <-  n_loc * (length( change_at) + 1)
+num_Rjt <- length( change_at) + 1
+
+rindex  <- makeRmatrix(rvector, nrow = T, ncol = N,
+                         change_at = change_at)
+
+
+```
+
+## Real data
+
+```{r who_data, eval = TRUE}
+
+## who_wide <- here::here("data/CaseCounts/processed",
+##                       "WHO_bycountry_wide.csv") %>%
+##            readr::read_csv(.) %>%
+##            select(Date, wafrica)
+
+who_wide <- here::here("data/CaseCounts/processed",
+                      "HealthMap_Ebola_wide.csv") %>%
+            readr::read_csv(.) %>%
+            mutate_if(is.numeric, as.integer)
+
+who_wide %<>% filter(Date > "2014-07-01")
+
+
+extra <- nrow(who_wide) %% 7
+if( extra != 0){
+        warning("Number of rows is not a multiple of 7.")
+        warning(paste("Ignoring last", extra, "days."))
+        who_wide %<>% head(-extra)
+}
+
+I_who <- select(who_wide, -Date) %>%
+          `[`(seq_len(t.proj + n_days),)
+
+
+SI <- SI_Distr[ 1:( t.proj + 1)]
+SI[ which( is.na(SI))] <- 0
+
+change_at <- seq(from = time_window + 1, to = t.proj, by = time_window)
+
+```
+
+We now have to decide on the number of parameters we wish to 
+introduce in the model - whether we want to estimate R for 
+each location in each time window. We can reduce the number of
+parameters by grouping the contiguous districts and estimating 
+R for each group rather than each district. For instance, for 
+Sierra Leone, we will create 3 groups lumping all the districts
+in Western and Southern provinces into 1 group, those in 
+Eastern province into another and the Northern districts into 
+a third group.
+
+To do this, we will rearrange the columns of incidence data
+frame to put together the districts in each group.
+
+```{r regroup, eval = FALSE}
+
+I_who %<>%
+    select(KAILAHUN, KONO,
+           BOMBALI, KAMBIA, KOINADUGU, PORTLOKO, TONKOLILI,
+           BO, BONTHE, MOYAMBA, PUJEHUN, WESTERN, KENEMA)
+
+```
+
+```{r}
+dates <- pull(who_wide, Date)  %>% `[`(seq_len(t.proj + n_days))
+I <- I_who[seq_len(t.proj), ]
+T <- t.proj
+N <- ncol(I)
+
+
+
+```
+
+```{r}
+num_groups <- 3
+## number of provinces in each group.
+group_strength <- c(eastern = 1, northern = 1, southern = 1)
+num_Rjt   <- num_groups * (length( change_at) + 1)
+rvector   <- mapply(rep, seq_len(num_Rjt), group_strength) %>%
+              unlist
+rindex    <- makeRmatrix(rvector, nrow = T, ncol = N,
+                         change_at = change_at)
+
+```
+## Prepare data for Stan
+
+Collect data for feeding into Stan into a named list.
+
+```{r data_prep1, eval = TRUE}
+
+stan_data <- list(T = T, N = N, I = I, SI = SI,
+                 rindex     = rindex,
+                 num_Rjt    = num_Rjt,
+                 population =  centroids[, "pop"],
+                 dist_mat = distances,
+                 alpha = 1,
+                 beta = 1,
+                 K = 1,
+                 prior_mean = 1,
+                 prior_std = 0.5)                  
+
+```
+
+## Run Stan Model
+
+
+```{r stan_run, eval = TRUE}
+
+model_file <- here::here("R", "full_spatial_model.stan")
+fit1 <- stan(
+  file = model_file,  
+  data = stan_data,   
+  chains = 3,      
+  warmup = 50,     
+  iter = 200,       
+  cores = 2,         
+  refresh = 500)     
+
+```
+
+```{r stan_res, eval = TRUE}
+
+print(fit1, pars=c("R"), probs=c(.01, .1,.5,.9))
+print(fit1, pars=c("gamma"), probs=c(.01, .1,.5,.9))
+print(fit1, pars=c("pstay"), probs=c(.01, .1,.5,.9))
+rhat_file <- here::here("output/figures", paste0(t.proj, ".png"))
+stan_rhat(fit1, pars = c("R", "gamma", "pstay")) %>%
+     ggsave(rhat_file, .)
+
+```
+
+## Test model fit
+
+The fitted model has draws from the posterior distribution.
+We can use these samples to project forward thus doing either
+goodness-of-fit test or predictive modeling.
+
+```{r test_fit, eval = TRUE}
+
+list_of_draws <- rstan::extract(fit1)
+r_samples     <- list_of_draws[["R"]]
+gamma_samples <- list_of_draws[["gamma"]]
+pstay_samples <- list_of_draws[["pstay"]]
+
+```
+
+Take a look at the posterior distribution of R.
+
+```{r r_posterior, eval = TRUE}
+
+tmp <- data.frame(r_samples)
+colnames(tmp) <- paste0("R[", seq_len(num_Rjt), "]")
+tmp %<>% tidyr::gather(R, value)
+tmp$R %<>% factor(levels = paste0("R[", seq_len(num_Rjt), "]"))
+
+ggplot(tmp, aes(value)) +
+    geom_histogram() +
+    facet_wrap( ~ R)
+
+```
+
+```{r project, eval = TRUE}
+index <- sample(seq_len(nrow(r_samples)), n_samples)
+#index <- seq_len(n_samples)
+
+
+#dates <- seq(from = as.Date("2018-02-07"), by = "1 day",
+#             length.out = nrow(I))
+I0    <- I[seq_len(t.proj), ]  %>% as.matrix
+n_loc <- N
+
+daily_projections <- lapply(index, function(row){
+                                     gamma <- gamma_samples[row]
+                                     pstay <- pstay_samples[row]
+                                     R_posterior <- apply(rindex, c(1, 2),
+                                                          function(i) r_samples[row, i])
+                                     flowmat <- flow_matrix(longitude = centroids[, "lon"],
+                                                            latitude  = centroids[, "lat"],
+                                                            population = centroids[, "pop"],
+                                                            place_names = centroids[, "country"],
+                                                            model = "gravity",
+                                                            K = K, pow_N_from = pow_N_from,
+                                                            pow_N_to = pow_N_to, pow_dist = gamma)
+
+
+                                     ## Relative risk
+                                     rel_risk <- flowmat / rowSums(flowmat, na.rm=TRUE)
+
+                                     ## matrix characterising the population movement between geographical units
+
+                                     pij <- probability_movement(rel_risk, pstay)
+                                     
+                                     out <- project(I0,
+                                                     R_posterior,
+                                                     SI_Distr,
+                                                     pij,
+                                                     n_days) 
+                                     out %<>%
+                                      as.data.frame(.) 
+                                     
+                                     out$Date <- tail(dates, nrow(out))
+                                     return(out)})
+
+
+```
+
+```{r weekly, eval = !simulated_data}
+
+weekly_projections <- lapply(daily_projections, daily.to.weekly) %>%
+                      bind_rows(.)
+projections_distr <- projection_quantiles(weekly_projections)
+
+```
+
+```{r}
+weekly.available <- c(training    =
+                          list(who_wide[seq_len(t.proj), ]),
+                      validation =
+                          list(who_wide[t.proj:(t.proj + n_days), ])) %>%
+                       lapply(daily.to.weekly) %>%
+                       bind_rows(.id = "Category")
+
+trng.start <- pull(who_wide, Date)[t.proj] - time_window
+vldtn.end  <- pull(who_wide, Date)[t.proj] + n_days
+p <- plot.weekly3(weekly.available,
+                  projections_distr, trng.start,
+                  vldtn.end)
+
+```
+
+```{r plot_save, eval = TRUE}
+
+paste0(ADM0, "-",
+       t.proj, "-",
+       n_days, "-", time_window, ".csv") %>%
+    here::here("output", .) %>%
+    readr::write_csv(x = projections_distr, path = .)
+
+outname <- paste0(ADM0, "-", t.proj, "-", n_days, "-", time_window, ".png")
+outfile <- here::here("output/figures", outname)
+ggsave(outfile, p)
+
+
+```
+
+
+```{r test_sim, eval = simulated_data}
+
+I_df <- as.data.frame(I)
+I_df %<>% tibble::rownames_to_column(.)
+I_tall <- tidyr::gather(I_df, var, val, -rowname)
+I_tall$rowname %<>% as.numeric
+ggplot(I_tall, aes(rowname, val)) + geom_point() +
+    facet_grid(var~.) +
+    geom_vline(xintercept = change_at)
+
+```
+
+

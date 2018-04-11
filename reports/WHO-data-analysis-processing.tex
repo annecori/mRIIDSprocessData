@@ -1,0 +1,198 @@
+\documentclass[11pt,]{article}
+\usepackage[]{mathpazo}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={WHO Data Pre-processing},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{natbib}
+\bibliographystyle{apsr}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{WHO Data Pre-processing}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{true}
+  \preauthor{\centering\large\emph}
+  \postauthor{\par}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{Y}
+
+
+\begin{document}
+\maketitle
+
+\section{Introduction}\label{introduction}
+
+The pre-processing steps consist of turning the line count into a daily
+incidence series and turning the given tall data into wide data.
+
+The current data set has three possible values for the epidemiological
+case definition - confirmed, probable and suspected. Epidemiological
+case definition of probable and suspected cases differed across
+countries while confirmed cases were the ones confirmed through lab
+report. For the purpose of the current analysis, one approach could be
+to lump all of them together. The inferred date of onset (rather than
+the date reported) is used for estimation. The columns we use are :
+Country, EpiCaseDef (probably), DateOnsetInferred and CL\_DistrictRes.
+
+Some spelling variations between the WHO data and the data set
+containing the district co-ordinates need to be taken into account.
+
+\subsection{Grouping by districts and interpolating missing
+data}\label{grouping-by-districts-and-interpolating-missing-data}
+
+For each district in a country, add the number of records for each date
+to get incidence count.
+
+Within each district, if there is a date on which no cases are recorded,
+we assume that there were no cases on that date and add this to the
+record. At the end of this step, the incidence time series for each
+district should be a daily time series.
+
+\includegraphics{figures/who_raw_viz-1.pdf}
+\includegraphics{figures/who_raw_viz-2.pdf}
+
+Write the files.
+
+Now we will convert the data from the tall to the wide format.
+
+\begin{verbatim}
+## $Guinea
+## NULL
+## 
+## $Liberia
+## NULL
+## 
+## $`Sierra Leone`
+## NULL
+\end{verbatim}
+
+\begin{verbatim}
+## $Guinea
+## # A tibble: 633 x 28
+##          Date BEYLA BOFFA  BOKE CONAKRY COYAH DABOLA DALABA DINGUIRAYE
+##  *     <date> <dbl> <dbl> <dbl>   <dbl> <dbl>  <dbl>  <dbl>      <dbl>
+##  1 2014-01-01     0     0     0       0     0      0      0          0
+##  2 2014-01-02     0     0     0       0     0      0      0          0
+##  3 2014-01-03     0     0     0       0     0      0      0          0
+##  4 2014-01-04     0     0     0       0     0      0      0          0
+##  5 2014-01-05     0     0     0       0     0      0      0          0
+##  6 2014-01-06     0     0     0       0     0      0      0          0
+##  7 2014-01-07     0     0     0       0     0      0      0          0
+##  8 2014-01-08     0     0     0       0     0      0      0          0
+##  9 2014-01-09     0     0     0       0     0      0      0          0
+## 10 2014-01-10     0     0     0       0     0      0      0          0
+## # ... with 623 more rows, and 19 more variables: DUBREKA <dbl>,
+## #   FARANAH <dbl>, FORECARIAH <dbl>, FRIA <dbl>, GUECKEDOU <dbl>,
+## #   KANKAN <dbl>, KEROUANE <dbl>, KINDIA <dbl>, KISSIDOUGOU <dbl>,
+## #   KOUROUSSA <dbl>, LOLA <dbl>, MACENTA <dbl>, MALI <dbl>,
+## #   NZEREKORE <dbl>, PITA <dbl>, SIGUIRI <dbl>, TELIMELE <dbl>,
+## #   TOUGUE <dbl>, YAMOU <dbl>
+## 
+## $Liberia
+## # A tibble: 329 x 16
+##          Date  BOMI  BONG GBAPOLU GRANDBASSA GRANDCAPEMOUNT GRANDGEDEH
+##  *     <date> <dbl> <dbl>   <dbl>      <dbl>          <dbl>      <dbl>
+##  1 2014-02-23     0     0       0          0              0          0
+##  2 2014-02-24     0     1       0          0              0          0
+##  3 2014-02-25     0     0       0          0              0          0
+##  4 2014-02-26     0     0       0          0              0          0
+##  5 2014-02-27     0     0       0          0              0          0
+##  6 2014-02-28     0     0       0          0              0          0
+##  7 2014-03-01     0     0       0          0              0          0
+##  8 2014-03-02     0     0       0          0              0          0
+##  9 2014-03-03     1     0       0          0              0          0
+## 10 2014-03-04     0     0       0          0              0          0
+## # ... with 319 more rows, and 9 more variables: GRANDKRU <dbl>,
+## #   LOFA <dbl>, MARGIBI <dbl>, MARYLAND <dbl>, MONTSERRADO <dbl>,
+## #   NIMBA <dbl>, RIVERCESS <dbl>, RIVERGEE <dbl>, SINOE <dbl>
+## 
+## $`Sierra Leone`
+## # A tibble: 606 x 14
+##          Date    BO BOMBALI BONTHE KAILAHUN KAMBIA KENEMA KOINADUGU  KONO
+##  *     <date> <dbl>   <dbl>  <dbl>    <dbl>  <dbl>  <dbl>     <dbl> <dbl>
+##  1 2013-12-26     0       0      0        0      0      0         0     0
+##  2 2013-12-27     0       0      0        0      0      0         0     0
+##  3 2013-12-28     0       0      0        0      0      0         0     0
+##  4 2013-12-29     0       0      0        0      0      0         0     0
+##  5 2013-12-30     0       0      0        0      0      0         0     0
+##  6 2013-12-31     0       0      0        0      0      0         0     0
+##  7 2014-01-01     0       0      0        0      0      0         0     0
+##  8 2014-01-02     0       0      0        0      0      0         0     0
+##  9 2014-01-03     0       0      0        0      0      0         0     0
+## 10 2014-01-04     0       0      0        0      0      0         0     0
+## # ... with 596 more rows, and 5 more variables: MOYAMBA <dbl>,
+## #   PORTLOKO <dbl>, PUJEHUN <dbl>, TONKOLILI <dbl>, WESTERN <dbl>
+\end{verbatim}
+
+Also write out the data for all districts for later analysis.
+
+
+\end{document}

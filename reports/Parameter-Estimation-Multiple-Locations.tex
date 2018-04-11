@@ -1,0 +1,375 @@
+\documentclass[11pt,]{article}
+\usepackage[]{mathpazo}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Estimation of Model Parameters},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{natbib}
+\bibliographystyle{apsr}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{Estimation of Model Parameters}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{true}
+  \preauthor{\centering\large\emph}
+  \postauthor{\par}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{Y}
+
+
+\begin{document}
+\maketitle
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{library}\NormalTok{(magrittr)}
+\KeywordTok{library}\NormalTok{(ggthemes)}
+\KeywordTok{library}\NormalTok{(ggplot2)}
+\KeywordTok{library}\NormalTok{(dplyr)}
+\KeywordTok{library}\NormalTok{(rstan)}
+\KeywordTok{library}\NormalTok{(EpiEstim)}
+\NormalTok{devtools}\OperatorTok{::}\KeywordTok{load_all}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Loading mRIIDS
+\end{verbatim}
+
+\section{Parameter estimation for simulated
+data}\label{parameter-estimation-for-simulated-data}
+
+Load in the data and prepare to feed into Stan.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{mean_SI  <-}\StringTok{ }\FloatTok{14.2}
+\NormalTok{CV_SI    <-}\StringTok{ }\FloatTok{9.6} \OperatorTok{/}\StringTok{ }\FloatTok{14.2}
+\NormalTok{SItrunc  <-}\StringTok{ }\DecValTok{40}
+\NormalTok{SI_Distr <-}\StringTok{ }\KeywordTok{sapply}\NormalTok{(}\DecValTok{0}\OperatorTok{:}\NormalTok{SItrunc,}
+                   \ControlFlowTok{function}\NormalTok{(e) }\KeywordTok{DiscrSI}\NormalTok{(e,}
+\NormalTok{                                       mean_SI,}
+\NormalTok{                                       mean_SI }\OperatorTok{*}\StringTok{ }\NormalTok{CV_SI))}
+\NormalTok{SI_Distr <-}\StringTok{ }\NormalTok{SI_Distr }\OperatorTok{/}\StringTok{ }\KeywordTok{sum}\NormalTok{(SI_Distr)}
+\end{Highlighting}
+\end{Shaded}
+
+\section{Multiple locations}\label{multiple-locations}
+
+\subsection{Model}\label{model}
+
+Incidence at location \(i\) at time \(t\) is given by \[
+  I_{i, t} \sim Poisson(\lambda_{i, t}),
+\] where \[
+ \lambda_{i, t} = \sum_{i = 1}^{n}{p_{i, j}R_{i, t}
+                                   \sum_{s = 1}^{t}{I_{i, s} 
+                                   \omega_{t - s + 1}}}.
+\]
+
+\subsection{Simulated Data}\label{simulated-data}
+
+\subsubsection{Example 1}\label{example-1}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{n_loc  <-}\StringTok{ }\DecValTok{6}
+\NormalTok{n_days <-}\StringTok{ }\DecValTok{120}
+\NormalTok{I0     <-}\StringTok{ }\KeywordTok{matrix}\NormalTok{(}\KeywordTok{sample}\NormalTok{(}\DecValTok{10}\OperatorTok{:}\DecValTok{100}\NormalTok{, n_loc, }\DataTypeTok{replace =}\NormalTok{ T),}
+                 \DataTypeTok{nrow =} \DecValTok{1}\NormalTok{)}
+
+
+
+\NormalTok{change_at <-}\StringTok{ }\KeywordTok{seq}\NormalTok{(}\DataTypeTok{from =} \DecValTok{29}\NormalTok{, }\DataTypeTok{to =}\NormalTok{ n_days, }\DataTypeTok{by =} \DecValTok{28}\NormalTok{)}
+\KeywordTok{set.seed}\NormalTok{(}\DecValTok{42}\NormalTok{)}
+\NormalTok{Rjt1    <-}\StringTok{ }\KeywordTok{runif}\NormalTok{((n_loc }\OperatorTok{*}\StringTok{ }\KeywordTok{length}\NormalTok{( change_at))}\OperatorTok{/}\DecValTok{2}\NormalTok{,}
+                 \DataTypeTok{min =} \DecValTok{0}\NormalTok{, }\DataTypeTok{max =} \DecValTok{2}\NormalTok{) }
+\NormalTok{Rjt2    <-}\StringTok{ }\KeywordTok{runif}\NormalTok{((n_loc }\OperatorTok{*}\StringTok{ }\KeywordTok{length}\NormalTok{( change_at))}\OperatorTok{/}\DecValTok{2}\NormalTok{,}
+                 \DataTypeTok{min =} \DecValTok{0}\NormalTok{, }\DataTypeTok{max =} \DecValTok{1}\NormalTok{) }
+\NormalTok{Rjt    <-}\StringTok{ }\KeywordTok{c}\NormalTok{(Rjt1, Rjt2)}
+\NormalTok{R_sim  <-}\StringTok{ }\KeywordTok{makeRmatrix}\NormalTok{( Rjt,}
+                       \DataTypeTok{ncol =}\NormalTok{ n_loc,}
+                       \DataTypeTok{nrow =}\NormalTok{ n_days }\OperatorTok{+}\StringTok{ }\KeywordTok{nrow}\NormalTok{(I0),}
+                       \DataTypeTok{change_at =}\NormalTok{ change_at)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning in mapply(rep, x = split_R, times = num_rows): longer argument not
+## a multiple of length of shorter
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{#pij <- matrix(c(0.9, 0.06, 0.08,}
+\CommentTok{#                0.03, 0.9, 0.02,}
+\CommentTok{#                0.07, 0.04, 0.9), nrow = 3, ncol = 3)}
+
+\NormalTok{pij <-}\StringTok{ }\KeywordTok{runif}\NormalTok{(n_loc }\OperatorTok{*}\StringTok{ }\NormalTok{n_loc)}
+\NormalTok{pij <-}\StringTok{ }\KeywordTok{matrix}\NormalTok{(pij, }\DataTypeTok{nrow =}\NormalTok{ n_loc)}
+\NormalTok{pij <-}\StringTok{ }\NormalTok{pij}\OperatorTok{/}\KeywordTok{rowSums}\NormalTok{(pij)}
+
+\NormalTok{I <-}\StringTok{ }\KeywordTok{project2}\NormalTok{(}\DataTypeTok{incid =}\NormalTok{ I0, }\DataTypeTok{R =}\NormalTok{ R_sim, }\DataTypeTok{si =}\NormalTok{ SI_Distr,}
+              \DataTypeTok{pij =}\NormalTok{ pij,}
+              \DataTypeTok{n.days =}\NormalTok{ n_days)}
+\end{Highlighting}
+\end{Shaded}
+
+Preparing data for feeding into Stan.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{I  <-}\StringTok{ }\KeywordTok{rbind}\NormalTok{( I0, I)}
+\NormalTok{T  <-}\StringTok{ }\KeywordTok{nrow}\NormalTok{(I)}
+\NormalTok{N  <-}\StringTok{ }\KeywordTok{ncol}\NormalTok{(I)}
+
+\NormalTok{SI <-}\StringTok{ }\NormalTok{SI_Distr[ }\DecValTok{1}\OperatorTok{:}\NormalTok{( T }\OperatorTok{+}\StringTok{ }\DecValTok{1}\NormalTok{)]}
+\NormalTok{SI[ }\KeywordTok{which}\NormalTok{( }\KeywordTok{is.na}\NormalTok{(SI))] <-}\StringTok{ }\DecValTok{0}
+
+\NormalTok{change_at <-}\StringTok{ }\NormalTok{change_at }\OperatorTok{+}\StringTok{ }\DecValTok{35}
+\NormalTok{change_at <-}\StringTok{ }\NormalTok{change_at[}\KeywordTok{which}\NormalTok{(change_at }\OperatorTok{<}\StringTok{ }\NormalTok{T)]}
+\NormalTok{num_Rjt   <-}\StringTok{  }\NormalTok{n_loc }\OperatorTok{*}\StringTok{ }\NormalTok{(}\KeywordTok{length}\NormalTok{( change_at) }\OperatorTok{+}\StringTok{ }\DecValTok{1}\NormalTok{)}
+\NormalTok{Rjt_stan  <-}\StringTok{ }\KeywordTok{seq}\NormalTok{(num_Rjt)}
+\NormalTok{rindex    <-}\StringTok{ }\KeywordTok{makeRmatrix}\NormalTok{(}\KeywordTok{seq}\NormalTok{(Rjt_stan), }\DataTypeTok{nrow =}\NormalTok{ T, }\DataTypeTok{ncol =}\NormalTok{ N,}
+                      \DataTypeTok{change_at =}\NormalTok{ change_at)}
+
+\NormalTok{sim_data <-}\StringTok{ }\KeywordTok{list}\NormalTok{(}\DataTypeTok{T =}\NormalTok{ T, }\DataTypeTok{N =}\NormalTok{ N, }\DataTypeTok{I =}\NormalTok{ I, }\DataTypeTok{SI =}\NormalTok{ SI,}
+                 \DataTypeTok{rindex =}\NormalTok{ rindex,}
+                 \DataTypeTok{num_Rjt =}\NormalTok{ num_Rjt, }\DataTypeTok{pstay =}\NormalTok{ pij)}
+
+\NormalTok{model_file <-}\StringTok{ }\NormalTok{here}\OperatorTok{::}\KeywordTok{here}\NormalTok{(}\StringTok{"R"}\NormalTok{, }\StringTok{"multiple_location.stan"}\NormalTok{)}
+\NormalTok{fit1 <-}\StringTok{ }\KeywordTok{stan}\NormalTok{(}
+  \DataTypeTok{file =}\NormalTok{ model_file,  }
+  \DataTypeTok{data =}\NormalTok{ sim_data,   }
+  \DataTypeTok{chains =} \DecValTok{2}\NormalTok{,        }
+  \DataTypeTok{warmup =} \DecValTok{1000}\NormalTok{,     }
+  \DataTypeTok{iter =} \DecValTok{2000}\NormalTok{,       }
+  \DataTypeTok{cores =} \DecValTok{2}\NormalTok{,         }
+  \DataTypeTok{refresh =} \DecValTok{500}\NormalTok{)     }
+
+\KeywordTok{print}\NormalTok{(fit1, }\DataTypeTok{pars=}\KeywordTok{c}\NormalTok{(}\StringTok{"R"}\NormalTok{), }\DataTypeTok{probs=}\KeywordTok{c}\NormalTok{(.}\DecValTok{01}\NormalTok{, .}\DecValTok{1}\NormalTok{,.}\DecValTok{5}\NormalTok{,.}\DecValTok{9}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Inference for Stan model: multiple_location.
+## 2 chains, each with iter=2000; warmup=1000; thin=1; 
+## post-warmup draws per chain=1000, total post-warmup draws=2000.
+## 
+##       mean se_mean   sd   1%  10%  50%  90% n_eff Rhat
+## R[1]  1.25    0.00 0.14 0.92 1.08 1.25 1.43  1233    1
+## R[2]  0.15    0.00 0.13 0.00 0.02 0.12 0.33  2000    1
+## R[3]  0.23    0.00 0.16 0.01 0.04 0.20 0.45  2000    1
+## R[4]  0.97    0.01 0.25 0.41 0.65 0.97 1.30  1338    1
+## R[5]  1.29    0.01 0.19 0.83 1.03 1.28 1.53  1476    1
+## R[6]  2.74    0.01 0.34 1.99 2.30 2.73 3.17  1446    1
+## R[7]  0.83    0.00 0.18 0.41 0.60 0.84 1.06  2000    1
+## R[8]  0.36    0.01 0.26 0.01 0.07 0.32 0.72  2000    1
+## R[9]  0.76    0.01 0.33 0.08 0.34 0.75 1.18  2000    1
+## R[10] 0.27    0.00 0.20 0.00 0.05 0.23 0.56  2000    1
+## R[11] 0.98    0.01 0.22 0.46 0.69 0.97 1.28  2000    1
+## R[12] 1.18    0.02 0.86 0.02 0.20 1.01 2.38  1359    1
+## R[13] 0.30    0.00 0.21 0.00 0.05 0.26 0.59  2000    1
+## R[14] 1.87    0.02 0.80 0.23 0.82 1.87 2.90  2000    1
+## R[15] 0.62    0.01 0.40 0.01 0.13 0.58 1.18  2000    1
+## R[16] 0.53    0.01 0.37 0.01 0.09 0.47 1.04  2000    1
+## R[17] 0.49    0.01 0.31 0.01 0.11 0.44 0.92  2000    1
+## R[18] 1.47    0.03 0.94 0.02 0.31 1.36 2.78  1242    1
+## R[19] 1.59    0.03 1.13 0.04 0.31 1.40 3.13  2000    1
+## R[20] 1.77    0.03 1.54 0.02 0.23 1.32 4.01  2000    1
+## R[21] 2.24    0.04 1.85 0.02 0.24 1.83 4.89  2000    1
+## R[22] 1.29    0.02 1.05 0.01 0.18 1.07 2.76  2000    1
+## R[23] 1.92    0.03 1.42 0.03 0.34 1.64 3.88  2000    1
+## R[24] 2.43    0.05 2.04 0.03 0.33 1.93 5.29  2000    1
+## 
+## Samples were drawn using NUTS(diag_e) at Tue Feb 13 13:46:39 2018.
+## For each parameter, n_eff is a crude measure of effective sample size,
+## and Rhat is the potential scale reduction factor on split chains (at 
+## convergence, Rhat=1).
+\end{verbatim}
+
+\subsection{Test model fit}\label{test-model-fit}
+
+The fitted model has draws from the posterior distribution. We can use
+these samples to project forward.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{list_of_draws <-}\StringTok{ }\NormalTok{rstan}\OperatorTok{::}\KeywordTok{extract}\NormalTok{(fit1)}
+\NormalTok{r_samples <-}\StringTok{ }\NormalTok{list_of_draws[[}\StringTok{"R"}\NormalTok{]]}
+\NormalTok{dates <-}\StringTok{ }\KeywordTok{seq}\NormalTok{(}\DataTypeTok{from =} \KeywordTok{as.Date}\NormalTok{(}\StringTok{"2018-02-07"}\NormalTok{), }\DataTypeTok{by =} \StringTok{"1 day"}\NormalTok{,}
+             \DataTypeTok{length.out =} \KeywordTok{nrow}\NormalTok{(I))}
+
+\NormalTok{daily_projections <-}\StringTok{ }\NormalTok{plyr}\OperatorTok{::}\KeywordTok{alply}\NormalTok{(r_samples,}
+                                 \DecValTok{1}\NormalTok{, }
+                                 \ControlFlowTok{function}\NormalTok{(r.t)\{}
+\NormalTok{                                     R_posterior <-}
+\StringTok{                                         }\KeywordTok{makeRmatrix}\NormalTok{(r.t,}
+                                                     \DataTypeTok{nrow =} \KeywordTok{nrow}\NormalTok{(I),}
+                                                     \DataTypeTok{ncol =}\NormalTok{ n_loc,}
+                                                     \DataTypeTok{change_at =}\NormalTok{ change_at)                                     }
+\NormalTok{                                     out <-}\StringTok{ }\KeywordTok{project2}\NormalTok{(I0,}
+\NormalTok{                                                     R_posterior,}
+\NormalTok{                                                     SI_Distr,}
+\NormalTok{                                                     pij,}
+\NormalTok{                                                     n_days) }
+\NormalTok{                                     projected <-}\StringTok{ }\KeywordTok{rbind}\NormalTok{(I0,}
+\NormalTok{                                                        out)}
+\NormalTok{                                     projected }\OperatorTok{%<>%}
+\StringTok{                                      }\KeywordTok{as.data.frame}\NormalTok{(.) }
+                                     
+\NormalTok{                                     projected}\OperatorTok{$}\NormalTok{Date <-}\StringTok{ }\NormalTok{dates}
+                                     \KeywordTok{return}\NormalTok{(projected)\})}
+
+
+
+\NormalTok{tmp <-}\StringTok{ }\KeywordTok{bind_rows}\NormalTok{(daily_projections)}
+\NormalTok{projections_distr <-}\StringTok{ }\KeywordTok{projection_quantiles}\NormalTok{(tmp)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Joining, by = c("Date", "Country")
+## Joining, by = c("Date", "Country")
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{I_df <-}\StringTok{ }\KeywordTok{as.data.frame}\NormalTok{(I) }
+\NormalTok{I_df}\OperatorTok{$}\NormalTok{Date <-}\StringTok{ }\NormalTok{dates}
+\NormalTok{I_df }\OperatorTok{%<>%}\StringTok{ }\NormalTok{tidyr}\OperatorTok{::}\KeywordTok{gather}\NormalTok{(}\StringTok{"Country"}\NormalTok{, }\StringTok{"Incidence"}\NormalTok{, }\OperatorTok{-}\NormalTok{Date)}
+
+
+\NormalTok{I_df}\OperatorTok{$}\NormalTok{Date }\OperatorTok{%<>%}\StringTok{ }\NormalTok{as.Date}
+\NormalTok{p   <-}\StringTok{ }\KeywordTok{ggplot}\NormalTok{(I_df, }\KeywordTok{aes}\NormalTok{(Date, Incidence)) }\OperatorTok{+}
+\StringTok{           }\KeywordTok{geom_point}\NormalTok{(}\DataTypeTok{size =} \DecValTok{2}\NormalTok{, }\DataTypeTok{stroke =} \DecValTok{0}\NormalTok{, }\DataTypeTok{shape =} \DecValTok{16}\NormalTok{) }\OperatorTok{+}
+\StringTok{           }\KeywordTok{facet_wrap}\NormalTok{(}\OperatorTok{~}\NormalTok{Country, }\DataTypeTok{scales =} \StringTok{"free_y"}\NormalTok{)}
+\NormalTok{p <-}\StringTok{ }\NormalTok{p }\OperatorTok{+}\StringTok{ }\KeywordTok{geom_line}\NormalTok{(}\DataTypeTok{data =}\NormalTok{ projections_distr,}
+                   \KeywordTok{aes}\NormalTok{(}\DataTypeTok{x =}\NormalTok{ Date, }\DataTypeTok{y =}\NormalTok{ y, }\DataTypeTok{group =} \DecValTok{1}\NormalTok{),}
+                     \DataTypeTok{color =} \StringTok{'black'}\NormalTok{, }\DataTypeTok{size =} \FloatTok{0.9}\NormalTok{)}
+\NormalTok{p <-}\StringTok{ }\NormalTok{p }\OperatorTok{+}\StringTok{ }\KeywordTok{geom_ribbon}\NormalTok{(}\DataTypeTok{data =}\NormalTok{ projections_distr, }\KeywordTok{aes}\NormalTok{(}\DataTypeTok{x =}\NormalTok{ Date,}
+                                                   \DataTypeTok{ymin =}\NormalTok{ ymin,}
+                                                   \DataTypeTok{ymax =}\NormalTok{ ymax,}
+                                                   \DataTypeTok{group =} \DecValTok{1}\NormalTok{),}
+                     \DataTypeTok{inherit.aes =} \OtherTok{FALSE}\NormalTok{,}
+                     \DataTypeTok{alpha =} \FloatTok{0.5}\NormalTok{)}
+
+\NormalTok{outname <-}\StringTok{ }\KeywordTok{paste0}\NormalTok{(}\KeywordTok{Sys.Date}\NormalTok{(), }\StringTok{"-"}\NormalTok{, N, }\StringTok{"-"}\NormalTok{, T, }\StringTok{".pdf"}\NormalTok{)}
+\NormalTok{outfile <-}\StringTok{ }\NormalTok{here}\OperatorTok{::}\KeywordTok{here}\NormalTok{(}\StringTok{"output/figures"}\NormalTok{, outname)}
+\KeywordTok{ggsave}\NormalTok{(outfile, p)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Saving 6.5 x 4.5 in image
+\end{verbatim}
+
+
+\end{document}

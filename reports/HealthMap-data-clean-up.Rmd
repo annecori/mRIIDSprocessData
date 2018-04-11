@@ -105,17 +105,17 @@ cols.to.keep <- c(cols.to.keep, "Date", "Cases")
 ## params for outlier removal.
 use.last   <- 20
 p.within.k <- 0.50
-k.sd       <- interval.width.for.p(use.last,
+k.sd       <- interval_width_for_p(use.last,
                                    1 - p.within.k) %>%     sqrt %>% `[`(2)
 
 
 by.location <- healthmap %>%
                 split(.$Country) %>%
                 lapply(function(case.count){
-                    case.count %<>% update.cases.column(case.type) 
+                    case.count %<>% update_cases_column(case.type) 
                     results <- list(update_cases_col =
                                         case.count[, c("Date", "Cases")])
-                    case.count %<>% merge.duplicates(cols.to.keep)
+                    case.count %<>% merge_duplicates(cols.to.keep)
                     results    %<>% c(merge_duplicates =
                                           list(case.count[, c("Date", "Cases")]))
                     
@@ -155,7 +155,7 @@ lapply(names(by.location), function(n){
                           mutate(cleanup_step =
                                  forcats::fct_recode(cleanup_step, 
                                      "Cases" = "update_cases_col",
-                                     "Merge Duplicates" = "merge_duplicates",
+                                     "Merge_Duplicates" = "merge_duplicates",
                                      "Outliers Removed" = "outliers_removed",
                                      "Make increasing" = "make_increasing",
                                      "Interpolate" = "interpolate"))

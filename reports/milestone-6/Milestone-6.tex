@@ -572,15 +572,16 @@ capturing the spatial dimension of the epidemic.
   light and can be carried out in real time.
 
   The model uses the local past to make short term predictions about
-  incidence trends. Thus when the direction
+  future incidence trends. Thus when the direction
   of the incidence trend is reversed in the prediction window, (i.e., case numbers start
   declining after a period of growth or vice
-  versa), the model performance is poor. For example, notice the
+  versa), the performance of the model deteriorates. For example, notice the
   growth predicted in Port Loko in the top panel in
   Figure~\ref{fig:sl-predictions} that is consistent with the growth
-  in the preceding period but inconsistent with the observed decline. 
-  This inherent shortcoming can be addressed for example by including
-  impact of interventions in the model. However, this comes at a cost
+  in the preceding period but inconsistent with the decline that
+  occurred in the forecasting window. 
+  This inherent shortcoming could potentially be addressed for example by including
+  the impact of interventions in the model. However, this comes at a cost
   of increased complexity and requires additional data that may not be
   available in real-time. At the same time, the model as implemented
   currently is very simple and makes use of very limited data (case

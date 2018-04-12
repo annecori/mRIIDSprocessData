@@ -32,20 +32,22 @@
   short-term incidence trend forecasting.
   The work presented here makes 2 key contributions:
   \begin{enumerate}
-  \item In validating the model using data from ProMed and HealthMap,
+  \item In validating the model using data collected by ProMED and
+    HealthMap during the 2014-2016 West African Ebola outbreak,
     we provide a realistic appraisal of the strengths and limitations
     of such data in incidence forecasting.
     \item We infer incidence trends at finer spatial scales from
       aggregated data. Our work shows how the data from
-      event based surveillance systems (EBS) and from traditional
-      public health infrastructure complement each other. In an
+      event based surveillance systems (EBS) can complement the data
+      collected from traditional
+      public health infrastructure. During an
       ongoing crisis, combining data from different sources gives
       stakeholders a more complete picture.
   \end{enumerate}
 \end{abstract}
-\section*{Introduction}
-\section*{Results}
-\subsection*{Incidence trends from different data sources}
+\section{Introduction}
+\section{Results}
+\subsection{Incidence trends from different data sources}
 We aggregated the WHO data to national level to compare the incidence
 trends derived from the three different data sources (WHO, HealthMap
 and ProMED). As can be seen in Figure~\ref{fig:incid_comp}, the incidence time series
@@ -82,36 +84,38 @@ correlation between the data from the three different sources.
    ProMED/HealthMap with corresponding data from WHO. The comparison
    above is for a post-hoc cleaned up data set from both.} 
 
- \subsection*{Prediction using data from HealthMap and ProMED}
+ \subsection{Prediction using data from HealthMap and ProMED}
  Projections at different time steps using HealthMap and
  ProMED. (maybe 3).
  Show projections at different times in the same graph.
 
- \subsection*{Prediction using data from WHO}
+ \subsection{Prediction using data from WHO}
  Same as before. Note that there are 55 districts. It might not be
- useful to show 55 graphs. How else could we show this?
+ useful to show 55 graphs (although others have done precisely this). 
  Also map from all districts showing uncertainty
  associated with predictions as discussed earlier.
 
- \subsection*{Assessing Model Fit}
- \begin{itemize}
- \item number of points within CI.
- \item   
- \end{itemize}
+ \subsection{Assessing Model Fit}
+ \begin{enumerate}
+ \item number of points within CI (predictive part).
+ \item choose some test statistic that depends on the data or on data
+   and parameters. For a large number of simulations, check where the
+   observed statistic lie in the distribution of the simulated statistic (goodness-of-fit).
+ \end{enumerate}
  
- \section*{Using aggregate data to infer incidence in districts}
+ \section{Using aggregate data to infer incidence in districts}
 
  Method 1. Take data from EBS and assign predictions to different
  districts in proportion to their relative risk derived from gravity
  model. Compare with data from WHO.
 
- \subsection*{Discussion and future work}
+ \subsection{Discussion and future work}
 
  Opportunities - Integrating other data sources; choosing time
  window for reproduction number estimation.
 
- \section*{Methods}
- \subsection*{Model}
+ \section{Methods}
+ \subsection{Model}
  The number of cases at a location \(j\) at time \(t\) is given by the equation
 \[
   I_{j, t} \sim Pois\left( \sum_{i = 1}^{n} {\left( p_{i \rightarrow j}
@@ -165,15 +169,15 @@ instance, if \(p_{stay}^i\) is large, then the flow out of location
 \(i\) would be small. Thus, if this parameter is geographically
 heterogeneous, we obtain imbalanced flow of population (i.e. a source-sink dynamics). 
 
-\subsection*{Inference of model parameters}
+\subsection{Inference of model parameters}
 
 MCMC simulation using Stan.
 Show convergence statistics and other diagnostic information.
 
-\section*{Supplementary Information}
-\subsection*{Data pre-processing}
+\section{Supplementary Information}
+\subsection{Data pre-processing}
 Information about the pre-processing steps and outlier removal.
-\subsection*{Sensitivity Analysis}
+\subsection{Sensitivity Analysis}
 Some things to consider.
 \begin{itemize}
 \item What impact does changing priors for $\gamma$ have?

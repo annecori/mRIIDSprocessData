@@ -77,7 +77,8 @@ correlation between the data from the three different sources.
       with p-value < 0.001.}
     \label{fig:corrplot}
   \end{figure}
- \sb{I think it would be good to compare monthly data from
+
+  \sb{I think it would be good to compare monthly data from
    ProMED/HealthMap with corresponding data from WHO. The comparison
    above is for a post-hoc cleaned up data set from both.} 
 
@@ -85,18 +86,29 @@ correlation between the data from the three different sources.
  Projections at different time steps using HealthMap and
  ProMED. (maybe 3).
  Show projections at different times in the same graph.
+
  \subsection*{Prediction using data from WHO}
  Same as before. Note that there are 55 districts. It might not be
  useful to show 55 graphs. How else could we show this?
  Also map from all districts showing uncertainty
  associated with predictions as discussed earlier.
- \subsection*{Using aggregate data to infer incidence in districts}
+
+ \subsection*{Assessing Model Fit}
+ \begin{itemize}
+ \item number of points within CI.
+ \item   
+ \end{itemize}
+ 
+ \section*{Using aggregate data to infer incidence in districts}
+
  Method 1. Take data from EBS and assign predictions to different
  districts in proportion to their relative risk derived from gravity
  model. Compare with data from WHO.
 
  \subsection*{Discussion and future work}
- Opportunities - Integrating other data sources.
+
+ Opportunities - Integrating other data sources; choosing time
+ window for reproduction number estimation.
 
  \section*{Methods}
  \subsection*{Model}
@@ -120,7 +132,7 @@ $i$, $f$ denotes a function, $R_0$ is the basic reproduction number (data stream
 The probability of moving between locations is derived from the
 relative flow of populations.
 This latter quantity is estimated using a population flow
-model such as a gravity model \citep{GROSCHE2007175}. Under a gravity model, the flow of individuals from area \(i\) to area \(j\),
+model such as a gravity model \citep{grosche2007175}. Under a gravity model, the flow of individuals from area \(i\) to area \(j\),
 \(\phi_{i \rightarrow j}\), is proportional to the product of the
 populations of the two areas, \(N_i\) and \(N_j\) and inversely
 proportional to the distance between them \(d_{i, j}\), all quantities
@@ -154,11 +166,23 @@ instance, if \(p_{stay}^i\) is large, then the flow out of location
 heterogeneous, we obtain imbalanced flow of population (i.e. a source-sink dynamics). 
 
 \subsection*{Inference of model parameters}
+
+MCMC simulation using Stan.
+Show convergence statistics and other diagnostic information.
+
 \section*{Supplementary Information}
 \subsection*{Data pre-processing}
 Information about the pre-processing steps and outlier removal.
-\subsection*{Senstivity Analysis}
-
+\subsection*{Sensitivity Analysis}
+Some things to consider.
+\begin{itemize}
+\item What impact does changing priors for $\gamma$ have?
+\item serial interval parameters?
+  Changing the point of truncation? The time window?
+\item changing exponents on population in the gravity model produces
+  different behavior.
+ \item maybe have another model of population flow.  
+\end{itemize}
 \bibliographystyle{plainnat}
 \bibliography{mriids}
 \end{document}

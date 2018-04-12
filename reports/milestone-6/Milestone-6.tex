@@ -424,7 +424,7 @@ fine spatial scale, forecast at a sub-national level or understand how an
 epidemic is spreading within a country.}
 
 The results of the analysis above point toward a potential solution to obtain `pseudo real-time' district
- level incidence data. One could relay on real-time national data (e.g. ProMED/HealthMap) and disaggregate 
+ level incidence data. One could rely on real-time national data (e.g. ProMED/HealthMap) and disaggregate 
 the time-series to obtain district level incidence using spatial information from a `retrospective'
 time-series at finer scale (i.e. WHO data). \textbf{This analysis can
  be carried out as and when the data from sub-national level starts
@@ -559,8 +559,9 @@ Predictions over a 7 week period were carried out at 2 different time points - a
 respectively) using WHO data. It is assumed that the 
 transmissibility did not change for the previous 7 weeks (as in
 \citep{team2015west}). This analysis was carried at the sub-national
-levels for Sierra Leone, Liberia and
-Guinea as well as across the 55 districts in the three countries.
+levels separately for Sierra Leone, Liberia and
+Guinea  as well as across all the (55) districts in the three
+countries together.
 Figure~\ref{fig:sl-predictions} illustrates the results for
 Sierra Leone. Figure~\ref{fig:sl-map} compared the observed and
 predicted spatial spread of the epidemic over a 7 week period
@@ -572,14 +573,14 @@ capturing the spatial dimension of the epidemic.
   light and can be carried out in real time.
 
   The model uses the local past to make short term predictions about
-  future incidence trends. Thus when the direction
+  future incidence trends assuming transmissibility remains similar to that in the local past. Thus when the direction
   of the incidence trend is reversed in the prediction window, (i.e., case numbers start
   declining after a period of growth or vice
   versa), the performance of the model deteriorates. For example, notice the
   growth predicted in Port Loko in the top panel in
   Figure~\ref{fig:sl-predictions} that is consistent with the growth
   in the preceding period but inconsistent with the decline that
-  occurred in the forecasting window. 
+  actually occurred in the forecasting window. 
   This inherent shortcoming could potentially be addressed for example by including
   the impact of interventions in the model. However, this comes at a cost
   of increased complexity and requires additional data that may not be
@@ -601,15 +602,15 @@ capturing the spatial dimension of the epidemic.
   an intuitive way of assessing the fit of the model. However it may
   not be sufficient to assess the quality of the fit. We are exploring
   the use of more rigorous measures of model assessment
-  (e.g. \citep{funk2016real}).These would be included in future work.
+  (e.g. \citep{funk2016real}).These will be included in future work.
   }
 
   \begin{figure}
     \centering
     \includegraphics[width=0.8\textwidth]{ms6-figures/goodness_districts.png}
-    \caption{Assessing the model fit for 7-week predictions at 300 and 500
-      days. The y-axis the proportion of districts for which the predicted
-      95\% CI contained the observed weekly incidence count.}
+    \caption{\textbf{Assessing the model fit for 7-week predictions at 300 and 500
+      days. The y-axis shows the proportion of districts for which the predicted
+      95\% CI contained the observed weekly incidence count.}}
     \label{fig:gf}
   \end{figure}
 

@@ -1,0 +1,154 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  pow_dist : 2
+  t.proj : 500
+  n.sim : 1000
+  n.dates.sim : 49
+  p.stay: 0.9
+  ADM0: SIERRALEONE
+---
+
+```{r global_options, include=FALSE}
+
+knitr::opts_chunk$set(fig.width = 12, fig.height = 6,
+                      echo = FALSE,
+                      warning = FALSE, message = FALSE,
+                      fig.path = "figures/")
+
+```
+
+```{r setup, eval = TRUE}
+
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+devtools::load_all()
+
+```
+
+## Unpack parameters
+
+```{r pars_read, eval = TRUE}
+pow_dist    <- params$pow_dist
+t.proj      <- params$t.proj
+n.sim       <- params$n.sim
+n.dates.sim <- params$n.dates.sim
+p.stay      <- params$p.stay
+adm0        <- params$ADM0
+
+```
+
+## Relative population density
+
+```{r districts_coord, eval = TRUE}
+
+centroids <- here::here("data/Geography/GravityModel/processed",
+                        "all_centroids.csv") %>%
+  readr::read_csv(.) %>% 
+  filter(ADM0 == adm0) 
+
+
+```
+
+
+```{r pop_density, eval = TRUE}
+
+pop_density <- data.frame(district = centroids$CL_DistrictRes,
+                          rel_density = centroids$pop / sum(centroids$pop))
+
+```
+
+## Incidence data from HealthMap
+
+```{r hm_data, eval = TRUE}
+
+hm_wide <- here::here("data/CaseCounts/processed",
+                      "HealthMap_Ebola_wide.csv") %>%
+  readr::read_csv(.)
+
+```  
+
+We will work with weekly incidence counts. Take the weekly incidence
+count and distribute it to the districts in proportion to their
+relative density.
+
+```{r}
+hm_weekly <- daily.to.weekly(hm_wide)
+
+sl_weekly <- select(hm_weekly, `Sierra Leone`)
+
+district_weekly <- purrrlyr::by_row(sl_weekly, function(df)
+  df$`Sierra Leone` *
+  pop_density$rel_density, .collate = "cols") %>%
+  rename_at(vars(starts_with(".out")), funs(pop_density$district))
+
+
+```
+
+Reshape to work with ggplot2.
+
+```{r}
+
+district_tall <- tidyr::gather(district_weekly, district,
+                               estimated,
+                               -Date)
+district_tall$Date <- as.Date(district_tall$Date)
+
+
+
+```
+
+## Compare with data from WHO
+
+
+```{r}
+cols <- c("Date", centroids$CL_DistrictRes)
+who_districts <- here::here("data/CaseCounts/processed",
+                            "WHO_wide.csv") %>%
+    readr::read_csv(.) %>%
+    select(cols)
+
+
+who_weekly <- daily.to.weekly(who_districts) %>%
+    tidyr::gather(district, incid, -Date)
+
+who_weekly$Date <- as.Date(who_weekly$Date)
+```
+Put them together and plot.
+
+```{r}
+tmp <- left_join(who_weekly, district_tall) %>% na.omit
+tmp <- tidyr::gather(tmp, var, val, -c(Date, district))
+
+ggplot(tmp, aes(as.Date(Date), val, col = var)) +
+    geom_point() +
+    facet_wrap(~district, scales = "free_y") + theme_classic()
+
+```
+
+Surprisingly enough, this simple method doesn't fare too badly except
+in some districts where the estimated incidence is completely out of
+whack with the reported incidence. E.g, in Western, estimated is
+consistently an underestimate while in Bonthe, the method consistently 
+overestimates.

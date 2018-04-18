@@ -106,8 +106,21 @@ correlation between the data from the three different sources.
  \section{Using aggregate data to infer incidence in districts}
 
  Method 1. Take data from EBS and assign predictions to different
- districts in proportion to their relative risk derived from gravity
- model. Compare with data from WHO.
+ districts in proportion to their relative population densities.
+ Compare with data from WHO.
+
+ \begin{figure}
+   \centering
+   \includegraphics[width = \textwidth]{figures/disaggregation_1.png}
+   \label{fig:disaggregate1}
+   \caption{Assigning cases to districts in Sierra Leone with probabilities
+     proportional to their relative population densities. In some
+     districts such as Tonkolili and Bombali, the estimated case counts fit
+     the observations (shown in blue) well whereas in other districts such as Western,
+   the fit is very poor. This suggests while population density of a
+   region is a key determinant of disease spread, other factors are at
+ play that should be incorporated in the model. }
+ \end{figure}
 
  \subsection{Discussion and future work}
 

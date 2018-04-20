@@ -5,7 +5,7 @@ output:
     keep_tex: true
     fig_caption: true
     latex_engine: pdflatex
-title: 
+title: Borrowing information across spatial scales 
 author:
 - name: Sangeeta Bhatia
   affiliation: Imperial College London
@@ -20,8 +20,8 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 2
-  t.proj : 500
+  pow_dist : 1
+  from : KONO
   n.sim : 1000
   n.dates.sim : 49
   p.stay: 0.9
@@ -57,6 +57,8 @@ n.sim <- params$n.sim
 n.dates.sim <- params$n.dates.sim
 p.stay <- params$p.stay
 adm0 <- params$ADM0
+from <- params$from
+method1 <- FALSE
 ```
 
 ## Model
@@ -124,18 +126,19 @@ Take the weekly incidence
 count and distribute it to the districts in proportion to their
 relative density.
 
-```{r pop_density, eval = TRUE}
+```{r pop_density, eval = method1}
 
 pop_density <- data.frame(
   district = centroids$CL_DistrictRes,
   rel_density = centroids$pop / sum(centroids$pop)
 )
+prob <- pop_density$rel_density
 ```
 
 ## Method 2: Relative risk based on gravity model
 
 
-```{r pmovement, eval = TRUE}
+```{r pmovement, eval = !method1}
 flow_mat <- flow_matrix(
   longitude = centroids$lon,
   latitude = centroids$lat,
@@ -146,18 +149,16 @@ flow_mat <- flow_matrix(
   pow_N_to = pow_N_to,
   pow_dist = pow_dist
 )
-
-
-
 rel_risk <- flow_mat / rowSums(flow_mat, na.rm = TRUE)
 p_movement <- probability_movement(rel_risk, p_stay)
+prob <- p_movement[from, ]
 ```
 
 ## Assign cases to districts
 
 Best to do it when the number of cases is not too small.
 
-```{r}
+```{r assign, eval = TRUE}
 
 hm_large <- filter(hm_weekly, `Sierra Leone` > 2)
 sl_large <- select(hm_large, c(Date, `Sierra Leone`))
@@ -165,7 +166,7 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
   lapply(function(df) {
     mat <- disaggregate(
       total = df$`Sierra Leone`,
-      prob = pop_density$rel_density
+      prob = prob
     )
     distr <- t(apply(
       mat, 1, quantile,
@@ -176,13 +177,17 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
     distr <- tibble::rownames_to_column(distr, var = "district")
     distr
   }) %>% bind_rows(.id = "Date")
+district_weekly$Date <- as.Date(district_weekly$Date)
 ```
+
 
 ## Compare with data from WHO
 
 Put them together and plot.
 
-```{r}
+```{r compare, eval = TRUE}
+who_weekly$Date <- as.Date(who_weekly$Date)
+
 comparison <- left_join(who_weekly, district_weekly) %>% na.omit()
 comparison$Date <- as.Date(comparison$Date)
 
@@ -195,5 +200,6 @@ p <- p + geom_ribbon(aes(ymin = `X2.5.`,
                          group = 1), alpha = 0.5)
 p <- p + theme_classic()
 p
-
+here::here("output", paste0(from,"_", pow_dist, ".png")) %>%
+    ggsave(p)
 ```

@@ -2,7 +2,7 @@
 output: 
   pdf_document:
     citation_package: natbib
-    keep_tex: true
+    keep_tex: false
     fig_caption: true
     latex_engine: pdflatex
 title: Borrowing information across spatial scales 
@@ -44,6 +44,8 @@ library(dplyr)
 library(magrittr)
 library(stringr)
 library(ggplot2)
+library(purrr)
+library(EpiEstim)
 devtools::load_all()
 ```
 
@@ -58,7 +60,8 @@ n.dates.sim <- params$n.dates.sim
 p.stay <- params$p.stay
 adm0 <- params$ADM0
 from <- params$from
-method1 <- FALSE
+method <- list("pop_density" = TRUE, "2" = FALSE, "3" = FALSE)
+
 ```
 
 ## Model
@@ -126,7 +129,7 @@ Take the weekly incidence
 count and distribute it to the districts in proportion to their
 relative density.
 
-```{r pop_density, eval = method1}
+```{r pop_density, eval = method[["pop_density"]]}
 
 pop_density <- data.frame(
   district = centroids$CL_DistrictRes,
@@ -138,7 +141,7 @@ prob <- pop_density$rel_density
 ## Method 2: Relative risk based on gravity model
 
 
-```{r pmovement, eval = !method1}
+```{r pmovement, eval = method[["2"]]}
 flow_mat <- flow_matrix(
   longitude = centroids$lon,
   latitude = centroids$lat,
@@ -153,7 +156,89 @@ rel_risk <- flow_mat / rowSums(flow_mat, na.rm = TRUE)
 p_movement <- probability_movement(rel_risk, p_stay)
 prob <- p_movement[from, ]
 ```
+## Method 3: Relative to the reproduction number from recent past
 
+Suppose we are doing the disaggregation in the last week of 2014.
+Read in the latest information published by WHO.
+
+```{r}
+who_bydistrict <- here::here("data/CaseCounts/processed",
+                             "processed_who_sl_2014-12-17.csv") %>%
+    read.csv(.)
+weeks <- stringr::str_pad(1:50, 2, pad = "0")
+weeks_of_2014 <- paste0("2014-W", weeks)
+who_bydistrict$week_of_year <- factor(who_bydistrict$week_of_year,
+                                      levels = weeks_of_2014)
+
+who_bydistrict <- arrange(who_bydistrict, week_of_year)
+
+```
+
+Look at the data.
+
+```{r}
+p <- ggplot(who_bydistrict, aes(week_of_year,
+                                new_cases,
+                                col = data_source))
+p <- p + geom_point()
+p <- p + facet_wrap(~location)
+p <- p + theme_bw()
+p
+```
+
+We will use data from Situation Report and add confirmed and probable 
+cases. Treat NAs as 0.
+
+```{r}
+who_sitrep <- filter(who_bydistrict,
+                     data_source == "situationreport") %>%
+    droplevels()
+
+who_sitrep <- group_by(who_sitrep, location, week_of_year) %>%
+    summarise(total = sum(new_cases)) 
+##    filter(as.integer(week_of_year) > 37)
+
+who_wide <- tidyr::spread(who_sitrep, location, total, fill = 0)
+```
+
+```{r ebola_params}
+
+mean_SI     <- 14.2
+CV_SI       <- 9.6 / 14.2
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+
+
+```
+
+```{r}
+r.estim   <- select_if(who_wide, is.numeric)  %>%
+    map(function(x) {
+        df = data.frame(t = seq_len(length(x)), incid = x)
+        glm(x ~ t, data = df, family = poisson())
+    })
+
+## check fit
+predicted <- map(r.estim, predict, type = "response") %>%
+    dplyr::bind_cols(.)
+
+predicted$week_of_year <- who_wide$week_of_year
+
+list(predicted = predicted, observed = who_wide) %>%
+    dplyr::bind_rows(.id = "data_source") %>%
+    tidyr::gather(district, incid, -week_of_year, -data_source) %>%
+    ggplot(aes(week_of_year, incid, col = data_source)) + geom_point() +
+    facet_wrap(~district, scale = "free_y")
+
+
+
+```
+
+Extract the coefficients from the fits.
+```{r}
+district_rates <- map_dfc(r.estim, function(x) coef(x)["t"])
+```
 ## Assign cases to districts
 
 Best to do it when the number of cases is not too small.
@@ -203,3 +288,4 @@ p
 here::here("output", paste0(from,"_", pow_dist, ".png")) %>%
     ggsave(p)
 ```
+

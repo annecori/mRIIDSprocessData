@@ -1,0 +1,241 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Exploratory analysis of weekly district data from WHO 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(ggthemes)
+```
+# Data load and comparison with data published in Tini's paper
+
+The two different data sources are Patient Database and Situation
+Report. According to the website, Patient Database ``provides
+information on the symptoms, diagnosis and outcomes of treatment for 
+each suspected, probable or confirmed Ebola patient; typically gives 
+the fullest representation of the epidemic, but is often incomplete 
+for the most recent days or weeks.'' 
+
+Situation Report ``Contains daily
+district information on number of suspected, probable or confirmed
+Ebola patients; lacks many of the details found in the patient 
+database, but provides the best data on the status of the epidemic 
+now and for recent days.''
+
+```{r}
+sl_website <- here::here(
+  "data/CaseCounts/processed",
+  "processed_who_sl_2015-08-19.csv"
+) %>%
+  read.csv(.)
+sl_website$week_of_year <- factor(sl_website$week_of_year)
+```
+
+And WHO data from Tini's paper.
+```{r}
+sl_linelist <- here::here(
+  "data/CaseCounts/who",
+  "rstb20160308supp1.csv"
+) %>%
+  read.csv(colClasses = c(
+    Country = "factor",
+    EpiCaseDef = "character",
+    DateOnsetInferred = "Date"
+  )) %>%
+  select(
+    Country,
+    EpiCaseDef,
+    DateOnsetInferred,
+    CL_DistrictRes
+  ) %>%
+  rename(location = CL_DistrictRes) %>%
+filter(Country == "Sierra Leone")
+
+sl_linelist <- filter(sl_linelist, !is.na(DateOnsetInferred))
+sl_linelist <- arrange(sl_linelist, DateOnsetInferred)
+sl_weeks <- lubridate::week(sl_linelist$DateOnsetInferred) %>%
+  stringr::str_pad(2, pad = "0")
+
+sl_linelist$week_of_year <- paste0(
+  lubridate::year(sl_linelist$DateOnsetInferred),
+  "-W",
+  sl_weeks
+)
+```
+
+Are the dates/weeks missing from the above linelist the same as the dates
+for which data from website contains blanks?
+
+
+
+```{r}
+all_dates <- seq(
+  from = min(
+    sl_linelist$DateOnsetInferred,
+    na.rm = TRUE
+  ),
+  to = max(
+    sl_linelist$DateOnsetInferred,
+    na.rm = TRUE
+  ),
+  by = "1 day"
+)
+
+dates_na_linelist <- all_dates[!(all_dates %in%
+  sl_linelist$DateOnsetInferred)]
+
+weeks_padded <- stringr::str_pad(
+  lubridate::week(dates_na_linelist),
+  2,
+  pad = "0"
+)
+weeks_na_linelist <- paste0(
+  lubridate::year(dates_na_linelist),
+  "-W",
+  weeks_padded
+)
+```
+
+And for data from the website.
+
+
+```{r}
+idx <- which(is.na(sl_website$new_cases))
+weeks_na_website <- sl_website$week_of_year[idx] %>% unique()
+```
+
+What weeks are NA for the linelist but not in website data?
+
+```{r}
+setdiff(weeks_na_linelist, weeks_na_website)
+```
+Weeks from 2013. We won't worry about this.
+What weeks are NA for the website data but not in linelist?
+
+```{r}
+setdiff(weeks_na_website, weeks_na_linelist)
+```
+
+Dig a little deeper. For each district, for each case type, where we
+have a blank in the website, what info do we have in the linelist?
+
+```{r}
+by_district <- filter(sl_website, is.na(new_cases)) %>%
+  split(list(.$location, .$case))
+
+tmp <- lapply(by_district, function(x) {
+  district <- unique(x$location)
+  filter(sl_linelist, CL_DistrictRes == district &
+    week_of_year %in% unique(x$week_of_year))
+})
+```
+
+Let us treat NAs as 0 and compare weekly data.
+
+
+```{r}
+idx <- which(is.na(sl_website$new_cases))
+sl_website$new_cases[idx] <- 0
+```
+Add confirmed and probable cases.
+
+```{r}
+sl_website_total <- group_by(
+  sl_website,
+  week_of_year,
+  data_source,
+  location
+) %>%
+  summarise(total_cases = sum(new_cases))
+```
+
+Linelist to weekly
+
+```{r}
+sl_linelist_weekly <- select(
+  sl_linelist, -Country,
+  -EpiCaseDef, -DateOnsetInferred
+) %>%
+  group_by(location, week_of_year) %>%
+  mutate(total_cases = n())
+
+sl_linelist_weekly$data_source <- "linelist"
+sl_linelist_weekly <- select(
+  sl_linelist_weekly,
+  week_of_year,
+  data_source,
+  location,
+  total_cases
+)
+```
+
+```{r}
+
+all_sources <- rbind(sl_linelist_weekly, sl_website_total)
+all_sources$week_of_year <- factor(all_sources$week_of_year)
+all_sources %>%
+    split(.$location) %>%
+    lapply(function(x){
+        p <- ggplot(x, aes(week_of_year,
+                           total_cases,
+                           col = data_source)) + geom_point()
+        p <- p + theme_bw()
+        p <- p + theme(axis.text.x =
+                           element_text(angle = 90,
+                                        hjust = 1,
+                                        size = 2))
+        here::here("output",
+                   paste0(unique(x$location), ".png")) %>%
+            ggsave(p)})
+
+```
+
+So there is significant discrepancy between the three data sources.
+Let's just focus on the weeks where the website says blank (or 0 now).
+
+
+```{r data_read, eval = TRUE}
+sl_website_0s <- filter(sl_website_total, total_cases == 0) %>%
+    droplevels()
+sl_linelist_0s <- filter(sl_linelist_weekly,
+                         week_of_year %in%
+                         unique(sl_website_0s$week_of_year)) %>%
+        droplevels()
+
+rbind(sl_linelist_0s, sl_website_0s) %>%
+    split(.$location) %>%
+    lapply(function(x){
+        p <- ggplot(x, aes(week_of_year,
+                           total_cases,
+                           col = data_source)) + geom_point()
+        p <- p + theme_bw()
+        p <- p + theme(axis.text.x =
+                           element_text(angle = 90,
+                                        hjust = 1,
+                                        size = 2))
+        here::here("output",
+                   paste0("0_", unique(x$location), ".png")) %>%
+            ggsave(p)})
+```
+

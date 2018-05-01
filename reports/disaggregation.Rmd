@@ -60,7 +60,7 @@ n.dates.sim <- params$n.dates.sim
 p.stay <- params$p.stay
 adm0 <- params$ADM0
 from <- params$from
-method <- list("pop_density" = TRUE, "2" = FALSE, "3" = FALSE)
+method <- list("pop_density" = FALSE, "gm" = FALSE, "restim" = TRUE)
 
 ```
 
@@ -141,7 +141,7 @@ prob <- pop_density$rel_density
 ## Method 2: Relative risk based on gravity model
 
 
-```{r pmovement, eval = method[["2"]]}
+```{r pmovement, eval = method[["gm"]]}
 flow_mat <- flow_matrix(
   longitude = centroids$lon,
   latitude = centroids$lat,
@@ -158,10 +158,12 @@ prob <- p_movement[from, ]
 ```
 ## Method 3: Relative to the reproduction number from recent past
 
+### 3A: Use data published by WHO
+
 Suppose we are doing the disaggregation in the last week of 2014.
 Read in the latest information published by WHO.
 
-```{r}
+```{r, eval = method[["restim"]]}
 who_bydistrict <- here::here("data/CaseCounts/processed",
                              "processed_who_sl_2014-12-17.csv") %>%
     read.csv(.)
@@ -176,7 +178,7 @@ who_bydistrict <- arrange(who_bydistrict, week_of_year)
 
 Look at the data.
 
-```{r}
+```{r sitrep_viz, eval =  method[["restim"]]}
 p <- ggplot(who_bydistrict, aes(week_of_year,
                                 new_cases,
                                 col = data_source))
@@ -189,7 +191,7 @@ p
 We will use data from Situation Report and add confirmed and probable 
 cases. Treat NAs as 0.
 
-```{r}
+```{r, eval = method[["restim"]]}
 who_sitrep <- filter(who_bydistrict,
                      data_source == "situationreport") %>%
     droplevels()
@@ -212,7 +214,23 @@ SI_Distr    <- SI_Distr / sum(SI_Distr)
 
 ```
 
-```{r}
+## 3B: Use cleaned-up linelist
+
+```{r sl_ll, eval = FALSE}
+who_wide <- here::here("data/CaseCounts/processed",
+                               "SIERRALEONE_wide.csv") %>%
+    readr::read_csv(.) %>%
+    filter(Date > "2013-12-31" & Date < "2014-05-29")
+weeks <- stringr::str_pad(lubridate::week(who_wide$Date),
+                          2,
+                          pad = "0")
+
+who_wide$week_of_year <- paste0("2014-W", weeks)
+```
+
+## Estimate R 
+
+```{r restim, eval = method[["restim"]]}
 r.estim   <- select_if(who_wide, is.numeric)  %>%
     map(function(x) {
         df = data.frame(t = seq_len(length(x)), incid = x)
@@ -237,16 +255,19 @@ list(predicted = predicted, observed = who_wide) %>%
 
 Extract the coefficients from the fits.
 ```{r}
-district_rates <- map_dfc(r.estim, function(x) coef(x)["t"])
+district_rates <- map_dfr(r.estim, function(x) coef(x)["t"])
+prob <- as.vector(district_rates)
 ```
 ## Assign cases to districts
 
 Best to do it when the number of cases is not too small.
+Also, probably not for the whole duration but 2 or 3 weeks.
 
 ```{r assign, eval = TRUE}
-
+bin_for <- 12 ## weeks
 hm_large <- filter(hm_weekly, `Sierra Leone` > 2)
-sl_large <- select(hm_large, c(Date, `Sierra Leone`))
+sl_large <- select(hm_large, c(Date, `Sierra Leone`)) %>%
+    `[`(seq_len(bin_for), )
 district_weekly <- split(sl_large, sl_large$Date) %>%
   lapply(function(df) {
     mat <- disaggregate(
@@ -257,7 +278,7 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
       mat, 1, quantile,
       probs = c(0.025, 0.5, 0.975)
     ))
-    rownames(distr) <- pop_density$district
+    rownames(distr) <- names(prob)
     distr <- data.frame(distr)
     distr <- tibble::rownames_to_column(distr, var = "district")
     distr
@@ -273,7 +294,9 @@ Put them together and plot.
 ```{r compare, eval = TRUE}
 who_weekly$Date <- as.Date(who_weekly$Date)
 
-comparison <- left_join(who_weekly, district_weekly) %>% na.omit()
+comparison <- filter(who_weekly, Date <= max(sl_large$Date)) %>%
+    left_join(district_weekly) %>%
+    na.omit()
 comparison$Date <- as.Date(comparison$Date)
 
 p <- ggplot(comparison, aes(Date,incid)) + geom_point(size = 0.5,
@@ -285,7 +308,6 @@ p <- p + geom_ribbon(aes(ymin = `X2.5.`,
                          group = 1), alpha = 0.5)
 p <- p + theme_classic()
 p
-here::here("output", paste0(from,"_", pow_dist, ".png")) %>%
-    ggsave(p)
+
 ```
 

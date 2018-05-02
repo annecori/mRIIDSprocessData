@@ -60,7 +60,10 @@ n.dates.sim <- params$n.dates.sim
 p.stay <- params$p.stay
 adm0 <- params$ADM0
 from <- params$from
-method <- list("pop_density" = FALSE, "gm" = FALSE, "restim" = TRUE)
+method <- list("pop_density" = FALSE,
+               "gm" = FALSE,
+               "restim" = TRUE,
+               "epiestim" = FALSE)
 
 ```
 
@@ -135,7 +138,8 @@ pop_density <- data.frame(
   district = centroids$CL_DistrictRes,
   rel_density = centroids$pop / sum(centroids$pop)
 )
-prob <- pop_density$rel_density
+prob <- matrix(pop_density$rel_density^2, nrow = 1)
+colnames(prob) <- pop_density$district
 ```
 
 ## Method 2: Relative risk based on gravity model
@@ -183,8 +187,12 @@ p <- ggplot(who_bydistrict, aes(week_of_year,
                                 new_cases,
                                 col = data_source))
 p <- p + geom_point()
-p <- p + facet_wrap(~location)
+p <- p + facet_wrap(~location, scale = "free_y")
 p <- p + theme_bw()
+p <- p + theme(axis.text.x =
+                   element_text(angle = 90,
+                                hjust = 1,
+                                size = 3))
 p
 ```
 
@@ -198,9 +206,17 @@ who_sitrep <- filter(who_bydistrict,
 
 who_sitrep <- group_by(who_sitrep, location, week_of_year) %>%
     summarise(total = sum(new_cases)) 
-##    filter(as.integer(week_of_year) > 37)
 
 who_wide <- tidyr::spread(who_sitrep, location, total, fill = 0)
+```
+
+
+## 3B: Use cleaned-up linelist
+
+```{r sl_ll, eval = method[["epiestim"]]}
+who_wide <- here::here("data/CaseCounts/processed",
+                               "SIERRALEONE_wide.csv") %>%
+    readr::read_csv(.) 
 ```
 
 ```{r ebola_params}
@@ -213,19 +229,43 @@ SI_Distr    <- SI_Distr / sum(SI_Distr)
 
 
 ```
+Estimate R using EpiEstim.
+Use incidence data till 3rd week of December 2014 and use the
+estimated R value to bin national count in the last week of 2014 into
+districts.
 
-## 3B: Use cleaned-up linelist
 
-```{r sl_ll, eval = FALSE}
-who_wide <- here::here("data/CaseCounts/processed",
-                               "SIERRALEONE_wide.csv") %>%
-    readr::read_csv(.) %>%
-    filter(Date > "2013-12-31" & Date < "2014-05-29")
-weeks <- stringr::str_pad(lubridate::week(who_wide$Date),
-                          2,
-                          pad = "0")
+```{r epistim,  eval = method[["epiestim"]]}
+who_wide <- filter(who_wide, Date < "2014-12-15")
+time_window <- 49
+start     <- 2:(nrow(who_wide) - time_window)
+end       <- start + time_window
+r.estim   <- select_if(who_wide, is.numeric)  %>%
+    map(function(I) {    
+        res <- EpiEstim::EstimateR(I,
+                                   T.Start = start ,
+                                   T.End = end,
+                                   method = "NonParametricSI",
+                                   SI.Distr = SI_Distr,
+                                   plot = FALSE ,
+                                   CV.Posterior = 1 ,
+                                   Mean.Prior = 1 ,
+                                   Std.Prior = 0.5)
+        res$R[nrow(res$R), ]
+    })
 
-who_wide$week_of_year <- paste0("2014-W", weeks)
+```
+
+What we have is a full posterior distribution of R. Ideally we should
+draw samples and not use a point estimate.
+
+```{r draw_samples,  eval = method[["epiestim"]]}
+n.sim <- 1000
+prob <- map_dfc(r.estim, function(x){
+    shape  <- x$"Mean(R)"^2 / x$"Std(R)"^2
+    scale  <- x$"Std(R)"^2 /  x$"Mean(R)"
+    rgamma(n.sim, shape = shape, scale = scale)})
+
 ```
 
 ## Estimate R 
@@ -254,17 +294,20 @@ list(predicted = predicted, observed = who_wide) %>%
 ```
 
 Extract the coefficients from the fits.
-```{r}
+```{r,  eval = method[["restim"]]}
 district_rates <- map_dfr(r.estim, function(x) coef(x)["t"])
-prob <- as.vector(district_rates)
+prob <- matrix(district_rates, nrow = 1)
+colnames(prob) <- colnames(who_wide)[-1]
 ```
 ## Assign cases to districts
 
 Best to do it when the number of cases is not too small.
 Also, probably not for the whole duration but 2 or 3 weeks.
+Furthermore, we have used data for the first 50 weeks of 2014 to
+estimate R. So we will do the binning starting week 51 of 2014.
 
 ```{r assign, eval = TRUE}
-bin_for <- 12 ## weeks
+bin_for <- 16 ## weeks
 hm_large <- filter(hm_weekly, `Sierra Leone` > 2)
 sl_large <- select(hm_large, c(Date, `Sierra Leone`)) %>%
     `[`(seq_len(bin_for), )
@@ -272,15 +315,11 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
   lapply(function(df) {
     mat <- disaggregate(
       total = df$`Sierra Leone`,
-      prob = prob
+      pmatrix = prob
     )
-    distr <- t(apply(
-      mat, 1, quantile,
-      probs = c(0.025, 0.5, 0.975)
-    ))
-    rownames(distr) <- names(prob)
-    distr <- data.frame(distr)
-    distr <- tibble::rownames_to_column(distr, var = "district")
+    colnames(mat) <- colnames(prob)
+    probs <- c(0.025, 0.5, 0.975)
+    distr <- disaggregate_distr(mat, probs = probs)
     distr
   }) %>% bind_rows(.id = "Date")
 district_weekly$Date <- as.Date(district_weekly$Date)
@@ -302,9 +341,9 @@ comparison$Date <- as.Date(comparison$Date)
 p <- ggplot(comparison, aes(Date,incid)) + geom_point(size = 0.5,
                                                       col = "blue") 
 p <- p + facet_wrap(~district, scales = "free_y")
-p <- p + geom_line(aes(y = `X50.`))
-p <- p + geom_ribbon(aes(ymin = `X2.5.`,
-                         ymax = `X97.5.`,
+p <- p + geom_line(aes(y = `0.5`))
+p <- p + geom_ribbon(aes(ymin = `0.025`,
+                         ymax = `0.975`,
                          group = 1), alpha = 0.5)
 p <- p + theme_classic()
 p

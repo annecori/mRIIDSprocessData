@@ -1,3 +1,20 @@
+##' Convert a week of year string to the last date of the week
+##' @details For our purposes, Week 1 of the year starts on 1st Jan
+##' and ends on 7th Jan. I am aware that there is more to the logic than
+##' this but for now, this simple rule will suffice. For week i, function
+##' returns 7 * (i - 1) days have passed from the start of the year. Use
+##' lubridate to add 7 * i to 1-1-year
+##' @title Week of year to date conversion
+##' @param year
+##' @param week a number between 1 and 53
+##' @return date
+##' @author Sangeeta Bhatia
+week_to_maxdate <- function(year, week){
+    day1 <- paste(year, 1, 1, sep = "-")
+    day1 <- lubridate::ymd(day1)
+    dayn <- day1 + (week * 7 - 1)
+    lubridate::ymd(dayn)
+}
 daily.to.weekly    <- function(daily) {
   extra <- nrow(daily) %% 7
   if (extra != 0) {

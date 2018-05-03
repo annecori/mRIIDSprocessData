@@ -26,6 +26,7 @@ params:
   n.dates.sim : 49
   p.stay: 0.9
   ADM0: SIERRALEONE
+  bin_from: 2015-W08 
 ---
 
 ```{r global_options, include=FALSE}
@@ -60,6 +61,7 @@ n.dates.sim <- params$n.dates.sim
 p.stay <- params$p.stay
 adm0 <- params$ADM0
 from <- params$from
+bin_from <- params$bin_from
 method <- list("pop_density" = FALSE,
                "gm" = FALSE,
                "restim" = TRUE,
@@ -110,7 +112,7 @@ hm_weekly <- daily.to.weekly(hm_wide)
 District-level data from WHO to compare our estimates with.
 
 
-```{r who, eval = TRUE}
+```{r who, eval = FALSE}
 cols <- c("Date", centroids$CL_DistrictRes)
 who_districts <- here::here(
   "data/CaseCounts/processed",
@@ -169,13 +171,8 @@ Read in the latest information published by WHO.
 
 ```{r, eval = method[["restim"]]}
 who_bydistrict <- here::here("data/CaseCounts/processed",
-                             "processed_who_sl_2014-12-17.csv") %>%
+                             "processed_who_sl_2016-05-11.csv") %>%
     read.csv(.)
-weeks <- stringr::str_pad(1:50, 2, pad = "0")
-weeks_of_2014 <- paste0("2014-W", weeks)
-who_bydistrict$week_of_year <- factor(who_bydistrict$week_of_year,
-                                      levels = weeks_of_2014)
-
 who_bydistrict <- arrange(who_bydistrict, week_of_year)
 
 ```
@@ -208,6 +205,8 @@ who_sitrep <- group_by(who_sitrep, location, week_of_year) %>%
     summarise(total = sum(new_cases)) 
 
 who_wide <- tidyr::spread(who_sitrep, location, total, fill = 0)
+who_wide$week_of_year <- factor(who_wide$week_of_year, ordered = TRUE)
+who_wide <- filter(who_wide, week_of_year <= bin_from)
 ```
 
 
@@ -260,7 +259,7 @@ What we have is a full posterior distribution of R. Ideally we should
 draw samples and not use a point estimate.
 
 ```{r draw_samples,  eval = method[["epiestim"]]}
-n.sim <- 1000
+n.sim <- 1
 prob <- map_dfc(r.estim, function(x){
     shape  <- x$"Mean(R)"^2 / x$"Std(R)"^2
     scale  <- x$"Std(R)"^2 /  x$"Mean(R)"
@@ -294,23 +293,43 @@ list(predicted = predicted, observed = who_wide) %>%
 ```
 
 Extract the coefficients from the fits.
+
 ```{r,  eval = method[["restim"]]}
 district_rates <- map_dfr(r.estim, function(x) coef(x)["t"])
-prob <- matrix(district_rates, nrow = 1)
+prob <- matrix(unlist(district_rates), nrow = 1)
 colnames(prob) <- colnames(who_wide)[-1]
 ```
 ## Assign cases to districts
 
-Best to do it when the number of cases is not too small.
-Also, probably not for the whole duration but 2 or 3 weeks.
-Furthermore, we have used data for the first 50 weeks of 2014 to
-estimate R. So we will do the binning starting week 51 of 2014.
+```{r write_probs, eval = TRUE}
+prob_df <- data.frame(prob) %>% tidyr::gather(district, prob)
+prob_df$rel_prob <- prob_df$prob / sum(prob_df$prob)
+prob_df <- arrange(prob_df, district)
+paste0(names(method)[which(method == TRUE)], "_probs.csv") %>%
+    readr::write_csv(x = prob_df, path  = .)
+
+```
+
+Start binning at date that ends week in variable ``bin_from''.
+
+```{r}
+week <- stringr::str_sub(bin_from,
+                         start = 7,
+                         end = 8) %>% strtoi
+
+year <- stringr::str_sub(bin_from,
+                         start = 1,
+                         end = 4) %>% strtoi
+start_at <- week_to_maxdate(year = year,
+                            week = week)
+```
 
 ```{r assign, eval = TRUE}
-bin_for <- 16 ## weeks
-hm_large <- filter(hm_weekly, `Sierra Leone` > 2)
-sl_large <- select(hm_large, c(Date, `Sierra Leone`)) %>%
+bin_for <-  6 ## weeks
+sl_large <- select(hm_weekly, c(Date, `Sierra Leone`)) %>%
+    filter(Date > start_at) %>%
     `[`(seq_len(bin_for), )
+
 district_weekly <- split(sl_large, sl_large$Date) %>%
   lapply(function(df) {
     mat <- disaggregate(
@@ -325,17 +344,30 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
 district_weekly$Date <- as.Date(district_weekly$Date)
 ```
 
+Write out the output.
 
+```{r}
+method  <- names(method)[which(method == TRUE)]
+maxdate <- max(district_weekly$Date)
+here::here("output", paste0(method,
+                            "_",
+                            maxdate,
+                            ".csv")) %>%
+    readr::write_csv(x = district_weekly, path = .)
+```
 ## Compare with data from WHO
 
 Put them together and plot.
 
-```{r compare, eval = TRUE}
+```{r compare, eval = FALSE}
 who_weekly$Date <- as.Date(who_weekly$Date)
+mindate <- as.Date(min(sl_large$Date)) - 30
+maxdate <- max(sl_large$Date)
+comparison <- filter(who_weekly,
+                     Date >= mindate & 
+                     Date <= maxdate) %>%
+    left_join(district_weekly) 
 
-comparison <- filter(who_weekly, Date <= max(sl_large$Date)) %>%
-    left_join(district_weekly) %>%
-    na.omit()
 comparison$Date <- as.Date(comparison$Date)
 
 p <- ggplot(comparison, aes(Date,incid)) + geom_point(size = 0.5,
@@ -347,6 +379,7 @@ p <- p + geom_ribbon(aes(ymin = `0.025`,
                          group = 1), alpha = 0.5)
 p <- p + theme_classic()
 p
-
+paste0(names(method)[which(method == TRUE)], ".png") %>%
+    ggsave(p)
 ```
 

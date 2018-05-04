@@ -26,7 +26,7 @@ params:
   n.dates.sim : 49
   p.stay: 0.9
   ADM0: SIERRALEONE
-  bin_from: 2015-W08 
+  bin_from: 2015-W01 
 ---
 
 ```{r global_options, include=FALSE}
@@ -107,27 +107,6 @@ We will work with weekly incidence counts.
 hm_weekly <- daily.to.weekly(hm_wide)
 ```
 
-## Incidence data from WHO
-
-District-level data from WHO to compare our estimates with.
-
-
-```{r who, eval = FALSE}
-cols <- c("Date", centroids$CL_DistrictRes)
-who_districts <- here::here(
-  "data/CaseCounts/processed",
-  "WHO_wide.csv"
-) %>%
-  readr::read_csv(.) %>%
-  select(cols)
-
-
-who_weekly <- daily.to.weekly(who_districts) %>%
-  tidyr::gather(district, incid, -Date)
-
-who_weekly$Date <- as.Date(who_weekly$Date)
-```
-
 ## Method 1: Relative population density
 
 Take the weekly incidence
@@ -177,22 +156,6 @@ who_bydistrict <- arrange(who_bydistrict, week_of_year)
 
 ```
 
-Look at the data.
-
-```{r sitrep_viz, eval =  method[["restim"]]}
-p <- ggplot(who_bydistrict, aes(week_of_year,
-                                new_cases,
-                                col = data_source))
-p <- p + geom_point()
-p <- p + facet_wrap(~location, scale = "free_y")
-p <- p + theme_bw()
-p <- p + theme(axis.text.x =
-                   element_text(angle = 90,
-                                hjust = 1,
-                                size = 3))
-p
-```
-
 We will use data from Situation Report and add confirmed and probable 
 cases. Treat NAs as 0.
 
@@ -200,13 +163,38 @@ cases. Treat NAs as 0.
 who_sitrep <- filter(who_bydistrict,
                      data_source == "situationreport") %>%
     droplevels()
-
 who_sitrep <- group_by(who_sitrep, location, week_of_year) %>%
     summarise(total = sum(new_cases)) 
-
 who_wide <- tidyr::spread(who_sitrep, location, total, fill = 0)
 who_wide$week_of_year <- factor(who_wide$week_of_year, ordered = TRUE)
-who_wide <- filter(who_wide, week_of_year <= bin_from)
+```
+
+Start binning at date that ends week in variable ``bin_from''.
+
+```{r}
+week <- stringr::str_sub(bin_from,
+                         start = 7,
+                         end = 8) %>% strtoi(base = 10L)
+year <- stringr::str_sub(bin_from,
+                         start = 1,
+                         end = 4) %>% strtoi(base = 10L)
+start_at <- week_to_maxdate(year = year,
+                            week = week)
+```
+It might be better to use the recent data rather than all data
+available upto the point of projection.
+
+```{r}
+use_last <- 6 ## weeks data
+trng_end_level <- which(levels(who_wide$week_of_year) == bin_from)
+trng_start_level <- if (trng_end_level < (use_last + 1)) 1 else trng_end_level - use_last
+trng_start <- levels(who_wide$week_of_year)[trng_start_level]
+trng_end <- bin_from
+who_wide <- filter(who_wide,
+                   week_of_year >= trng_start,
+                   week_of_year <= trng_end)
+
+
 ```
 
 
@@ -269,12 +257,17 @@ prob <- map_dfc(r.estim, function(x){
 
 ## Estimate R 
 
+
+						 
+						 
 ```{r restim, eval = method[["restim"]]}
-r.estim   <- select_if(who_wide, is.numeric)  %>%
+
+r.estim   <- select_if(who_wide, is.numeric) %>%
     map(function(x) {
         df = data.frame(t = seq_len(length(x)), incid = x)
-        glm(x ~ t, data = df, family = poisson())
+        glm(incid ~ t, data = df, family = poisson())
     })
+
 
 ## check fit
 predicted <- map(r.estim, predict, type = "response") %>%
@@ -290,12 +283,13 @@ list(predicted = predicted, observed = who_wide) %>%
 
 
 
+
 ```
 
 Extract the coefficients from the fits.
 
 ```{r,  eval = method[["restim"]]}
-district_rates <- map_dfr(r.estim, function(x) coef(x)["t"])
+district_rates <- map_dfr(r.estim, function(x) exp(coef(x)["t"]))
 prob <- matrix(unlist(district_rates), nrow = 1)
 colnames(prob) <- colnames(who_wide)[-1]
 ```
@@ -310,22 +304,11 @@ paste0(names(method)[which(method == TRUE)], "_probs.csv") %>%
 
 ```
 
-Start binning at date that ends week in variable ``bin_from''.
-
-```{r}
-week <- stringr::str_sub(bin_from,
-                         start = 7,
-                         end = 8) %>% strtoi
-
-year <- stringr::str_sub(bin_from,
-                         start = 1,
-                         end = 4) %>% strtoi
-start_at <- week_to_maxdate(year = year,
-                            week = week)
-```
-
+						 
 ```{r assign, eval = TRUE}
 bin_for <-  6 ## weeks
+
+
 sl_large <- select(hm_weekly, c(Date, `Sierra Leone`)) %>%
     filter(Date > start_at) %>%
     `[`(seq_len(bin_for), )
@@ -342,6 +325,7 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
     distr
   }) %>% bind_rows(.id = "Date")
 district_weekly$Date <- as.Date(district_weekly$Date)
+district_weekly$bin_from <- bin_from
 ```
 
 Write out the output.
@@ -354,32 +338,5 @@ here::here("output", paste0(method,
                             maxdate,
                             ".csv")) %>%
     readr::write_csv(x = district_weekly, path = .)
-```
-## Compare with data from WHO
-
-Put them together and plot.
-
-```{r compare, eval = FALSE}
-who_weekly$Date <- as.Date(who_weekly$Date)
-mindate <- as.Date(min(sl_large$Date)) - 30
-maxdate <- max(sl_large$Date)
-comparison <- filter(who_weekly,
-                     Date >= mindate & 
-                     Date <= maxdate) %>%
-    left_join(district_weekly) 
-
-comparison$Date <- as.Date(comparison$Date)
-
-p <- ggplot(comparison, aes(Date,incid)) + geom_point(size = 0.5,
-                                                      col = "blue") 
-p <- p + facet_wrap(~district, scales = "free_y")
-p <- p + geom_line(aes(y = `0.5`))
-p <- p + geom_ribbon(aes(ymin = `0.025`,
-                         ymax = `0.975`,
-                         group = 1), alpha = 0.5)
-p <- p + theme_classic()
-p
-paste0(names(method)[which(method == TRUE)], ".png") %>%
-    ggsave(p)
 ```
 

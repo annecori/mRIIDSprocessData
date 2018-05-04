@@ -1,0 +1,77 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+```
+
+## Incidence data from WHO
+
+District-level data from WHO to compare our estimates with.
+
+
+```{r who, eval = FALSE}
+
+sl_districts <- here::here(
+  "data/CaseCounts/processed",
+  "SIERRALEONE_wide.csv"
+) %>%
+  readr::read_csv(.) 
+
+sl_weekly <- daily.to.weekly(sl_districts) %>%
+  tidyr::gather(district, incid, -Date)
+
+sl_weekly$Date <- as.Date(sl_weekly$Date)
+```
+
+## Read in projections
+
+```{r}
+infiles <- paste0("output/", list.files("output",
+                                        pattern = "restim_201"))
+
+projections <- map_dfr(infiles, readr::read_csv)
+projections$district <- stringr::str_replace_all(projections$district,
+                                                 "PORT.LOKO",
+                                                 "PORTLOKO")
+```
+
+## Visualization
+
+```{r}
+compare <- left_join(sl_weekly, projections) %>%
+    filter(Date > "2014-12-01")
+compare$district <- factor(compare$district)
+p <- ggplot(compare, aes(Date, incid)) + geom_point(size = 0.5,col = "blue")
+p <- p + facet_wrap(~district, scale = "free_y")
+p <- p + geom_line(aes(y = `0.5`))
+p <- p + geom_ribbon(aes(ymin = `0.025`,
+                         ymax = `0.975`,
+                         group = 1), alpha = 0.5)
+p <- p + theme_classic()
+p
+```
+

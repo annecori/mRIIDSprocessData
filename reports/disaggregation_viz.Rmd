@@ -57,20 +57,26 @@ projections <- map_dfr(infiles, readr::read_csv)
 projections$district <- stringr::str_replace_all(projections$district,
                                                  "PORT.LOKO",
                                                  "PORTLOKO")
+projections$bin_from <- factor(projections$bin_from)
 ```
 
 ## Visualization
 
 ```{r}
-compare <- left_join(sl_weekly, projections) %>%
-    filter(Date > "2014-12-01")
+compare <- filter(projections, bin_from %in% c("2015-W02",
+                                               "2015-W12")) %>%
+    left_join(sl_weekly, .) %>%
+    filter(Date > "2014-12-01") 
+
 compare$district <- factor(compare$district)
-p <- ggplot(compare, aes(Date, incid)) + geom_point(size = 0.5,col = "blue")
+
+p <- ggplot(compare, aes(Date, incid, fill = bin_from)) +
+     geom_point(size = 0.5, col = "blue")
 p <- p + facet_wrap(~district, scale = "free_y")
 p <- p + geom_line(aes(y = `0.5`))
 p <- p + geom_ribbon(aes(ymin = `0.025`,
                          ymax = `0.975`,
-                         group = 1), alpha = 0.5)
+                         fill = bin_from), alpha = 0.5)
 p <- p + theme_classic()
 p
 ```

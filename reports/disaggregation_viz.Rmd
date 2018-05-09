@@ -26,6 +26,8 @@ library(dplyr)
 library(magrittr)
 library(stringr)
 library(ggplot2)
+library(purrr)
+devtools::load_all()
 ```
 
 ## Incidence data from WHO
@@ -64,7 +66,8 @@ projections$bin_from <- factor(projections$bin_from)
 
 ```{r}
 compare <- filter(projections, bin_from %in% c("2015-W02",
-                                               "2015-W12")) %>%
+                                               "2015-W12",
+                                               "2015-W22")) %>%
     left_join(sl_weekly, .) %>%
     filter(Date > "2014-12-01") 
 

@@ -45,3 +45,4 @@ testthat::test_that("Last date of the week is returned", {
     expect_equal(week_to_maxdate(year, week), correct)
 
 })
+

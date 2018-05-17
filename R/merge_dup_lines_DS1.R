@@ -28,10 +28,10 @@ merge_dup_lines_DS1 <- function(dat_dup, cols_to_keep, rule = c("median")) {
   if (!all(cols_to_keep %in% names(dat_dup))) {
     stop("dat_dup should have names containing all elements of cols_to_keep.")
   }
-  if (!("HealthMap.Alert.ID" %in% names(dat_dup))) {
-    stop("dat_dup should have a column 'HealthMap.Alert.ID'.")
+  if (!("healthmap_alert_id" %in% names(dat_dup))) {
+    stop("dat_dup should have a column 'healthmap_alert_id'.")
   }
-  if (!("Cases" %in% names(dat_dup))) {
+  if (!("cases" %in% names(dat_dup))) {
     stop("dat_dup should have a column 'Cases'.")
   }
 
@@ -54,11 +54,11 @@ merge_dup_lines_DS1 <- function(dat_dup, cols_to_keep, rule = c("median")) {
     if ("url" %in% cols_to_keep) {
       out$url <- paste_single_col(dat_dup$url)
     }
-    # alert_tag, same as HealthMap.Alert.ID
+    # alert_tag, same as healthmap_alert_id
     if ("alert_tag" %in% cols_to_keep) {
       out$alert_tag <- paste_single_col(dat_dup$alert_tag)
     }
-    # Feed.Name, same as HealthMap.Alert.ID
+    # Feed.Name, same as healthmap_alert_id
     if ("feed_name" %in% cols_to_keep) {
       out$feed_name <- paste_single_col(dat_dup$feed_name)
     }

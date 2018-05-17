@@ -1,0 +1,240 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width = 12, fig.height = 6, echo = FALSE, warning = FALSE, message = FALSE, fig.path = "figures/")
+```
+
+```{r setup}
+library(magrittr)
+library(ggplot2)
+library(ggthemes)
+library(scales)
+library(dplyr)
+library(purrr)
+devtools::load_all()
+```
+
+
+```{r ds1_params}
+
+species <- "Humans"
+disease <- "Ebola"
+case.type <- "scc"
+```
+
+# Data clean-up
+
+Visualising the raw data.
+
+
+
+```{r}
+
+promed_drc <- here::here("data/CaseCounts/raw",
+                         "Ebola outbreak DRC 2014 curated data.xlsx") %>%
+    readxl::read_excel() %>%
+    janitor::clean_names() %>%
+    filter(species == species & disease == disease)
+
+```
+Country is reported as both  "DR Congo"  and "Democratic Republic of
+the Congo". So make country name consistent.
+
+```{r}
+promed_drc$country <- stringr::str_replace_all(promed_drc$country,
+                                               "Democratic Republic of the Congo",
+                                               "DR Congo")
+```
+Rename columns as per the previous feeds received.
+
+```{r}
+promed_drc <- rename(promed_drc,
+                     healthmap_alert_id = hm_alert_id,
+                     sc = new_sc,
+                     sd = new_sd,
+                     cc = new_cc,
+                     cd = new_cd)
+```
+
+Split date and time. We are not going to use time anyway.
+
+```{r}
+promed_drc <- tidyr::separate(promed_drc,
+                              col = issue_date,
+                              into = c("issue_date", "timestamp"),
+                              sep = " ",
+                              remove = TRUE)
+```
+
+```{r hm_rawviz, eval = TRUE}
+promed_drc_tall <- promed_drc %>%
+    select(`issue_date`, `sc`, `sd`,
+           `cc`, `cd`, `country`) %>%
+  tidyr::gather(
+    case_type,
+    count, -c(issue_date, country)
+  )
+
+
+promed_drc_tall$date <- as.Date(promed_drc_tall$issue_date,
+                                format = "%m/%d/%y")
+
+p <- promed_drc_tall %>%
+  ggplot(aes(date, count, color = case_type)) +
+  geom_point() +
+  facet_wrap(~country) +
+  xlab("") + ylab("New Case Count")
+p <- p + geom_rangeframe() + theme_bw()
+p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + theme(legend.title = element_blank())
+p <- p + xlab("")
+p <- p + scale_x_date(date_labels = "%b %Y")
+p
+```
+The data clean-up consists of the following steps:
+1. Extract the cumulative case count as a sum of suspected and
+confirmed cases.
+2. Merge duplicate alerts.
+3. Remove outliers and interpolate missing data.
+4. Determine the incidence count from the cumulative case count.
+
+
+```{r}
+
+
+cols.to.keep <- c(
+  "location", "country", "disease", "species",
+  "healthmap_alert_id", "headline", "url",
+  "alert_tag", "feed_name", "lon", "lat"
+)
+## These are columns we generate ourselves later on
+cols.to.keep <- c(cols.to.keep, "date", "cases")
+
+## Record all intermediate steps
+record <- list()
+
+drc_case_count <- update_cases_column(promed_drc, case.type)
+record <- c(record, update_case_column = drc_case_count)
+no_duplicates <- merge_duplicates(drc_case_count, cols.to.keep)
+record <- c(record, merge_duplicates = no_duplicates)
+
+drc_case_count <- arrange(drc_case_count, date)
+not.na <- which(!is.na(drc_case_count$cases))
+cum.incidence <- drc_case_count[, c("date", "cases")]
+first.row <- drc_case_count[1, c("date", "cases")]
+first.row$date <- first.row$date - 1
+first.row$cases <- 0
+cum.incidence <- rbind(first.row, cum.incidence)
+cum.incidence <- interpolate_missing_data(cum.incidence)
+    
+
+    
+```
+
+```{r lib_eg, eval = TRUE}
+
+lapply(names(by.location), function(n) {
+  df <- by.location[[n]]
+  df$cleanup_step %<>% factor
+  df %<>%
+    mutate(
+      cleanup_step =
+        forcats::fct_recode(
+          cleanup_step,
+          "Cases" = "update_cases_col",
+          "Merge_Duplicates" = "merge_duplicates",
+          "Outliers Removed" = "outliers_removed",
+          "Make increasing" = "make_increasing",
+          "Interpolate" = "interpolate"
+        )
+    )
+
+  df$cleanup_step %<>% forcats::fct_inorder()
+
+  p <- ggplot(df, aes(Date, Cases)) +
+    facet_wrap(~cleanup_step, nrow = 1) +
+    geom_point(
+      size = 1.1,
+      stroke = 0,
+      shape = 16,
+      colour = "gray"
+    )
+
+  p <- p + geom_rangeframe() + theme_tufte()
+  p <- p + theme(axis.text.x = element_text(
+    angle = 80,
+    hjust = 1
+  ))
+  p <- p + theme(legend.title = element_blank())
+  p <- p + xlab("")
+  p <- p + scale_x_date(date_labels = "%b %Y")
+  outfile <- paste0("figures/", n, "-cleanup.png")
+  print(outfile)
+  ggsave(outfile, p)
+})
+```
+
+```{r incid_tall, eval = TRUE}
+
+by.location %<>% lapply(function(df) {
+  df %<>% filter(cleanup_step == "interpolate")
+  df$incid <- c(0, diff(df$Cases))
+  df %<>% select(-c(cleanup_step, Cases))
+  return(df)
+})
+
+
+by.location_weekly <- lapply(by.location, daily.to.weekly) %>%
+  bind_rows(.id = "Country") %>%
+  filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
+
+by.location_incid <- bind_rows(by.location, .id = "Country")
+by.location_incid %<>% filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
+```
+
+```{r hm_weekly_incid, eval = TRUE}
+
+by.location_weekly$Date %<>% as.Date
+p <- ggplot(by.location_weekly, aes(Date, incid)) +
+  geom_point(size = 1.5, stroke = 0, shape = 16) +
+  facet_wrap(~Country, scales = "free_y", nrow = 6) +
+  ylab("Incidence")
+
+p <- p + geom_rangeframe() + theme_tufte()
+p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+p <- p + theme(legend.title = element_blank())
+p <- p + xlab("")
+p <- p + scale_x_date(date_labels = "%b %Y")
+
+p
+```
+
+```{r incid_wide, eval = TRUE}
+
+by.location_incid %<>% tidyr::spread(key = Country, value = incid, fill = 0)
+
+hm_wide <- here::here("data", "CaseCounts/processed/HealthMap_Ebola_wide.csv")
+readr::write_csv(by.location_incid, path = hm_wide)
+```

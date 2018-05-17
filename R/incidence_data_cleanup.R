@@ -14,8 +14,8 @@ merge_duplicates <- function(case_count,
   ### identify unique entries based on date and country columns
   ####################################
 
-  case_count$DateCountry <- paste0(as.character(case_count$Date),
-                                   case_count$Country)
+  case_count$DateCountry <- paste0(as.character(case_count$date),
+                                   case_count$country)
   uniq_dat <- unique(case_count$DateCountry)
 
   ####################################
@@ -23,24 +23,17 @@ merge_duplicates <- function(case_count,
   ####################################
 
   cols_to_keep <- cols_to_keep[cols_to_keep %in% names(case_count)]
-
+  chr_cols <- cols_to_keep[! cols_to_keep %in% c("date", "cases")]
   ### create a processed dataset ###
-  duplicates_free <- as.data.frame(matrix(NA, length(uniq_dat),
-                                          length(cols_to_keep)))
-  names(duplicates_free) <- cols_to_keep
-  ### making sure classes are consistent with
-  ### original dataset (useful for dates in particular)
-  for (j in 1:length(cols_to_keep)){
-    class(duplicates_free[, j]) <- class(case_count[, cols_to_keep[j]])
-  }
-  ### merging entries ###
-  for (i in 1:length(uniq_dat)){
-      duplicates_free[i, ] <- merge_dup_lines_DS1(case_count[which(case_count$DateCountry
-                                                                  %in% uniq_dat[i]), ],
-                                                 cols_to_keep,
-                                                 rule = merge_rule)
-  }
-  return(duplicates_free)
+  duplicates_free <- purrr::map_dfr(uniq_dat, function(x) {
+      out <- merge_dup_lines_DS1(case_count[which(case_count$DateCountry
+                                                  %in% x), ],
+                                 cols_to_keep,
+                                 rule = merge_rule)
+      out <- mutate_at(out, chr_cols, as.character)
+      out
+  })
+  duplicates_free
 }
 
 
@@ -72,9 +65,9 @@ filter_case_count <- function(case_count, species, disease, location){
 ##' @param case_type
 ##' @return
 ##' @author Sangeeta Bhatia
-update_cases_column <- function(case_count, case_type = c("SCC", "SC",
-                                                          "CC", "SCD",
-                                                          "SD", "CD",
+update_cases_column <- function(case_count, case_type = c("scc", "sc",
+                                                          "cc", "scd",
+                                                          "sd", "cd",
                                                           "ALL")){
 
   ####################################
@@ -85,7 +78,7 @@ update_cases_column <- function(case_count, case_type = c("SCC", "SC",
 
   ### create dates without time from issue_date
 
-  case_count$date <- lubridate::mdy_hm(case_count$issue_date)
+  case_count$date <- lubridate::ymd(case_count$issue_date)
 
   ##################################################################
   ### Create column called cases which comprises all relevant cases
@@ -117,25 +110,25 @@ sum_only_na_stays_na <- function(x){
 #
 
 get_cases <- function(dat,
-                      case_type = c("SCC", "SC", "CC", "SCD",
-                                    "SD", "CD", "ALL")){
+                      case_type = c("scc", "sc", "cc", "scd",
+                                    "sd", "cd", "ALL")){
 
   case_type <- match.arg(case_type)
 
-  if (case_type %in% "SCC") {
-    col <- apply(dat[, c("SC", "CC")], 1, sum_only_na_stays_na)
-  } else if (case_type %in% "SC"){
-    col <- dat$SC
-  } else if (case_type %in% "CC"){
-    col <- dat$CC
-  } else if (case_type %in% "SCD"){
-    col <- apply(dat[, c("SD", "CD")], 1, sum_only_na_stays_na)
-  } else if (case_type %in% "SD"){
-    col <- dat$SD
-  } else if (case_type %in% "CD"){
-    col <- dat$CD
+  if (case_type %in% "scc") {
+    col <- apply(dat[, c("sc", "cc")], 1, sum_only_na_stays_na)
+  } else if (case_type %in% "sc"){
+    col <- dat$sc
+  } else if (case_type %in% "cc"){
+    col <- dat$cc
+  } else if (case_type %in% "scd"){
+    col <- apply(dat[, c("sd", "cd")], 1, sum_only_na_stays_na)
+  } else if (case_type %in% "sd"){
+    col <- dat$sd
+  } else if (case_type %in% "cd"){
+    col <- dat$cd
   } else if (case_type %in% "ALL"){
-      col <- apply(dat[, c("SC", "CC", "SD", "CD")], 1,
+      col <- apply(dat[, c("sc", "cc", "sd", "cd")], 1,
                    sum_only_na_stays_na)
   }
 

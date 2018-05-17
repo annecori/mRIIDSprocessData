@@ -14,10 +14,10 @@
 #' incidence will be extracted
 #' @param disease string specifying disease of interest
 #' @param case_type string specifying column name from which
-#' incidence is extracted; one of "SCC" (suspected and
-#' confirmed cases), "SC" (suspected cases), "CC" (confirmed
-#' cases), "SCD" (suspected and confirmed deaths), "SD"
-#' (suspected deaths), or "CD" (confirmed deaths).
+#' incidence is extracted; one of "scc" (suspected and
+#' confirmed cases), "sc" (suspected cases), "cc" (confirmed
+#' cases), "scD" (suspected and confirmed deaths), "sd"
+#' (suspected deaths), or "cd" (confirmed deaths).
 #' @param location string specifying location for which
 #' incidence will be computed
 #' @param merge_rule string to specify how merging should be
@@ -40,8 +40,8 @@ incidence.from.DS1 <- function(case_count,
                                species,
                                disease,
                                case_type = c(
-                                 "SCC", "SC", "CC",
-                                 "SCD", "SD", "CD",
+                                 "scc", "sc", "cc",
+                                 "scd", "sd", "cd",
                                  "ALL"
                                ),
                                location,

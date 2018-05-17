@@ -62,11 +62,12 @@ p.stay <- params$p.stay
 adm0 <- params$ADM0
 from <- params$from
 bin_from <- params$bin_from
-method <- list("pop_density" = FALSE,
-               "gm" = FALSE,
-               "restim" = TRUE,
-               "epiestim" = FALSE)
-
+method <- list(
+  "pop_density" = FALSE,
+  "gm" = FALSE,
+  "restim" = TRUE,
+  "epiestim" = FALSE
+)
 ```
 
 ## Model
@@ -119,7 +120,7 @@ pop_density <- data.frame(
   district = centroids$CL_DistrictRes,
   rel_density = centroids$pop / sum(centroids$pop)
 )
-prob <- matrix(pop_density$rel_density^2, nrow = 1)
+prob <- matrix(pop_density$rel_density ^ 2, nrow = 1)
 colnames(prob) <- pop_density$district
 ```
 
@@ -149,39 +150,61 @@ Suppose we are doing the disaggregation in the last week of 2014.
 Read in the latest information published by WHO.
 
 ```{r, eval = method[["restim"]]}
-who_bydistrict <- here::here("data/CaseCounts/processed",
-                             "processed_who_sl_2016-05-11.csv") %>%
-    read.csv(.)
+who_bydistrict <- here::here(
+  "data/CaseCounts/processed",
+  "processed_who_sl_2016-05-11.csv"
+) %>%
+  read.csv(.)
 who_bydistrict <- arrange(who_bydistrict, week_of_year)
-
 ```
 
 We will use data from Situation Report and add confirmed and probable 
 cases. Treat NAs as 0.
 
 ```{r, eval = method[["restim"]]}
-who_sitrep <- filter(who_bydistrict,
-                     data_source == "situationreport") %>%
-    droplevels()
+who_sitrep <- filter(
+  who_bydistrict,
+  data_source == "situationreport"
+) %>%
+  droplevels()
 who_sitrep <- group_by(who_sitrep, location, week_of_year) %>%
-    summarise(total = sum(new_cases)) 
+  summarise(total = sum(new_cases))
 who_wide <- tidyr::spread(who_sitrep, location, total, fill = 0)
 who_wide$week_of_year <- factor(who_wide$week_of_year, ordered = TRUE)
+```
+Aggregate Western Area Rural and Western Area Urban into Western to
+allow for comparison with linelist.
+
+```{r western, eval = method[["restim"]]}
+
+who_wide$WESTERN <- who_wide$`WESTERN AREA RURAL` +
+    who_wide$`WESTERN AREA URBAN`
+
+who_wide <- select(who_wide,
+                   -`WESTERN AREA URBAN`,
+                   -`WESTERN AREA RURAL`)
+
 ```
 
 Start binning at date that ends week in variable ``bin_from''.
 
 ```{r}
-week <- stringr::str_sub(bin_from,
-                         start = 7,
-                         end = 8) %>% strtoi(base = 10L)
-year <- stringr::str_sub(bin_from,
-                         start = 1,
-                         end = 4) %>% strtoi(base = 10L)
-start_at <- week_to_maxdate(year = year,
-                            week = week)
+week <- stringr::str_sub(
+  bin_from,
+  start = 7,
+  end = 8
+) %>% strtoi(base = 10L)
+year <- stringr::str_sub(
+  bin_from,
+  start = 1,
+  end = 4
+) %>% strtoi(base = 10L)
+start_at <- week_to_maxdate(
+  year = year,
+  week = week
+)
 ```
-It might be better to use the recent data rather than all data
+It might be better to use recent data rather than all data
 available upto the point of projection.
 
 ```{r}
@@ -190,31 +213,31 @@ trng_end_level <- which(levels(who_wide$week_of_year) == bin_from)
 trng_start_level <- if (trng_end_level < (use_last + 1)) 1 else trng_end_level - use_last
 trng_start <- levels(who_wide$week_of_year)[trng_start_level]
 trng_end <- bin_from
-who_wide <- filter(who_wide,
-                   week_of_year >= trng_start,
-                   week_of_year <= trng_end)
-
-
+who_wide <- filter(
+  who_wide,
+  week_of_year >= trng_start,
+  week_of_year <= trng_end
+)
 ```
 
 
 ## 3B: Use cleaned-up linelist
 
 ```{r sl_ll, eval = method[["epiestim"]]}
-who_wide <- here::here("data/CaseCounts/processed",
-                               "SIERRALEONE_wide.csv") %>%
-    readr::read_csv(.) 
+who_wide <- here::here(
+  "data/CaseCounts/processed",
+  "SIERRALEONE_wide.csv"
+) %>%
+  readr::read_csv(.)
 ```
 
 ```{r ebola_params}
 
-mean_SI     <- 14.2
-CV_SI       <- 9.6 / 14.2
-SItrunc     <- 40
-SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
-SI_Distr    <- SI_Distr / sum(SI_Distr)
-
-
+mean_SI <- 14.2
+CV_SI <- 9.6 / 14.2
+SItrunc <- 40
+SI_Distr <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr <- SI_Distr / sum(SI_Distr)
 ```
 Estimate R using EpiEstim.
 Use incidence data till 3rd week of December 2014 and use the
@@ -225,22 +248,23 @@ districts.
 ```{r epistim,  eval = method[["epiestim"]]}
 who_wide <- filter(who_wide, Date < "2014-12-15")
 time_window <- 49
-start     <- 2:(nrow(who_wide) - time_window)
-end       <- start + time_window
-r.estim   <- select_if(who_wide, is.numeric)  %>%
-    map(function(I) {    
-        res <- EpiEstim::EstimateR(I,
-                                   T.Start = start ,
-                                   T.End = end,
-                                   method = "NonParametricSI",
-                                   SI.Distr = SI_Distr,
-                                   plot = FALSE ,
-                                   CV.Posterior = 1 ,
-                                   Mean.Prior = 1 ,
-                                   Std.Prior = 0.5)
-        res$R[nrow(res$R), ]
-    })
-
+start <- 2:(nrow(who_wide) - time_window)
+end <- start + time_window
+r.estim <- select_if(who_wide, is.numeric) %>%
+  map(function(I) {
+    res <- EpiEstim::EstimateR(
+      I,
+      T.Start = start,
+      T.End = end,
+      method = "NonParametricSI",
+      SI.Distr = SI_Distr,
+      plot = FALSE,
+      CV.Posterior = 1,
+      Mean.Prior = 1,
+      Std.Prior = 0.5
+    )
+    res$R[nrow(res$R), ]
+  })
 ```
 
 What we have is a full posterior distribution of R. Ideally we should
@@ -248,42 +272,36 @@ draw samples and not use a point estimate.
 
 ```{r draw_samples,  eval = method[["epiestim"]]}
 n.sim <- 1
-prob <- map_dfc(r.estim, function(x){
-    shape  <- x$"Mean(R)"^2 / x$"Std(R)"^2
-    scale  <- x$"Std(R)"^2 /  x$"Mean(R)"
-    rgamma(n.sim, shape = shape, scale = scale)})
-
+prob <- map_dfc(r.estim, function(x) {
+  shape <- x$"Mean(R)" ^ 2 / x$"Std(R)" ^ 2
+  scale <- x$"Std(R)" ^ 2 / x$"Mean(R)"
+  rgamma(n.sim, shape = shape, scale = scale)
+})
 ```
 
 ## Estimate R 
 
-
-						 
 						 
 ```{r restim, eval = method[["restim"]]}
 
-r.estim   <- select_if(who_wide, is.numeric) %>%
-    map(function(x) {
-        df = data.frame(t = seq_len(length(x)), incid = x)
-        glm(incid ~ t, data = df, family = poisson())
-    })
+r.estim <- select_if(who_wide, is.numeric) %>%
+  map(function(x) {
+    df <- data.frame(t = seq_len(length(x)), incid = x)
+    glm(incid ~ t, data = df, family = poisson())
+  })
 
 
 ## check fit
 predicted <- map(r.estim, predict, type = "response") %>%
-    dplyr::bind_cols(.)
+  dplyr::bind_cols(.)
 
 predicted$week_of_year <- who_wide$week_of_year
 
 list(predicted = predicted, observed = who_wide) %>%
-    dplyr::bind_rows(.id = "data_source") %>%
-    tidyr::gather(district, incid, -week_of_year, -data_source) %>%
-    ggplot(aes(week_of_year, incid, col = data_source)) + geom_point() +
-    facet_wrap(~district, scale = "free_y")
-
-
-
-
+  dplyr::bind_rows(.id = "data_source") %>%
+  tidyr::gather(district, incid, -week_of_year, -data_source) %>%
+  ggplot(aes(week_of_year, incid, col = data_source)) + geom_point() +
+  facet_wrap(~district, scale = "free_y")
 ```
 
 Extract the coefficients from the fits.
@@ -295,23 +313,22 @@ colnames(prob) <- colnames(who_wide)[-1]
 ```
 ## Assign cases to districts
 
-```{r write_probs, eval = TRUE}
+```{r write_probs, eval = FALSE}
 prob_df <- data.frame(prob) %>% tidyr::gather(district, prob)
 prob_df$rel_prob <- prob_df$prob / sum(prob_df$prob)
 prob_df <- arrange(prob_df, district)
 paste0(names(method)[which(method == TRUE)], "_probs.csv") %>%
-    readr::write_csv(x = prob_df, path  = .)
-
+  readr::write_csv(x = prob_df, path = .)
 ```
 
 						 
 ```{r assign, eval = TRUE}
-bin_for <-  6 ## weeks
+bin_for <- 6 ## weeks
 
 
 sl_large <- select(hm_weekly, c(Date, `Sierra Leone`)) %>%
-    filter(Date > start_at) %>%
-    `[`(seq_len(bin_for), )
+  filter(Date > start_at) %>%
+  `[`(seq_len(bin_for), )
 
 district_weekly <- split(sl_large, sl_large$Date) %>%
   lapply(function(df) {
@@ -323,20 +340,93 @@ district_weekly <- split(sl_large, sl_large$Date) %>%
     probs <- c(0.025, 0.5, 0.975)
     distr <- disaggregate_distr(mat, probs = probs)
     distr
-  }) %>% bind_rows(.id = "Date")
+  }) %>%
+  bind_rows(.id = "Date")
 district_weekly$Date <- as.Date(district_weekly$Date)
 district_weekly$bin_from <- bin_from
+district_weekly$district <- stringr::str_replace_all(projections$district,
+                                                 "PORT.LOKO",
+                                                 "PORTLOKO")
 ```
 
-Write out the output.
+Write out the output. 
 
 ```{r}
-method  <- names(method)[which(method == TRUE)]
+method <- names(method)[which(method == TRUE)]
 maxdate <- max(district_weekly$Date)
-here::here("output", paste0(method,
-                            "_",
-                            maxdate,
-                            ".csv")) %>%
+
+here::here("output", paste0(
+ "projections_",                        
+  method,
+  "_",
+  maxdate,
+  ".csv"
+)) %>%
     readr::write_csv(x = district_weekly, path = .)
+
+```
+Also write out the training data.
+
+```{r trng, eval = FALSE}
+
+
+here::here("output", paste0(
+  "training_",                         
+  method,
+  "_",
+  maxdate,
+  ".csv"
+)) %>%
+    readr::write_csv(x = who_wide, path = .)
+
+
+
 ```
 
+## Visualizing the results
+
+## Validation data
+
+```{r who, eval = FALSE}
+
+sl_weekly <- here::here(
+  "data/CaseCounts/processed",
+  "sl_weekly_tall.csv"
+) %>%
+  readr::read_csv(.) 
+
+
+```
+
+## Training Data
+```{r}
+who_tall <- tidyr::gather(who_wide, district, incid, -week_of_year)
+```
+
+```{r}
+## Plot training data
+p <- ggplot(who_tall, aes(week_of_year, incid)) + geom_point(col = "red")
+p <- p + facet_wrap(~district, scale = "free_y")
+
+## Plot validation data
+sl_small <- filter(sl_weekly,
+                   Date >= min(training$week_of) &
+                   Date <= max(projections$Date) + 14)
+p <- p + geom_point(data = sl_small, aes(x = Date, y = incid))
+
+## Plot projections
+p <- p + geom_line(data = projections,
+                   aes(x = Date, y = `0.5`),
+                   col = "blue")
+p <- p + geom_ribbon(data = projections,
+                     aes(x = Date,
+                         ymin = `0.025`,
+                         ymax = `0.975`,
+                         fill = bin_from),
+                     alpha = 0.5,
+                     inherit.aes = FALSE)
+
+p <- p + theme_classic()
+p
+
+```

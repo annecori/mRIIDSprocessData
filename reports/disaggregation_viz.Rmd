@@ -37,24 +37,30 @@ District-level data from WHO to compare our estimates with.
 
 ```{r who, eval = FALSE}
 
-sl_districts <- here::here(
+sl_weekly <- here::here(
   "data/CaseCounts/processed",
-  "SIERRALEONE_wide.csv"
+  "sl_weekly_tall.csv"
 ) %>%
   readr::read_csv(.) 
 
-sl_weekly <- daily.to.weekly(sl_districts) %>%
-  tidyr::gather(district, incid, -Date)
 
-sl_weekly$Date <- as.Date(sl_weekly$Date)
 ```
+## Training Data set
 
+```{r trng}
+training <- here::here("output", "restim_training_2015-12-17.csv") %>%
+    readr::read_csv() %>%
+    rename("PORTLOKO" = `PORT LOKO`) %>%
+    tidyr::gather(district, incid, -week_of_year, -week_of)
+
+
+```
 ## Read in projections
 
 ```{r}
-infiles <- paste0("output/", list.files("output",
-                                        pattern = "restim_201"))
-
+#infiles <- paste0("output/", list.files("output",
+#                                        pattern = "restim_201"))
+infiles <- here::here("output", "restim_2015-12-17.csv")
 projections <- map_dfr(infiles, readr::read_csv)
 projections$district <- stringr::str_replace_all(projections$district,
                                                  "PORT.LOKO",
@@ -64,12 +70,38 @@ projections$bin_from <- factor(projections$bin_from)
 
 ## Visualization
 
+
 ```{r}
-compare <- filter(projections, bin_from %in% c("2015-W02",
-                                               "2015-W12",
-                                               "2015-W22")) %>%
-    left_join(sl_weekly, .) %>%
-    filter(Date > "2014-12-01") 
+## Plot training data
+p <- ggplot(training, aes(week_of, incid)) + geom_point(col = "red")
+p <- p + facet_wrap(~district, scale = "free_y")
+
+## Plot validation data
+sl_small <- filter(sl_weekly,
+                   Date >= min(training$week_of) &
+                   Date <= max(projections$Date) + 14)
+p <- p + geom_point(data = sl_small, aes(x = Date, y = incid))
+
+## Plot projections
+p <- p + geom_line(data = projections,
+                   aes(x = Date, y = `0.5`),
+                   col = "blue")
+p <- p + geom_ribbon(data = projections,
+                     aes(x = Date,
+                         ymin = `0.025`,
+                         ymax = `0.975`,
+                         fill = bin_from),
+                     alpha = 0.5,
+                     inherit.aes = FALSE)
+
+p <- p + theme_classic()
+p
+
+```
+
+```{r}
+compare <- left_join(projections, sl_weekly) %>%
+    filter(Date > "2014-11-27") 
 
 compare$district <- factor(compare$district)
 

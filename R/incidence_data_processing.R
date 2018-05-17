@@ -145,9 +145,9 @@ compute.cumulative.incidence <- function(no_duplicates){
     ## incidence on that day is zero
 
     not_na        <- which(!is.na(no_duplicates$Cases))
-    cum_incidence <- no_duplicates[not_na, c("Date", "Cases")]
+    cum_incidence <- no_duplicates[not_na, c("date", "cases")]
 
-    first_row       <- no_duplicates[1, c("Date", "Cases")]
+    first_row       <- no_duplicates[1, c("date", "cases")]
     first_row$Date  <- first_row$Date - 1
     first_row$Cases <- 0
 

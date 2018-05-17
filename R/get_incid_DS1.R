@@ -39,12 +39,13 @@
 incidence.from.DS1 <- function(case_count,
                                species,
                                disease,
-                               case_type = c("SCC", "SC", "CC",
-                                             "SCD", "SD", "CD",
-                                             "ALL"),
+                               case_type = c(
+                                 "SCC", "SC", "CC",
+                                 "SCD", "SD", "CD",
+                                 "ALL"
+                               ),
                                location,
-                               merge_rule = c("median")){
-
+                               merge_rule = c("median")) {
   case_type <- match.arg(case_type)
   merge_rule <- match.arg(merge_rule)
 
@@ -55,35 +56,38 @@ incidence.from.DS1 <- function(case_count,
   ### from merging, it is ignored.
   ####################################
 
-  cols_to_keep <- c("Location", "Country", "Disease", "Species",
-                   "HealthMap.Alert.ID", "Headline", "URL",
-                   "Alert.Tag", "Feed.Name", "Lon", "Lat")
+  cols_to_keep <- c(
+    "location", "country", "disease", "species",
+    "healthmap_alert_id", "headline", "url",
+    "alert_tag", "feed_name", "lon", "lat"
+  )
   ## these are columns we generate ourselves later on
-  cols_to_keep <- c(cols_to_keep, "Date", "Cases")
+  cols_to_keep <- c(cols_to_keep, "date", "cases")
 
 
   ## If column names are not as expected, stop right here.
-  good_colnames <- c("Disease", "Species", "Issue.Date",
-                     "Location", "Country")
-  if (!check.columns(case_count, good_colnames))
+  good_colnames <- c(
+    "disease", "species", "issue_date",
+    "location", "country"
+  )
+  if (!check.columns(case_count, good_colnames)) {
     stop("Input data should have columns named:
-          Disease, Species, Issue.Date, Location, Country")
+          disease, species, issue_date, location, country")
+  }
 
   ####################################
   ### select appropriate species and disease
   ### add a column "Cases' with appropriate case definition.
   ####################################
-  case_count %<>%
-    filter_case_count(species, disease, location) %<>%
-    update_cases_column(case_type) %<>%
-    merge_duplicates(cols_to_keep)
+  case_count <- filter_case_count(case_count, species, disease, location)
+  case_count <- update_cases_column(case_type)
+  case_count <- merge_duplicates(cols_to_keep)
 
 
   ### order these by dates ###
-  case_count <- case_count[order(as.numeric(case_count$Date)), ]
-  out        <- compute.cumulative.incidence(case_count)
-  out$incid  <- c(0, diff(out$Cases))
+  case_count <- case_count[order(as.numeric(case_count$date)), ]
+  out <- compute.cumulative.incidence(case_count)
+  out$incid <- c(0, diff(out$cases))
 
-  return(out)
-
+  out
 }

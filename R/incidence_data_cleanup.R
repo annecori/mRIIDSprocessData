@@ -55,19 +55,17 @@ merge_duplicates <- function(case_count,
 ##' @author Sangeeta Bhatia
 filter_case_count <- function(case_count, species, disease, location){
 
-  case_count %<>%
-   subset(Disease  %in% disease) %<>%
-   subset(Species  %in% species) %<>%
-   subset(Location %in% location)
+  dplyr::filter(case_count, disease  %in% disease &
+                            species  %in% species &
+                            location %in% location)
 
-   return(case_count)
+  case_count
 }
 
 
 
-##' adds a column "Cases" with appropriate case definition and
-##' a column "Date" with date extracted from timestamp
-##' .. content for \details{} ..
+##' adds a column "cases" with appropriate case definition and
+##' a column "date" with date extracted from timestamp
 ##' @title Update the case count with a column for dates and a column
 ##' for the appropriate case definition.
 ##' @param case_count
@@ -85,18 +83,17 @@ update_cases_column <- function(case_count, case_type = c("SCC", "SC",
 
   case_type <- match.arg(case_type)
 
-  ### create dates without time from Issue.Date
+  ### create dates without time from issue_date
 
-  case_count$Date <- lubridate::mdy_hm(case_count$Issue.Date) %>%
-                       lubridate::date(.)
+  case_count$date <- lubridate::mdy_hm(case_count$issue_date)
+
   ##################################################################
-  ### Create column called Cases which comprises all relevant cases
+  ### Create column called cases which comprises all relevant cases
   ### to be counted in incidence
   ##################################################################
 
-  case_count$Cases <- get_cases(case_count, case_type)
-
-  return(case_count)
+  case_count$cases <- get_cases(case_count, case_type)
+  case_count
 }
 
 # function to create a merged entry, separated by a slash
@@ -142,7 +139,7 @@ get_cases <- function(dat,
                    sum_only_na_stays_na)
   }
 
-  return(col)
+  col
 }
 
 # Check column names

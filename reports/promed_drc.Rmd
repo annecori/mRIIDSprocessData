@@ -65,7 +65,12 @@ the Congo". So make country name consistent.
 ```{r}
 promed_drc$country <- stringr::str_replace_all(promed_drc$country,
                                                "Democratic Republic of the Congo",
-                                               "DR Congo")
+                                               "DRC")
+
+promed_drc$country <- stringr::str_replace_all(promed_drc$country,
+                                               "DR Congo",
+                                               "DRC")
+
 ```
 Rename columns as per the previous feeds received.
 
@@ -97,14 +102,10 @@ promed_drc_tall <- promed_drc %>%
     count, -c(issue_date, country)
   )
 
-
-promed_drc_tall$date <- as.Date(promed_drc_tall$issue_date,
-                                format = "%m/%d/%y")
-
+promed_drc_tall$issue_date <- lubridate::ymd(promed_drc_tall$issue_date)
 p <- promed_drc_tall %>%
-  ggplot(aes(date, count, color = case_type)) +
+  ggplot(aes(issue_date, count, color = case_type)) +
   geom_point() +
-  facet_wrap(~country) +
   xlab("") + ylab("New Case Count")
 p <- p + geom_rangeframe() + theme_bw()
 p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
@@ -136,105 +137,47 @@ cols.to.keep <- c(cols.to.keep, "date", "cases")
 record <- list()
 
 drc_case_count <- update_cases_column(promed_drc, case.type)
-record <- c(record, update_case_column = drc_case_count)
+record <- c(record, update_case_column = list(select(drc_case_count, date, cases)))
 no_duplicates <- merge_duplicates(drc_case_count, cols.to.keep)
-record <- c(record, merge_duplicates = no_duplicates)
+record <- c(record, merge_duplicates = list(select(no_duplicates, date, cases)))
 
-drc_case_count <- arrange(drc_case_count, date)
-not.na <- which(!is.na(drc_case_count$cases))
-cum.incidence <- drc_case_count[, c("date", "cases")]
-first.row <- drc_case_count[1, c("date", "cases")]
+no_duplicates <- arrange(no_duplicates, date)
+```
+This is the number of new cases on a given day rather than the number
+of cumulative cases upto that point. Get cumulative case count -
+that's what we will interpolate.
+
+
+```{r}
+cum.incidence <- filter(no_duplicates, !is.na(cases)) %>%
+    select(date, cases)
+cum.incidence$cases <- cumsum(cum.incidence$cases)
+first.row <- cum.incidence[1, ]
 first.row$date <- first.row$date - 1
 first.row$cases <- 0
 cum.incidence <- rbind(first.row, cum.incidence)
 cum.incidence <- interpolate_missing_data(cum.incidence)
+record <- c(record, interpolated = list(select(cum.incidence,
+                                          date,
+                                          cases = interpolated_cases)))
     
-
-    
 ```
 
-```{r lib_eg, eval = TRUE}
 
-lapply(names(by.location), function(n) {
-  df <- by.location[[n]]
-  df$cleanup_step %<>% factor
-  df %<>%
-    mutate(
-      cleanup_step =
-        forcats::fct_recode(
-          cleanup_step,
-          "Cases" = "update_cases_col",
-          "Merge_Duplicates" = "merge_duplicates",
-          "Outliers Removed" = "outliers_removed",
-          "Make increasing" = "make_increasing",
-          "Interpolate" = "interpolate"
-        )
-    )
+## Visualising Data Cleaning Steps
 
-  df$cleanup_step %<>% forcats::fct_inorder()
+```{r}
+cleanup_steps <- dplyr::bind_rows(record, .id = "step")
+ggplot(cleanup_steps, aes(date, cases)) +
+    facet_wrap(~step, nrow = 3, scale = "free_y") +
+    xlim("2014-08-22", "2014-09-11") +
+    geom_point() +
+    theme_bw()
 
-  p <- ggplot(df, aes(Date, Cases)) +
-    facet_wrap(~cleanup_step, nrow = 1) +
-    geom_point(
-      size = 1.1,
-      stroke = 0,
-      shape = 16,
-      colour = "gray"
-    )
-
-  p <- p + geom_rangeframe() + theme_tufte()
-  p <- p + theme(axis.text.x = element_text(
-    angle = 80,
-    hjust = 1
-  ))
-  p <- p + theme(legend.title = element_blank())
-  p <- p + xlab("")
-  p <- p + scale_x_date(date_labels = "%b %Y")
-  outfile <- paste0("figures/", n, "-cleanup.png")
-  print(outfile)
-  ggsave(outfile, p)
-})
 ```
 
-```{r incid_tall, eval = TRUE}
+Get incidence now from cumulative incidence.
 
-by.location %<>% lapply(function(df) {
-  df %<>% filter(cleanup_step == "interpolate")
-  df$incid <- c(0, diff(df$Cases))
-  df %<>% select(-c(cleanup_step, Cases))
-  return(df)
-})
-
-
-by.location_weekly <- lapply(by.location, daily.to.weekly) %>%
-  bind_rows(.id = "Country") %>%
-  filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
-
-by.location_incid <- bind_rows(by.location, .id = "Country")
-by.location_incid %<>% filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
-```
-
-```{r hm_weekly_incid, eval = TRUE}
-
-by.location_weekly$Date %<>% as.Date
-p <- ggplot(by.location_weekly, aes(Date, incid)) +
-  geom_point(size = 1.5, stroke = 0, shape = 16) +
-  facet_wrap(~Country, scales = "free_y", nrow = 6) +
-  ylab("Incidence")
-
-p <- p + geom_rangeframe() + theme_tufte()
-p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
-p <- p + theme(legend.title = element_blank())
-p <- p + xlab("")
-p <- p + scale_x_date(date_labels = "%b %Y")
-
-p
-```
-
-```{r incid_wide, eval = TRUE}
-
-by.location_incid %<>% tidyr::spread(key = Country, value = incid, fill = 0)
-
-hm_wide <- here::here("data", "CaseCounts/processed/HealthMap_Ebola_wide.csv")
-readr::write_csv(by.location_incid, path = hm_wide)
+```{r}
+cum.incidence$incid <- c(0, diff(cum.incidence$interpolated_cases))
 ```

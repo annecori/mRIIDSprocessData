@@ -144,12 +144,12 @@ compute.cumulative.incidence <- function(no_duplicates){
     ## starting one day before the first entry so that cumulative
     ## incidence on that day is zero
 
-    not_na        <- which(!is.na(no_duplicates$Cases))
+    not_na        <- which(!is.na(no_duplicates$cases))
     cum_incidence <- no_duplicates[not_na, c("date", "cases")]
 
     first_row       <- no_duplicates[1, c("date", "cases")]
     first_row$date  <- first_row$date - 1
-    first_row$Cases <- 0
+    first_row$cases <- 0
 
     cum_incidence %<>% rbind(first_row, .)
 
@@ -173,7 +173,7 @@ compute.cumulative.incidence <- function(no_duplicates){
 ##'
 ##' @title
 ##' @param cum_incidence a data frame containing the columns date and
-##' Cases
+##' cases
 ##' @return a data frame with all the dates from the first and the
 ##' last and interpolated case counts for the dates for
 ##' which this was missing.

@@ -184,14 +184,14 @@ interpolate_missing_data  <- function(cum_incidence) {
                  Returning input unchanged.")
         return(cum_incidence)
     }
-    dates_all <- seq(from = min(cum_incidence$Date) - 1,
-                     to = max(cum_incidence$Date), by = 1)
-    cum_incidence %<>%  merge(data.frame(Date = dates_all),
+    dates_all <- seq(from = min(cum_incidence$date) - 1,
+                     to = max(cum_incidence$date), by = 1)
+    cum_incidence %<>%  merge(data.frame(date = dates_all),
                               all.y = TRUE)
-    out <- approx(cum_incidence$Date, cum_incidence$Cases,
-                  xout = cum_incidence$Date,
+    out <- approx(cum_incidence$date, cum_incidence$cases,
+                  xout = cum_incidence$date,
                   method = "linear", rule = 2)
-    cum_incidence$Date  <- out$x
-    cum_incidence$Cases <- out$y
+    cum_incidence$interpolated_date  <- out$x
+    cum_incidence$interpolated_cases <- out$y
     cum_incidence
 }

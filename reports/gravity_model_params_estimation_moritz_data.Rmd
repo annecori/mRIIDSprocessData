@@ -1,0 +1,114 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Fitting gravity model to movement data 
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(rgdal)
+
+```
+
+## Read in the movement data
+
+```{r}
+movement <- here::here("data/Geography/drc_moritz/movement",
+                       "gravity_namibia_predict_DRC.csv") %>%
+    read.csv(.) %>% `[`(, -1)
+
+movement <- as.matrix(movement)
+```
+
+The rows and columns are numbered. The names can be derived from the 
+shape file provided.
+
+
+## Read in shapefile
+
+```{r}
+dsn <- here::here("data/Geography/drc_moritz/shp")
+drc_angola <- readOGR(dsn = dsn, layer = "congo_angola")
+centroids  <- rgeos::gCentroid(drc_angola, byid = TRUE)
+distances <- geosphere::distm(centroids)
+populations <- drc_angola$X_populatio
+
+```
+
+## Fit model
+
+Make a one dimentional vector from the matrices.
+
+```{r}
+lower.tri_idx <- function(rows) {
+  row <- rev(abs(sequence(seq.int(rows - 1)) - rows) + 1)
+  col <- rep.int(seq.int(rows - 1), rev(seq.int(rows - 1)))
+  idx <- cbind(row = row, col = col)
+  idx
+}
+
+upper.tri_idx <- function(rows) {
+    idx <- lower.tri_idx(rows)
+    idx <- cbind(row = idx[, 2], col = idx[, 1])
+    idx
+}    
+low_idx <- lower.tri_idx(313)
+up_idx <- upper.tri_idx(313)
+flow <- c(movement[low_idx], movement[up_idx])
+dij <- c(distances[low_idx], distances[up_idx])
+pop_from <- c(populations[low_idx[, 1]], populations[up_idx[, 1]])
+pop_to <- c(populations[low_idx[, 2]], populations[up_idx[, 2]])
+
+
+```
+We now have everything we need. Time to fit a linear model.
+
+```{r}
+
+
+movement_df <- data.frame(log_flow = log(flow),
+                          log_n_1 = log(pop_from),
+                          log_n_2 = log(pop_to),
+                          log_dij = log(dij))
+
+fit3 <- lm(log_flow ~ log_n_1 + log_n_2 + log_dij,
+           data = movement_df)
+
+plot(predict(fit3), movement_df$log_flow)
+```
+
+Also use our code to estimate flow and check fit.
+
+```{r}
+devtools::load_all()
+flow_mat <- flow_matrix(centroids@coords[, 1],
+                        centroids@coords[, 2],
+                        population = populations,
+                        place_names = 1:313,
+                        K = 0.000409735,
+                        pow_N_from = 2.42,
+                        pow_N_to = -0.002,
+                        pow_dist = 0.42)
+fitted_flow <- c(flow_mat[low_idx], flow_mat[up_idx])
+plot(fitted_flow, flow)
+```

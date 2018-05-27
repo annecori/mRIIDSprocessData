@@ -1,0 +1,146 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Mapping the risk profile 
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  relrisk: flow_from_mbandaka_1_flow_from_Équateur_1.csv
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(ggthemes)
+library(rgdal)
+```
+
+The adm2 for DRC listed in the file that contain metadata does not
+correspond to the adm2 for DRC in the shapefiles from GADM. In fact
+there are more regions here than in ADM1 level from GADM and less than
+those in ADM2 level.
+
+```{r}
+drc <- here::here("data/Geography/drc_moritz/shp") %>%
+    rgdal::readOGR(layer = "congo_angola") 
+drc@data$id <- drc@data$NAME_2
+drc.points  <- broom::tidy(drc, region = "id")
+drc.points$id <- factor(drc.points$id)
+drc_df      <- left_join(drc.points, drc@data, by = "id")
+drc_df <- filter(drc_df, NAME_0 %in% "Democratic Republic of the Congo")
+drc_df <- select(drc_df, -(sum:median_2), -X_populatio, X_aedesmean)
+
+```
+## Republic of Congo
+
+```{r}
+roc <- here::here("data/Geography/gadm36_COG_shp") %>%
+    rgdal::readOGR(layer = "gadm36_COG_2")
+roc@data$id <- roc@data$NAME_2
+roc.points  <- broom::tidy(roc, region = "id")
+roc.points$id <- factor(roc.points$id)
+roc_df      <- left_join(roc.points, roc@data, by = "id")
+
+```
+## Angola
+```{r}
+angola <- here::here("data/Geography/gadm36_AGO_shp") %>%
+    rgdal::readOGR(layer = "gadm36_AGO_2")
+angola@data$id <- angola@data$NAME_2
+angola.points  <- broom::tidy(angola, region = "id")
+angola.points$id <- factor(angola.points$id)
+angola_df      <- left_join(angola.points, angola@data, by = "id")
+
+```
+## Gabon
+```{r}
+gabon <- here::here("data/Geography/gadm36_GAB_shp") %>%
+    rgdal::readOGR(layer = "gadm36_GAB_2")
+gabon@data$id <- gabon@data$NAME_2
+gabon.points  <- broom::tidy(gabon, region = "id")
+gabon.points$id <- factor(gabon.points$id)
+gabon_df      <- left_join(gabon.points, gabon@data, by = "id")
+```
+Read in the relative risk profile.
+
+```{r}
+wtd_risk_profile <- here::here("output",
+                               params$relrisk) %>%
+    readr::read_csv(.) 
+```
+
+Make names consistent across the two data sets.
+
+```{r}
+drc_df$NAME_2 <- tolower(drc_df$NAME_2) %>%
+    stringr::str_replace_all("\ ", "") %>%
+    stringr::str_replace_all("-", "")
+roc_df$NAME_2 <- tolower(roc_df$NAME_2) %>%
+    stringr::str_replace_all("\ ", "") %>%
+    stringr::str_replace_all("-", "")
+angola_df$NAME_2 <- tolower(angola_df$NAME_2) %>%
+    stringr::str_replace_all("\ ", "") %>%
+    stringr::str_replace_all("-", "")
+gabon_df$NAME_2 <- tolower(gabon_df$NAME_2) %>%
+    stringr::str_replace_all("\ ", "") %>%
+    stringr::str_replace_all("-", "")
+
+
+drc_relrisk <- filter(wtd_risk_profile,
+                      adm0 == "Democratic Republic of the Congo") %>%
+    left_join(drc_df, ., by = c("NAME_2" = "flow_to"))
+
+
+roc_relrisk <- filter(wtd_risk_profile,
+                      adm0 == "Republic of Congo") %>%
+    left_join(roc_df, ., by = c("NAME_2" = "flow_to"))
+
+angola_relrisk <- filter(wtd_risk_profile,
+                      adm0 == "Angola") %>%
+    left_join(angola_df, ., by = c("NAME_2" = "flow_to"))
+
+gabon_relrisk <- filter(wtd_risk_profile,
+                      adm0 == "Gabon") %>%
+    left_join(gabon_df, ., by = c("NAME_2" = "flow_to"))
+
+```
+
+
+
+```{r}
+p <- ggplot() + 
+     geom_polygon(data = drc_relrisk,
+                  aes(long, lat, group = group, fill = wtd_rel_risk)) +
+    geom_polygon(data = roc_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
+    geom_polygon(data = angola_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
+    geom_polygon(data = gabon_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
+    geom_path(data = drc_relrisk, aes(long, lat, group = group), color = "black" ) +
+    geom_path(data = roc_relrisk, aes(long, lat, group = group), color = "blue" ) +
+    geom_path(data = angola_relrisk, aes(long, lat, group = group), color = "red" ) +
+    geom_path(data = gabon_relrisk, aes(long, lat, group = group), color = "gray" ) +
+    coord_equal() +
+    scale_fill_gradient2(low = "grey50",
+                         high = "firebrick") +
+     theme_tufte()
+
+here::here("output",
+           stringr::str_replace(params$relrisk, ".csv", ".png")) %>%
+ggsave(p)
+```

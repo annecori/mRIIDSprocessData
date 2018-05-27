@@ -20,11 +20,11 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 2
+  pow_dist : 1
   K : 1
   pow_N_from : 1
   pow_N_to : 1
-  from : Democratic Republic of the Congo
+  from : équateur
   p_stay: 1
 ---
 
@@ -43,18 +43,47 @@ devtools::load_all()
 3. Extract the top 10 places most at risk from a given location
    (input).
 
-```{r flowmat, eval = TRUE}
-adm0_centroids <- here::here("data/Geography/GravityModel/raw",
-                             "adm0_centroids_fixed.tsv") %>%
-  readr::read_tsv(col_names = FALSE) 
+## Read in ADM0 data
 
-names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
+```{r adm0, eval = FALSE}
+centroids <- here::here("data/Geography/GravityModel/raw",
+                             "adm0_centroids_fixed.tsv") %>%
+    readr::read_tsv(col_names = FALSE) 
+
+```
+## Read in ADM2 data
+
+```{r adm2, eval = TRUE}
+drc_neighbors <- c("Democratic Republic of the Congo",
+                   "Republic of Congo",
+                   "Gabon",
+                   "Angola")
+centroids_full <- here::here("data/Geography/GravityModel/raw",
+                             "adm2-fixed.txt") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% drc_neighbors)
+
+centroids_full$ADM2 <- tolower(centroids_full$ADM2) %>%
+    stringr::str_replace_all("\ ", "") %>%
+    stringr::str_replace_all("-", "") 
+
+centroids <- select(centroids_full, ADM2,
+                    ID2,
+                    Weighted_Centroid_Lon,
+                    Weighted_Centroid_Lat,
+                    Pop)
+```
+
+## Flow Matrix 
+```{r flowmat, eval = TRUE}
+
+names(centroids) <- c("country", "id", "lon", "lat", "pop")
 
 flow_from_to <- flow_matrix(
-  longitude = adm0_centroids$lon,
-  latitude = adm0_centroids$lat,
-  population = adm0_centroids$pop,
-  place_names = adm0_centroids$country,
+  longitude = centroids$lon,
+  latitude = centroids$lat,
+  population = centroids$pop,
+  place_names = centroids$country,
   model = "gravity",
   K = params$K,
   pow_N_from = params$pow_N_from,
@@ -78,9 +107,14 @@ rel_risk_df <- tibble::rownames_to_column(data.frame(relative_risk),
                                             var = "flow_from")
 from_source <- filter(rel_risk_df,
                    flow_from == params$from) %>%
-    tidyr::gather(flow_to, relative_flow, -flow_from) %>%
-    top_n(10)
-from_source$relative_flow <- round(from_source$relative_flow, 3)
+    tidyr::gather(flow_to, relative_flow, -flow_from) 
+##    top_n(10)
+#from_source$relative_flow <- round(from_source$relative_flow, 3)
+from_source <- left_join(from_source,
+                         centroids_full,
+                         by = c("flow_to" = "ADM2")) %>%
+    select(flow_from, flow_to, ADM0, ADM1, relative_flow)
+
 here::here("output",
            paste0("flow_from_",
                   params$from,
@@ -91,5 +125,8 @@ here::here("output",
 ```
 
 
+## Top 10 regions at risk
 
-
+```{r}
+knitr::kable(from_source)
+```

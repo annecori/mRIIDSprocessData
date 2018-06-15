@@ -85,11 +85,11 @@ normalised <- weights / sum(weights)
 ```{r}
 wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
     (normalised[2] * rel_risk[[2]]$relative_flow)
-##wtd_rel_risk <- round(wtd_rel_risk, 5)
-wtd_risk_profile <- data.frame(flow_to = rel_risk[[1]]$flow_to,
+
+
+wtd_risk_profile <- data.frame(flow_to = rel_risk[[1]]$flow_to ,
                                wtd_rel_risk = wtd_rel_risk,
-                               adm0 = rel_risk[[1]]$ADM0,
-                               adm1 = rel_risk[[1]]$ADM1) 
+                               adm0 = rel_risk[[1]]$ADM0)
 ```
 
 ```{r}

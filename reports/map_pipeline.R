@@ -3,46 +3,88 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-params <- list(pow_dist = 0.42,
-               K = 0.000409735,
-               pow_N_from = 2.42,
-               pow_N_to = -0.002,
-               from = "équateur")
+set.seed(42)
+alpha <- runif(10, 0.5, 2)
+beta <- runif(10, 0.5, 3)
+gamma <- runif(10, 0.5, 2.1)
+gm_params <- expand.grid(alpha = alpha, beta = beta, gamma = gamma)
 
-here::here("reports", "relative_risk.Rmd") %>%
-    rmarkdown::render(params = params)
-outfile1 <- paste0("flow_from_",
-                   params$from,
+
+apply(gm_params, 1, function(row) {
+    params <- list(K = 1, from = "équateur")
+    params$pow_N_from <- row["alpha"]
+    params$pow_N_to <- row["beta"]
+    params$pow_dist <- row["gamma"]
+    here::here("reports", "relative_risk.Rmd") %>%
+        rmarkdown::render(params = params)
+    outfile1 <- paste0("flow_from_",
+                       params$from,
+                       "_",
+                       params$pow_dist,
+                       "_",
+                       params$pow_N_from,
+                       "_",
+                       params$pow_N_to,
+                       ".csv")
+
+    params$from <- "mbandaka"
+    here::here("reports", "relative_risk.Rmd") %>%
+        rmarkdown::render(params = params)
+    outfile2 <- paste0("flow_from_",
+                       params$from,
+                       "_",
+                       params$pow_dist,
+                       "_",
+                       params$pow_N_from,
+                       "_",
+                       params$pow_N_to,
+                       ".csv")
+    params <- list(cases = "22_may_2018.csv",
+                   risk = c(outfile1, outfile2),
+                   simean = 14,
+                   sisd = 1)
+    here::here("reports", "importation_risk.Rmd") %>%
+        rmarkdown::render(params = params)
+})
+
+
+## Read in the files and determine quantiles.
+## flow_from_équateur_0.649743898585439_1.36075410223566_2.58955122099724_flow_from_mbandaka_0.649743898585439_1.36075410223566_2.58955122099724.csv
+outfile2 <- paste0("flow_from_équateur_",
+                   gamma,
                    "_",
-                   params$pow_dist,
-                   ".csv")
-params$from <- "mbandaka"
-here::here("reports", "relative_risk.Rmd") %>%
-    rmarkdown::render(params = params)
-
-outfile2 <- paste0("flow_from_",
-                   params$from,
+                   alpha,
                    "_",
-                   params$pow_dist,
+                   beta,
+                   "_flow_from_mbandaka_",
+                   gamma,
+                   "_",
+                   alpha,
+                   "_",
+                   beta,
                    ".csv")
 
+import_risk <- purrr::map_dfr(outfile2, function(x)
+    readr::read_csv(here::here("output", x)))
 
-params <- list(cases = "22_may_2018.csv",
-               risk = c(outfile1, outfile2),
-               simean = 14,
-               sisd = 1)
-here::here("reports", "importation_risk.Rmd") %>%
-    rmarkdown::render(params = params)
+import_risk <- import_risk %>%
+    group_by(flow_to, adm0) %>%
+    summarise(relrisk_qtile =
+                  enquantile(wtd_rel_risk, c(0.25, 0.5, 0.75), na.rm = TRUE)) %>%
+    tidyr::unnest() %>%
+    tidyr::spread(quantile, value)
 
+readr::write_csv(x = import_risk, path = here::here("output",
+                                                    "importation_risk.csv"))
 
-outfile <- purrr::map_chr(params$risk,
-                          function(x) stringr::str_replace(x ,
-                                                           ".csv",
-                                                           "")) %>%
-    paste(collapse = "_")
-outfile <- paste0(outfile, ".csv")
-params <- list(relrisk = outfile)
-here::here("reports", "risk_profile_map.Rmd") %>%
-    rmarkdown::render(params = params)
+# outfile <- purrr::map_chr(params$risk,
+#                          function(x) stringr::str_replace(x ,
+#                                                           ".csv",
+#                                                           "")) %>%
+#    paste(collapse = "_")
+# outfile <- paste0(outfile, ".csv")
+# params <- list(relrisk = outfile)
+# here::here("reports", "risk_profile_map.Rmd") %>%
+#    rmarkdown::render(params = params)
 
 

@@ -20,7 +20,7 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  relrisk: flow_from_mbandaka_1_flow_from_Équateur_1.csv
+  relrisk: flow_from_équateur_1_flow_from_mbandaka_1.csv
 ---
 
 ```{r setup, eval = TRUE}
@@ -40,11 +40,13 @@ those in ADM2 level.
 ```{r}
 drc <- here::here("data/Geography/drc_moritz/shp") %>%
     rgdal::readOGR(layer = "congo_angola") 
-drc@data$id <- drc@data$NAME_2
-drc.points  <- broom::tidy(drc, region = "id")
-drc.points$id <- factor(drc.points$id)
-drc_df      <- left_join(drc.points, drc@data, by = "id")
-drc_df <- filter(drc_df, NAME_0 %in% "Democratic Republic of the Congo")
+#drc@data$id <- drc@data$NAME_2
+drc.points  <- broom::tidy(drc, region = "NAME_2")
+#drc.points$id <- factor(drc.points$NAME_2)
+drc_df      <- left_join(drc.points, drc@data, by = c("id" = "NAME_2"))
+drc_df <- filter(drc_df,
+                 NAME_0 %in% "Democratic Republic of the Congo") %>%
+    droplevels()
 drc_df <- select(drc_df, -(sum:median_2), -X_populatio, X_aedesmean)
 
 ```
@@ -62,8 +64,8 @@ roc_df      <- left_join(roc.points, roc@data, by = "id")
 ## Angola
 ```{r}
 angola <- here::here("data/Geography/gadm36_AGO_shp") %>%
-    rgdal::readOGR(layer = "gadm36_AGO_2")
-angola@data$id <- angola@data$NAME_2
+    rgdal::readOGR(layer = "gadm36_AGO_1")
+angola@data$id <- angola@data$NAME_1
 angola.points  <- broom::tidy(angola, region = "id")
 angola.points$id <- factor(angola.points$id)
 angola_df      <- left_join(angola.points, angola@data, by = "id")
@@ -95,13 +97,15 @@ drc_df$NAME_2 <- tolower(drc_df$NAME_2) %>%
 roc_df$NAME_2 <- tolower(roc_df$NAME_2) %>%
     stringr::str_replace_all("\ ", "") %>%
     stringr::str_replace_all("-", "")
-angola_df$NAME_2 <- tolower(angola_df$NAME_2) %>%
+angola_df$NAME_1 <- tolower(angola_df$NAME_1) %>%
     stringr::str_replace_all("\ ", "") %>%
     stringr::str_replace_all("-", "")
 gabon_df$NAME_2 <- tolower(gabon_df$NAME_2) %>%
     stringr::str_replace_all("\ ", "") %>%
     stringr::str_replace_all("-", "")
 
+idx <- which(wtd_risk_profile$flow_to == "louvakou.loubomo.")
+wtd_risk_profile$flow_to[idx] <- "louvakou(loubomo)"
 
 drc_relrisk <- filter(wtd_risk_profile,
                       adm0 == "Democratic Republic of the Congo") %>%
@@ -114,7 +118,7 @@ roc_relrisk <- filter(wtd_risk_profile,
 
 angola_relrisk <- filter(wtd_risk_profile,
                       adm0 == "Angola") %>%
-    left_join(angola_df, ., by = c("NAME_2" = "flow_to"))
+    left_join(angola_df, ., by = c("NAME_1" = "flow_to"))
 
 gabon_relrisk <- filter(wtd_risk_profile,
                       adm0 == "Gabon") %>%
@@ -124,7 +128,7 @@ gabon_relrisk <- filter(wtd_risk_profile,
 
 
 
-```{r}
+```{r, eval = TRUE}
 p <- ggplot() + 
      geom_polygon(data = drc_relrisk,
                   aes(long, lat, group = group, fill = wtd_rel_risk)) +

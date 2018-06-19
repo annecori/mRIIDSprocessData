@@ -1,3 +1,12 @@
+## Copied verbatim from
+## github.com/jennybc/row-oriented-workflows/blob/master/ex07_group-by-summarise.R
+enquantile <- function(x, ...) {
+  qtile <- tibble::enframe(quantile(x, ...), name = "quantile")
+  qtile$quantile <- factor(qtile$quantile)
+  list(qtile)
+}
+
+
 daily.to.weekly    <- function(daily) {
   extra <- nrow(daily) %% 7
   if (extra != 0) {
@@ -54,7 +63,7 @@ plot.weekly <- function(available, projection) {
 }
 
 add_0incid <- function(df) {
-  df    %<>% arrange(DateOnsetInferred)
+  df    <- arrange(df, DateOnsetInferred)
   start <- min(df$DateOnsetInferred)
   end   <- max(df$DateOnsetInferred)
 
@@ -67,9 +76,9 @@ add_0incid <- function(df) {
     Country = country,
     CL_DistrictRes = district
   )
-  df %<>% right_join(dummy)
-  df$incid %<>% ifelse(is.na(.), 0, .)
-  return(df)
+  df <- right_join(df, dummy)
+  df$incid <- ifelse(is.na(df$incid), 0, df$incid)
+  df
 }
 
 rms <- function(error) {

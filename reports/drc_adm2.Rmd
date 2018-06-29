@@ -1,0 +1,82 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(purrr)
+library(sf)
+```
+
+## DRC groud truth.
+
+Forget about meta-data files. Everything is now derived from 
+Moritz's shape files.
+
+```{r}
+drc <- here::here("data/Geography/drc_moritz/shp",
+                  "congo_angola.shp") %>%
+    st_read() 
+
+drc <- filter(drc, ISO == "COD") 
+
+```
+### Area
+```{r}
+drc_split <- split(drc, drc$NAME_2)
+
+drc_areas <- purrr::map_dfr(drc_split, ~ st_union(.x) %>% st_area) %>%
+    tidyr::gather(adm2, area) %>%
+    filter(area > 0)
+
+drc_population <- purrr::map_dfr(drc_split, ~ sum(.x$X_populatio)) %>%
+    tidyr::gather(adm2, pop) %>%
+    filter(pop > 0)
+
+```
+
+We have to get the centroids from meta-data file for
+now.
+
+```{r}
+drc_centroids <- here::here("data/Geography/GravityModel/raw",
+                             "adm2-fixed.txt") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 == "Democratic Republic of the Congo")
+
+```
+
+And put them together.
+
+```{r}
+drc_metadata <- left_join(drc_population, drc_areas)
+drc_metadata <- left_join(drc_metadata,
+                          drc_centroids,
+                          by = c("adm2" = "ADM2"))
+```
+
+
+```{r}
+readr::write_csv(drc_metadata, path = here::here("data/Geography/GravityModel/processed",
+                                                 "drc_metadata.csv"))
+
+```

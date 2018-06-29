@@ -1,0 +1,160 @@
+\documentclass[11pt,]{article}
+\usepackage[]{mathpazo}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Borrowing information across spatial scales},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{natbib}
+\bibliographystyle{apsr}
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+  \title{Borrowing information across spatial scales}
+  \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \author{true}
+  \preauthor{\centering\large\emph}
+  \postauthor{\par}
+  \predate{\centering\large\emph}
+  \postdate{\par}
+  \date{Y}
+
+
+\begin{document}
+\maketitle
+
+\subsection{Unpack parameters}\label{unpack-parameters}
+
+\subsection{Model}\label{model}
+
+We will assign the national case count to districts according to a
+multinomial distribution with the probabilities derived from gravity
+model or simply population density.
+
+First we read in the data that is required by both methods.
+
+\subsection{Ebola Parameters}\label{ebola-parameters}
+
+\subsection{Incidence data from
+HealthMap}\label{incidence-data-from-healthmap}
+
+This is the aggregated data that will be used to assign cases to
+districts.
+
+We will work with weekly incidence counts.
+
+Also add isoweek column so that we can compare across the three data
+sets.
+
+\subsection{Weekly Training Incidence
+Data}\label{weekly-training-incidence-data}
+
+\subsection{Validation data}\label{validation-data}
+
+The performance of the model will be validated against the cleaned-up
+data.
+
+\subsection{Further cleaning}\label{further-cleaning}
+
+Maybe get rid of PUJEHUN as it has low incidence (difficult to fit any
+model)
+
+\subsection{Method 1: Relative to the reproduction number from recent
+past}\label{method-1-relative-to-the-reproduction-number-from-recent-past}
+
+\subsubsection{3A: Use data published by
+WHO}\label{a-use-data-published-by-who}
+
+Suppose we are doing the disaggregation in the last week of 2014. Read
+in the latest information published by WHO. Start binning at date that
+ends week in variable ``bin\_from''. It might be better to use recent
+data rather than all data available upto the point of projection.
+
+\subsection{Fitting log-linear model}\label{fitting-log-linear-model}
+
+Add 1 to avoid incidence::fit rejecting all 0s and throwing an error.
+Dubious but lets go with it for now.
+
+\subsection{Assign cases to districts}\label{assign-cases-to-districts}
+
+Extract the data we want to use for disaggreation.
+
+Write out the output.
+
+Also write out the training data.
+
+\subsection{Training Data}\label{training-data}
+
+\subsection{Visualizing the results}\label{visualizing-the-results}
+
+\subsection{Validation data}\label{validation-data-1}
+
+\includegraphics{figures/unnamed-chunk-9-1.pdf}
+
+
+\end{document}

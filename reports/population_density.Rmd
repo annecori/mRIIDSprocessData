@@ -1,0 +1,209 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Weighted Importation Risk in Central Africa
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(sf)
+devtools::load_all()
+```
+
+## Read in the populations
+
+```{r}
+pops <- here::here("data/Geography/GravityModel/processed",
+                   "drc_neighbors.csv") %>%
+    readr::read_csv()
+
+wtd_risk <- here::here("output",
+                       "flow_from_équateur_1_1_1_flow_from_mbandaka_1_1_1.csv") %>%
+    readr::read_csv()
+```
+Fix one row where adm0 is NA.
+
+```{r}
+idx <- grep("ombellam", wtd_risk$flow_to)
+wtd_risk$flow_to[idx] <- "ombellam'poko"
+```
+What if we add the relative risk across the subdivisions?
+
+```{r}
+cum_risk <- group_by(wtd_risk, adm0) %>%
+    summarise(cum_risk = sum(wtd_rel_risk, na.rm = TRUE)) %>%
+    arrange(desc(cum_risk))
+
+wtd_risk <- left_join(wtd_risk, cum_risk)
+```
+
+## ADM2 Level
+
+### DRC
+
+```{r}
+drc <- here::here("data/Geography/drc_moritz/shp",
+                  "congo_angola.shp") %>%
+    st_read() 
+
+drc <- filter(drc, ISO == "COD")    
+drc$NAME_2 <- clean_names(drc$NAME_2)
+drc <- left_join(drc, wtd_risk, by = c("NAME_2" = "flow_to"))
+```
+
+
+```{r}
+drc2 <- split(drc, drc$NAME_1) %>% lapply(st_union)
+drc2 <- purrr::reduce(drc2, c)
+
+```
+## ADM1 Level
+
+### CAR
+```{r}
+car <- here::here("data/Geography/gadm36_CAF_shp/gadm36_CAF_1.shp") %>%
+    st_read()
+car$NAME_1 <- clean_names(car$NAME_1)
+car <- left_join(car, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+
+### Rwanda
+
+```{r}
+rwanda <- here::here("data/Geography/gadm36_RWA_shp",
+                     "gadm36_RWA_1.shp") %>%
+    st_read()
+rwanda$NAME_1 <- clean_names(rwanda$NAME_1)
+rwanda <- left_join(rwanda, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+### South Sudan
+```{r}
+ssudan <- here::here("data/Geography/gadm36_SSD_shp",
+                     "gadm36_SSD_1.shp") %>%
+    st_read()
+ssudan$NAME_1 <- clean_names(ssudan$NAME_1)
+ssudan <- left_join(ssudan, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+### Zambia
+```{r}
+zambia <- here::here("data/Geography/gadm36_ZMB_shp",
+                     "gadm36_ZMB_1.shp") %>%
+    st_read()
+zambia$NAME_1 <- clean_names(zambia$NAME_1)
+zambia <- left_join(zambia, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+### Gabon
+```{r, eval = FALSE}
+gabon <- here::here("data/Geography/gadm36_GAB_shp",
+                    "gadm36_GAB_1.shp") %>%
+    st_read()
+
+gabon <- left_join(gabon, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+
+### Angola
+```{r}
+angola <- here::here("data/Geography/gadm36_AGO_shp",
+                     "gadm36_AGO_1.shp") %>%
+    st_read()
+angola$NAME_1 <- clean_names(angola$NAME_1)
+angola <- left_join(angola, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+### Burundi
+
+```{r}
+burundi <- here::here("data/Geography/gadm36_BDI_shp",
+                      "gadm36_BDI_1.shp") %>%
+    st_read()
+burundi$NAME_1 <- clean_names(burundi$NAME_1)
+burundi <- left_join(burundi, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+### Republic of Congo
+
+```{r}
+roc <- here::here("data/Geography/gadm36_COG_shp",
+                  "gadm36_COG_1.shp") %>%
+    st_read()
+roc$NAME_1 <- clean_names(roc$NAME_1)
+roc <- left_join(roc, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+### Tanzania
+
+```{r}
+tnzna <- here::here("data/Geography/gadm36_TZA_shp",
+                    "gadm36_TZA_2.shp") %>%
+    st_read()
+tnzna$NAME_1 <- clean_names(tnzna$NAME_1)
+tnzna <- left_join(tnzna, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+### Uganda
+
+```{r}
+uganda <- here::here("data/Geography/gadm36_UGA_shp",
+                     "gadm36_UGA_1.shp") %>%
+    st_read()
+uganda$NAME_1 <- clean_names(uganda$NAME_1)
+uganda <- left_join(uganda, wtd_risk, by = c("NAME_1" = "flow_to"))
+```
+
+## Plot
+
+```{r}
+
+
+drc_nghbrs <- list(car, uganda, tnzna, roc, burundi, angola,
+                   ssudan, rwanda, zambia)
+
+p <- ggplot()
+p <- p + geom_sf(aes(geometry = st_union(car)), col = "red") 
+p <- p + geom_sf(aes(geometry = st_union(drc)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(uganda)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(tnzna)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(roc)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(burundi)), col = "red") 
+p <- p + geom_sf(aes(geometry = st_union(angola)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(ssudan)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(rwanda)), col = "red")
+p <- p + geom_sf(aes(geometry = st_union(zambia)), col = "red")
+
+for (df in drc_nghbrs) {
+    p <- p + geom_sf(data = df, aes(fill = wtd_rel_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+}
+
+
+p <- p + geom_sf(aes(geometry = drc2))
+p <- p + geom_sf(data = drc, aes(fill = wtd_rel_risk),
+                 lwd = 0,
+                 alpha = 0.8)
+p <- p + coord_sf(datum = NA)
+p    
+    
+```

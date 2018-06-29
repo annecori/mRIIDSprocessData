@@ -1,0 +1,39 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: Extract incidence time series from rds object
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(ggplot2)
+```
+Reading in the rds files generated from ebola-outputs repo and dumping
+them as csv. Will move this to ebola-outputs later.
+
+```{r}
+incid_by_zone <- here::here("data/CaseCounts/drc",
+                            "incidence_by_zone.rds") %>%
+    readRDS()
+
+readr::write_csv(incid_by_zone$c, here::here("data/CaseCounts/drc",
+                                             "21-May-2018.csv"))
+
+```

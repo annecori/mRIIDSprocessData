@@ -1,0 +1,126 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: Ad-hoc figures
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+library(sf)
+drc <- here::here("data/Geography/drc_moritz/shp",
+                  "congo_angola.shp") %>%
+    st_read() 
+drc <- filter(drc, ISO == "COD")
+
+cols <- rep("#FFFFFF", 38)
+names(cols) <- unique(drc$NAME_2)
+cols["Équateur"] <- "#F8766D" 
+cols["Mbandaka"] <- "#00BFC4"
+
+
+```
+
+```{r}
+incid <- here::here("data/CaseCounts/drc", "21-May-2018_ADM2.csv") %>%
+    readr::read_csv()
+simean <- 15.3
+sisd <- 9.1
+si <- EpiEstim::DiscrSI(k = 0:60,
+                        mu = simean,
+                        sigma  = sisd) %>% round(3)
+eq_infectivity <- EpiEstim::overall_infectivity(incid$eq, si)
+mb_infectivity <- EpiEstim::overall_infectivity(incid$mb, si)
+
+```
+Serial Interval.
+```{r}
+p1 <- ggplot(NULL, aes(0:60, si)) +
+    geom_col() +
+    theme_classic() +
+    xlab("Date") +
+    ylab("") +
+    ggtitle("Serial Interval Distribution")
+
+```
+Take a lot at infectivity.
+```{r together1}
+infectivity <- data.frame(Date = incid$date_onset,
+                          Équateur = eq_infectivity[1:nrow(incid)],
+                          Mbandaka = mb_infectivity[1:nrow(incid)]) %>%
+    tidyr::gather(Location, Infectivity, -Date)
+
+p2 <- ggplot(infectivity, aes(Date, Infectivity, col = Location)) +
+    geom_line() +
+    ylim(0, 1.2) +
+    theme_classic() +
+    theme(legend.title = element_blank()) +
+    ggtitle("Overall Infectivity") +
+    scale_colour_manual(values=cols)
+
+```
+Incidence
+```{r}
+incid_wide <- select(incid, Date = date_onset, Équateur = eq, Mbandaka = mb) %>%
+    tidyr::gather(location, incid, -Date) 
+
+p3 <- ggplot(incid_wide, aes(Date, incid, fill = location)) +
+    geom_col(position = "stack")
+p3 <- p3 + xlab("") + ylab("Incidence")
+p3 <- p3 + theme_classic() + theme(legend.title = element_blank())
+p3 <- p3 + ggtitle("Incidence")
+p3 <- p3 + scale_fill_manual(values=cols)
+```
+
+And finally map.
+
+```{r}
+library(ggrepel)
+drc_metadata <- here::here("data/Geography/GravityModel/processed",
+                           "drc_metadata.csv") %>%
+    readr::read_csv() %>%
+    filter(adm2 %in% c("Équateur", "Mbandaka")) %>%
+    select(adm2, Centroid_Lon, Centroid_Lat)
+drc_metadata[drc_metadata$adm2 == "Équateur", "Centroid_Lat"] <- 1
+p4 <- ggplot(drc) + geom_sf(aes(fill = NAME_2), lwd = 0.1)
+p4 <- p4 + scale_fill_manual(values = cols)
+p4 <- p4 + geom_text_repel(data = drc_metadata,
+                     aes(label = adm2,
+                         x = Centroid_Lon,
+                         y = Centroid_Lat),
+                     size = 3)
+p4 <- p4 + theme_void() + xlab("") + ylab("")
+p4 <- p4 + theme(legend.position="none")
+
+```
+Finally
+```{r}
+ggpubr::ggarrange(p3, p2, p1, p4,
+                  nrow = 2,
+                  ncol = 2,
+                  common.legend = TRUE,
+                  legend = "bottom",
+                  align = "hv") %>%
+    ggpubr::ggexport(filename = "who_report_fig1.pdf")
+```

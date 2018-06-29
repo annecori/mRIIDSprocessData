@@ -144,12 +144,12 @@ compute.cumulative.incidence <- function(no_duplicates){
     ## starting one day before the first entry so that cumulative
     ## incidence on that day is zero
 
-    not_na        <- which(!is.na(no_duplicates$Cases))
-    cum_incidence <- no_duplicates[not_na, c("Date", "Cases")]
+    not_na        <- which(!is.na(no_duplicates$cases))
+    cum_incidence <- no_duplicates[not_na, c("date", "cases")]
 
-    first_row       <- no_duplicates[1, c("Date", "Cases")]
-    first_row$Date  <- first_row$Date - 1
-    first_row$Cases <- 0
+    first_row       <- no_duplicates[1, c("date", "cases")]
+    first_row$date  <- first_row$date - 1
+    first_row$cases <- 0
 
     cum_incidence %<>% rbind(first_row, .)
 
@@ -172,8 +172,8 @@ compute.cumulative.incidence <- function(no_duplicates){
 ##' which no data are available.
 ##'
 ##' @title
-##' @param cum_incidence a data frame containing the columns Date and
-##' Cases
+##' @param cum_incidence a data frame containing the columns date and
+##' cases
 ##' @return a data frame with all the dates from the first and the
 ##' last and interpolated case counts for the dates for
 ##' which this was missing.
@@ -184,14 +184,15 @@ interpolate_missing_data  <- function(cum_incidence) {
                  Returning input unchanged.")
         return(cum_incidence)
     }
-    dates_all <- seq(from = min(cum_incidence$Date) - 1,
-                     to = max(cum_incidence$Date), by = 1)
-    cum_incidence %<>%  merge(data.frame(Date = dates_all),
-                              all.y = TRUE)
-    out <- approx(cum_incidence$Date, cum_incidence$Cases,
-                  xout = cum_incidence$Date,
+    dates_all <- seq(from = min(cum_incidence$date) - 1,
+                     to = max(cum_incidence$date), by = 1)
+    cum_incidence <- merge(cum_incidence,
+                           data.frame(date = dates_all),
+                           all.y = TRUE)
+    out <- approx(cum_incidence$date, cum_incidence$cases,
+                  xout = cum_incidence$date,
                   method = "linear", rule = 2)
-    cum_incidence$Date  <- out$x
-    cum_incidence$Cases <- out$y
+    cum_incidence$date  <- out$x
+    cum_incidence$interpolated_cases <- out$y
     cum_incidence
 }

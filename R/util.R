@@ -23,11 +23,11 @@ daily.to.weekly    <- function(daily) {
     daily  <- utils::head(daily,-extra)
   }
 
-  weeks  <- cut(daily$Date, breaks = "7 days")
+  weeks  <- cut(daily$date, breaks = "7 days")
   weekly <- split(daily, weeks) %>%
             plyr::ldply(function(d)
-            select(d,-Date) %>% colSums) %>%
-             dplyr::rename(Date = .id)
+            select(d,-date) %>% colSums) %>%
+             dplyr::rename(date = .id)
 
   weekly
 }
@@ -35,16 +35,16 @@ daily.to.weekly    <- function(daily) {
 ## For each country, we want to plot the training data, the validation
 ## data and a polygon spanned by the 2.5% and 97.5% quantiles.
 plot.weekly <- function(available, projection) {
-  available$Date %<>% as.Date
-  p     <- ggplot(available, aes_string("Date",
+  available$date %<>% as.date
+  p     <- ggplot(available, aes_string("date",
                                         colnames(available)[3],
                                         color = "Category")) + geom_point()
   ci.95 <- projection     %>%
-    split(.$Date) %>%
+    split(.$date) %>%
     plyr::ldply(. %>% `[`(, 2)
                 %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
-    dplyr::rename(Date = .id)
-  x <- ci.95$Date %>% c(rev(.)) %>% as.Date
+    dplyr::rename(date = .id)
+  x <- ci.95$date %>% c(rev(.)) %>% as.date
   y <- c(ci.95[, 3], rev(ci.95[, 4]))
 
   p   <-
@@ -57,7 +57,7 @@ plot.weekly <- function(available, projection) {
     )
   p   <-
     p + geom_line(
-      data = data.frame(x = as.Date(ci.95$Date), y = ci.95[, 2]),
+      data = data.frame(x = as.date(ci.95$date), y = ci.95[, 2]),
       aes(x, y),
       size = 0.3,
       color = "red",
@@ -77,11 +77,11 @@ add_0incid <- function(df) {
 
   dates.all <- seq(from = start, to = end, by = "1 day")
   ndays     <- length(dates.all)
-  country   <- rep(df$Country[1], ndays)
+  country   <- rep(df$country[1], ndays)
   district  <- rep(df$CL_DistrictRes[1], ndays)
   dummy     <- data.frame(
     DateOnsetInferred = dates.all,
-    Country = country,
+    country = country,
     CL_DistrictRes = district
   )
   df %<>% right_join(dummy)
@@ -195,17 +195,17 @@ projection_quantiles <- function(projections) {
   projections_50 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.5, na.rm = TRUE)) %>%
     bind_rows(.id = "Date") %>%
-    tidyr::gather(Country, y,-Date)
+    tidyr::gather(country, y,-Date)
 
   projections_025 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.025, na.rm = TRUE)) %>%
     bind_rows(.id = "Date") %>%
-    tidyr::gather(Country, ymin,-Date)
+    tidyr::gather(country, ymin,-Date)
 
   projections_975 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.975, na.rm = TRUE)) %>%
     bind_rows(.id = "Date") %>%
-    tidyr::gather(Country, ymax,-Date)
+    tidyr::gather(country, ymax,-Date)
 
   projections_distr <-
     left_join(projections_50, projections_025) %>%
@@ -238,13 +238,13 @@ plot.style <- function(p) {
 
 plot.weekly2 <- function(available, projections_distr) {
   tmp <-
-    tidyr::gather(available, Country, Incidence,-c(Category, Date))
+    tidyr::gather(available, country, Incidence,-c(Category, Date))
   tmp$Date %<>% as.Date
   p   <- ggplot(tmp, aes(Date, Incidence, color = Category)) +
     geom_point(size = 1,
                stroke = 0,
                shape = 16) +
-    facet_wrap( ~ Country, scales = "free_y")
+    facet_wrap( ~ country, scales = "free_y")
   p <-
     p + scale_color_discrete(labels = c("Training", "Validation"))
   p <-
@@ -276,7 +276,7 @@ plot.weekly3 <-
            trng.start,
            valdtn.end) {
     tmp <-
-      tidyr::gather(available, Country, Incidence,-c(Category, Date))
+      tidyr::gather(available, country, Incidence,-c(Category, Date))
     tmp$Date %<>% as.Date
     p   <- ggplot(tmp, aes(Date, Incidence)) +
       geom_point(
@@ -285,7 +285,7 @@ plot.weekly3 <-
         shape = 16,
         colour = "gray"
       ) +
-      facet_wrap( ~ Country, scales = "free_y", nrow = 3)
+      facet_wrap( ~ country, scales = "free_y", nrow = 3)
 
     tmp2 <- filter(tmp, Date >= trng.start & Date <= valdtn.end)
     p <-

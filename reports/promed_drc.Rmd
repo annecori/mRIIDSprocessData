@@ -1,25 +1,26 @@
 ---
 output: 
-pdf_document:
-citation_package: natbib
-keep_tex: true
-fig_caption: true
-latex_engine: pdflatex
+    pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
 title: 
 author:
 - name: Sangeeta Bhatia
-affiliation: Imperial College London
+  affiliation: Imperial College London
 abstract: 
 keywords: 
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: "`r Sys.Date()`"
 geometry: margin=1in
 fontfamily: mathpazo
 fontsize: 11pt
-spacing: double
+# spacing: double
 bibliography: 
 biblio-style: apsr
 endnote: no
 ---
+
 
 ```{r setup, eval = TRUE}
 library(dplyr)

@@ -333,3 +333,12 @@ makeRmatrix <- function(R, ncol, nrow, change_at) {
   out <- mapply(rep, x = split_R, times = num_rows)
   matrix(unlist(out), byrow = T, ncol = ncol)
 }
+
+
+clean_names <- function(x) {
+    x <- tolower(x)
+    x <- stringr::str_replace_all(x, "\ ", "")
+    x <- stringr::str_replace_all(x, "-", "")
+    x <- stringr::str_replace_all(x, "'", ".")
+    x
+}

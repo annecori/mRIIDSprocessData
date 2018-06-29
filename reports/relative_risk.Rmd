@@ -30,7 +30,6 @@ params:
 
 ```{r setup, eval = TRUE}
 library(dplyr)
-library(magrittr)
 library(stringr)
 library(ggplot2)
 devtools::load_all()
@@ -43,74 +42,17 @@ devtools::load_all()
 3. Extract the top 10 places most at risk from a given location
    (input).
 
-## Read in ADM0 data
-
-```{r adm0, eval = FALSE}
-centroids <- here::here("data/Geography/GravityModel/raw",
-                             "adm0_centroids_fixed.tsv") %>%
-    readr::read_tsv(col_names = FALSE) 
-
-```
-
-
-## Read in ADM2 data
-
-```{r adm2, eval = TRUE}
-drc_neighbors <- c("Democratic Republic of the Congo",
-                   "Republic of Congo",
-                   "Gabon",
-                   "Angola")
-centroids_full <- here::here("data/Geography/GravityModel/raw",
-                             "adm2-fixed.txt") %>%
-    readr::read_tsv(.) %>%
-    filter(ADM0 %in% drc_neighbors)
-
-centroids_full$ADM2 <- tolower(centroids_full$ADM2) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "") 
-
-```
-
-## ADM1 centroids for Angola
-
-Had been calculated separately using rgeos::gCentroids function.
 ```{r}
-angola_adm1_coords <- here::here("data/Geography/GravityModel",
-                          "angola_adm1_centroids.csv") %>%
-    readr::read_csv(.)
+centroids <- outfile <- here::here("data/Geography/GravityModel/processed",
+                                   "drc_neighbors_pops.csv") %>%
+    readr::read_csv()
 
-angola_adm1_pop <- filter(centroids_full, ADM0 == "Angola") %>%
-    group_by(ADM1) %>% summarise(Pop = sum(Pop))
 
-angola_adm1 <- left_join(angola_adm1_coords,
-                         angola_adm1_pop,
-                         by = c("rowname" = "ADM1"))
-
-angola_adm1$ADM0 <- "Angola"
-angola_adm1$rowname <- tolower(angola_adm1$rowname) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "") 
-```
-
-## Stack them together
-
-```{r}
-centroids_full <- filter(centroids_full, ADM0 != "Angola")
-centroids <- select(centroids_full,
-                    ADM0,
-                    district = ADM2,
-                    Centroid_Lon,
-                    Centroid_Lat,
-                    Pop)
-
-centroids <- select(angola_adm1,
-                    ADM0,
-                    district = rowname,
-                    Centroid_Lon = x,
-                    Centroid_Lat = y,
-                    Pop) %>% rbind(centroids)
+centroids <- mutate(centroids, district_clean = clean_names(district))
 
 ```
+
+
 ## Flow Matrix 
 ```{r flowmat, eval = TRUE}
 
@@ -120,7 +62,7 @@ flow_from_to <- flow_matrix(
   longitude = centroids$Centroid_Lon,
   latitude = centroids$Centroid_Lat,
   population = centroids$Pop,
-  place_names = centroids$district,
+  place_names = centroids$district_clean,
   model = "gravity",
   K = params$K,
   pow_N_from = params$pow_N_from,
@@ -137,7 +79,8 @@ relative_risk <- flow_from_to / rowSums(flow_from_to, na.rm = TRUE)
 
 ```
 
-Write it out in a clean format.
+Write it out in a clean format. The rownames will be the cleaned
+district names.
 
 ```{r write, eval = TRUE}
 rel_risk_df <- tibble::rownames_to_column(data.frame(relative_risk),
@@ -145,12 +88,17 @@ rel_risk_df <- tibble::rownames_to_column(data.frame(relative_risk),
 from_source <- filter(rel_risk_df,
                       flow_from == params$from) %>%
     tidyr::gather(flow_to, relative_flow, -flow_from) 
+
 ##    top_n(10)
-#from_source$relative_flow <- round(from_source$relative_flow, 3)
+##from_source$relative_flow <- round(from_source$relative_flow, 3)
+
+idx <- which(from_source$flow_to == "louvakou.loubomo.")
+from_source$flow_to[idx] <- "louvakou(loubomo)"
+
 from_source <- left_join(from_source,
                          centroids,
-                         by = c("flow_to" = "district")) %>%
-    select(flow_from, flow_to, ADM0, relative_flow)
+                         by = c("flow_to" = "district_clean")) %>%
+    select(flow_from, flow_to, district, ADM0, relative_flow)
 
 here::here("output",
            paste0("flow_from_",
@@ -169,5 +117,7 @@ here::here("output",
 ## Top 10 regions at risk
 
 ```{r}
-knitr::kable(from_source)
+arrange(from_source, desc(relative_flow)) %>%
+    top_n(10) %>%
+    knitr::kable()
 ```

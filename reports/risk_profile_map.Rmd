@@ -20,131 +20,426 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  relrisk: flow_from_équateur_1_flow_from_mbandaka_1.csv
+  relrisk: flow_from_équateur_1_1_1_flow_from_mbandaka_1_1_1.csv
 ---
 
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width = 12,
+                      fig.height = 6,
+                      echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.path = "figures/")
+
+```
 ```{r setup, eval = TRUE}
 library(dplyr)
-library(magrittr)
-library(stringr)
 library(ggplot2)
 library(ggthemes)
-library(rgdal)
+library(sf)
+library(patchwork)
 ```
+### Read in the weighted risk
 
-The adm2 for DRC listed in the file that contain metadata does not
-correspond to the adm2 for DRC in the shapefiles from GADM. In fact
-there are more regions here than in ADM1 level from GADM and less than
-those in ADM2 level.
+Read in the weighted risk.
 
 ```{r}
-drc <- here::here("data/Geography/drc_moritz/shp") %>%
-    rgdal::readOGR(layer = "congo_angola") 
-#drc@data$id <- drc@data$NAME_2
-drc.points  <- broom::tidy(drc, region = "NAME_2")
-#drc.points$id <- factor(drc.points$NAME_2)
-drc_df      <- left_join(drc.points, drc@data, by = c("id" = "NAME_2"))
-drc_df <- filter(drc_df,
-                 NAME_0 %in% "Democratic Republic of the Congo") %>%
-    droplevels()
-drc_df <- select(drc_df, -(sum:median_2), -X_populatio, X_aedesmean)
+wtd_risk_pops <- here::here("output",
+                            "weighted_rel_risk_pops.csv") %>%
+    readr::read_csv()
 
+wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
+                                               "country.name",
+                                               "iso3c")
+
+
+wtd_risk_area <- here::here("output",
+                            "weighted_rel_risk_area.csv") %>%
+    readr::read_csv()
+
+wtd_risk_area$adm0_iso3 <- countrycode::countrycode(wtd_risk_area$adm0,
+                                               "country.name",
+                                               "iso3c")
+    
 ```
-## Republic of Congo
+
+Add the relative risk across the subdivisions?
 
 ```{r}
-roc <- here::here("data/Geography/gadm36_COG_shp") %>%
-    rgdal::readOGR(layer = "gadm36_COG_2")
-roc@data$id <- roc@data$NAME_2
-roc.points  <- broom::tidy(roc, region = "id")
-roc.points$id <- factor(roc.points$id)
-roc_df      <- left_join(roc.points, roc@data, by = "id")
+cum_risk_pops <- group_by(wtd_risk_pops, adm0) %>%
+    summarise(cum_risk = sum(wtd_rel_risk, na.rm = TRUE)) 
+cum_risk_pops$adm0_iso3 <- countrycode::countrycode(cum_risk_pops$adm0,
+                                                    "country.name",
+                                                    "iso3c")
+
+
+
+cum_risk_area <- group_by(wtd_risk_area, adm0) %>%
+    summarise(cum_risk = sum(wtd_rel_risk, na.rm = TRUE)) 
+cum_risk_area$adm0_iso3 <- countrycode::countrycode(cum_risk_area$adm0,
+                                                    "country.name",
+                                                    "iso3c")
+
+
+
 
 ```
-## Angola
-```{r}
-angola <- here::here("data/Geography/gadm36_AGO_shp") %>%
-    rgdal::readOGR(layer = "gadm36_AGO_1")
-angola@data$id <- angola@data$NAME_1
-angola.points  <- broom::tidy(angola, region = "id")
-angola.points$id <- factor(angola.points$id)
-angola_df      <- left_join(angola.points, angola@data, by = "id")
 
-```
-## Gabon
-```{r}
-gabon <- here::here("data/Geography/gadm36_GAB_shp") %>%
-    rgdal::readOGR(layer = "gadm36_GAB_2")
-gabon@data$id <- gabon@data$NAME_2
-gabon.points  <- broom::tidy(gabon, region = "id")
-gabon.points$id <- factor(gabon.points$id)
-gabon_df      <- left_join(gabon.points, gabon@data, by = "id")
-```
-Read in the relative risk profile.
+
+
+### DRC
+DRC has to read in separately because of the mismatch between 
+GADM and meta-data files.
 
 ```{r}
-wtd_risk_profile <- here::here("output",
-                               params$relrisk) %>%
-    readr::read_csv(.) 
-```
+drc <- here::here("data/Geography/drc_moritz/shp",
+                  "congo_angola.shp") %>%
+    st_read() 
 
-Make names consistent across the two data sets.
+drc <- filter(drc, ISO == "COD")    
+
+```
 
 ```{r}
-drc_df$NAME_2 <- tolower(drc_df$NAME_2) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "")
-roc_df$NAME_2 <- tolower(roc_df$NAME_2) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "")
-angola_df$NAME_1 <- tolower(angola_df$NAME_1) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "")
-gabon_df$NAME_2 <- tolower(gabon_df$NAME_2) %>%
-    stringr::str_replace_all("\ ", "") %>%
-    stringr::str_replace_all("-", "")
+drc_2 <- split(drc, drc$NAME_2)
+dims <- purrr::map(drc_2, nrow)
+idx <- which(dims > 0)
+drc_2 <- drc_2[idx] %>%
+    lapply(st_union) %>%
+    lapply(st_sf) 
 
-idx <- which(wtd_risk_profile$flow_to == "louvakou.loubomo.")
-wtd_risk_profile$flow_to[idx] <- "louvakou(loubomo)"
+adm2 <- names(drc_2)
+drc_popsrisk <- purrr::map(adm2, function(x) {
+    shp <- drc_2[[x]]
+    shp <- rename(shp, "geometry" = "X..i..")
+    shp$wtd_rel_risk <- filter(wtd_risk_pops, orig_name == x) %>%
+        pull(wtd_rel_risk)
+    shp
+})
 
-drc_relrisk <- filter(wtd_risk_profile,
-                      adm0 == "Democratic Republic of the Congo") %>%
-    left_join(drc_df, ., by = c("NAME_2" = "flow_to"))
+drc_arearisk <- purrr::map(adm2, function(x) {
+    shp <- drc_2[[x]]
+    shp <- rename(shp, "geometry" = "X..i..")
+    shp$wtd_rel_risk <- filter(wtd_risk_area, orig_name == x) %>%
+        pull(wtd_rel_risk)
+    shp
+})   
+
+```
+Prepare the names of the other files to be read at ADM2 and ADM1 resolutions
+respectively.
+
+## Matching by population
+
+```{r pops}
+pops_adm1_neighbors <- c("Angola", "Burundi",
+                         "Uganda", "Republic of Congo",
+                         "Central African Republic",
+                         "South Sudan",
+                         "Rwanda",
+                         "Zambia") %>%
+    countrycode::countrycode("country.name", "iso3c")
 
 
-roc_relrisk <- filter(wtd_risk_profile,
-                      adm0 == "Republic of Congo") %>%
-    left_join(roc_df, ., by = c("NAME_2" = "flow_to"))
 
-angola_relrisk <- filter(wtd_risk_profile,
-                      adm0 == "Angola") %>%
-    left_join(angola_df, ., by = c("NAME_1" = "flow_to"))
+```
 
-gabon_relrisk <- filter(wtd_risk_profile,
-                      adm0 == "Gabon") %>%
-    left_join(gabon_df, ., by = c("NAME_2" = "flow_to"))
+```{r}
+pops_shp_dirs <- paste0("data/Geography/gadm36_", pops_adm1_neighbors, "_shp")
+names(pops_shp_dirs) <- pops_adm1_neighbors
+pops_shp_adm1 <- paste0("gadm36_", pops_adm1_neighbors, "_1.shp")
+
+```
+
+Read in files.
+
+```{r}
+
+pops_drc_nghbrs <- purrr::map2(pops_shp_dirs,
+                               pops_shp_adm1, 
+                               ~ st_read(here::here(.x, .y)))
 
 ```
 
 
+Now join the data sets.
 
-```{r, eval = TRUE}
-p <- ggplot() + 
-     geom_polygon(data = drc_relrisk,
-                  aes(long, lat, group = group, fill = wtd_rel_risk)) +
-    geom_polygon(data = roc_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
-    geom_polygon(data = angola_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
-    geom_polygon(data = gabon_relrisk, aes(long, lat, group = group, fill = wtd_rel_risk)) +
-    geom_path(data = drc_relrisk, aes(long, lat, group = group), color = "black" ) +
-    geom_path(data = roc_relrisk, aes(long, lat, group = group), color = "blue" ) +
-    geom_path(data = angola_relrisk, aes(long, lat, group = group), color = "red" ) +
-    geom_path(data = gabon_relrisk, aes(long, lat, group = group), color = "gray" ) +
-    coord_equal() +
-    scale_fill_gradient2(low = "grey50",
-                         high = "firebrick") +
-     theme_tufte()
+```{r}
+pops_drc <- filter(wtd_risk_pops, adm0_iso3 == "COD") %>%
+    left_join(drc, ., by = c("NAME_2" = "orig_name"))
 
-here::here("output",
-           stringr::str_replace(params$relrisk, ".csv", ".png")) %>%
-ggsave(p)
+
+pops_nghbrs_adm1_risk <- purrr::map(pops_adm1_neighbors, function(x) {
+    shp <- pops_drc_nghbrs[[x]]
+    risk <- filter(wtd_risk_pops, adm0_iso3 == x)
+    shp <- left_join(shp, risk, by = c("NAME_1" = "orig_name"))
+    shp
+})
+
+
+
+```
+## Matching by area
+
+First fix DRC
+
+```{r}
+area_drc <- filter(wtd_risk_area, adm0_iso3 == "COD") %>%
+    left_join(drc, ., by = c("NAME_2" = "orig_name"))
+
+```
+```{r area, eval = TRUE}
+area_adm1_neighbors <- c("Angola",
+                         "Central African Republic",
+                         "Republic of Congo",
+                         "South Sudan",
+                         "Uganda",                         
+                         "Zambia") %>%
+    countrycode::countrycode("country.name", "iso3c")
+##                    "Tanzania")
+
+area_adm0_neighbors <- c("Burundi", 
+                         "Rwanda") %>%
+    countrycode::countrycode("country.name", "iso3c")
+drc_nghbrs_iso <-  c(area_adm1_neighbors, area_adm0_neighbors)
+
+```
+
+
+```{r}
+area_shp_dirs <- paste0("data/Geography/gadm36_", drc_nghbrs_iso, "_shp")
+names(area_shp_dirs) <- drc_nghbrs_iso
+area_shp_adm1 <- paste0("gadm36_", area_adm1_neighbors, "_1.shp")
+area_shp_adm0 <- paste0("gadm36_", area_adm0_neighbors, "_0.shp")
+area_shp_files <- c(area_shp_adm1, area_shp_adm0)
+
+```
+
+Read in files.
+
+```{r}
+
+area_drc_nghbrs <- purrr::map2(area_shp_dirs,
+                               area_shp_files, 
+                               ~ st_read(here::here(.x, .y)))
+
+```
+
+And join the data sets.
+
+```{r}
+area_nghbrs_adm1_risk <- purrr::map(area_adm1_neighbors, function(x) {
+    shp <- area_drc_nghbrs[[x]]
+    risk <- filter(wtd_risk_area, adm0_iso3 == x)
+    shp <- left_join(shp, risk, by = c("NAME_1" = "orig_name"))
+    shp
+})
+
+
+area_nghbrs_adm0_risk <- purrr::map(area_adm0_neighbors, function(x) {
+    shp <- area_drc_nghbrs[[x]]
+    risk <- filter(wtd_risk_area, adm0_iso3 == x)
+    shp <- left_join(shp, risk, by = c("NAME_0" = "orig_name"))
+    shp
+})
+
+area_all_nghbrs_risk <- c(area_nghbrs_adm1_risk, area_nghbrs_adm0_risk)
+
+```
+
+## Read in boundaries
+```{r}
+
+shp_adm0 <- paste0("gadm36_", drc_nghbrs_iso, "_0.shp")
+drc_nghbrs_boundary <- purrr::map2(area_shp_dirs,
+                                   shp_adm0, 
+                                   ~ st_read(here::here(.x, .y)))
+```
+
+## Cumulative risk
+```{r}
+nghbrs_cumrisk_area <- purrr::map(drc_nghbrs_iso, function(x) {
+    shp <- drc_nghbrs_boundary[[x]]
+    risk <- filter(cum_risk_area, adm0_iso3 == x)
+    shp <- left_join(shp, risk, by = c("NAME_0" = "adm0"))
+    shp
+})
+
+nghbrs_cumrisk_pops <- purrr::map(drc_nghbrs_iso, function(x) {
+    shp <- drc_nghbrs_boundary[[x]]
+    risk <- filter(cum_risk_pops, adm0_iso3 == x)
+    shp <- left_join(shp, risk, by = c("NAME_0" = "adm0"))
+    shp
+})    
+     
+```
+
+## Read in centroids to place labels
+
+```{r}
+centroids_adm0 <- here::here("data/Geography/GravityModel/raw",
+                             "adm0.txt") %>%
+    readr::read_tsv() %>%
+    filter(ADM0 %in% unique(wtd_risk_pops$adm0))
+
+
+```
+
+## Plot
+
+## Common stuff
+
+```{r distr_risk}
+
+
+
+p <- ggplot()
+p <- p + geom_sf(data = drc_nghbrs_boundary[[1]], 
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[2]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[3]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[4]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[5]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[6]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[7]],
+                 col = "blue", lwd = 1.05)
+p <- p + geom_sf(data = drc_nghbrs_boundary[[8]],
+                 col = "blue", lwd = 1.05)
+
+    
+p <- p + scale_fill_distiller(palette = "Spectral",
+                              name = "Relative Risk",
+                              limits = c(0, 0.15))
+p <- p + coord_sf(datum = NA)
+p <- p + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
+
+```
+
+## Matching by population.
+
+```{r}
+
+p1 <- p
+for (df in drc_popsrisk) {
+    p1 <- p1 + geom_sf(data = df,
+                     aes(fill = wtd_rel_risk),
+                     lwd = 0,
+                     alpha = 0.8) 
+}
+
+
+for (df in pops_nghbrs_adm1_risk) {
+    p1 <- p1 + geom_sf(data = df, aes(fill = wtd_rel_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+
+}
+
+
+```
+
+Same as before, just plot aggregated risk.
+
+```{r cum_risk}
+
+p2 <- p
+for (df in drc_popsrisk) {
+    p2 <- p2 + geom_sf(data = df,
+                     aes(fill = wtd_rel_risk),
+                     lwd = 0,
+                     alpha = 0.8) 
+}
+for (df in nghbrs_cumrisk_pops) {
+    p2 <- p2 + geom_sf(data = df, aes(fill = cum_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+}
+
+
+
+```
+
+Now for area
+
+```{r}
+
+p3 <- p
+for (df in drc_arearisk) {
+    p3 <- p3 + geom_sf(data = df,
+                     aes(fill = wtd_rel_risk),
+                     lwd = 0,
+                     alpha = 0.8) 
+}
+
+for (df in area_all_nghbrs_risk) {
+    p3 <- p3 + geom_sf(data = df, aes(fill = wtd_rel_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+}
+
+
+
+```
+
+Same as before, just plot aggregated risk.
+
+```{r cum_risk2}
+
+p4 <- p
+for (df in drc_arearisk) {
+    p4 <- p4 + geom_sf(data = df,
+                     aes(fill = wtd_rel_risk),
+                     lwd = 0,
+                     alpha = 0.8) 
+}
+
+for (df in nghbrs_cumrisk_area) {
+    p4 <- p4 + geom_sf(data = df, aes(fill = cum_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+}
+
+```
+Finally
+
+```{r final, eval = TRUE}
+
+ggpubr::ggarrange(p1, p2, p3, p4,
+                  ncol=2, nrow=2, common.legend = TRUE, legend="bottom") %>%
+    ggpubr::ggexport(filename = "relative_risks.pdf")
+
+
+ggpubr::ggarrange(p1, p2,
+                  ncol = 2, nrow = 1, common.legend = TRUE, legend="bottom") %>%
+    ggpubr::ggexport(filename = "bypops_relative_risks.pdf")
+
+ggpubr::ggarrange(p3, p4,
+                  ncol = 2, nrow = 1, common.legend = TRUE, legend="bottom") %>%
+    ggpubr::ggexport(filename = "byarea_relative_risks.pdf")
+
+
+```
+
+
+```{r cowplot, eval = FALSE}
+library(cowplot)
+prow <- plot_grid(p1 + theme(legend.position = "none"),
+                  p2 + theme(legend.position = "none"),
+                  p3 + theme(legend.position = "none"),
+                  p4 + theme(legend.position = "none"),
+                  align = 'vh',
+                  labels = c("A", "B", "C", "D"),
+                  hjust = -1,
+                  nrow = 2
+                  )
+
+legend <- get_legend(p1 + theme(legend.position = "bottom"))
+p5 <- plot_grid(prow, legend, ncol = 1, rel_heights = c(1, .2))
+save_plot("relative_risks_cowplot.pdf", p5)
 ```

@@ -1,0 +1,151 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: Choose appropriate ADM level for DRC neighbors
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+We want to choose for analysis the administrative subdivision of the 
+neighbors of DRC that most closely matches the subdivisions of DRC in 
+population or spatial area.
+To do this, we determine the average population in the subdivisions of 
+DRC and the average population at ADM0, ADM1 and ADM2 levels in its
+neighbors and for each country, choose the subdivision that is closest.
+
+## Read in data for DRC
+```{r}
+drc_metadata <- here::here("data/Geography/GravityModel/processed",
+                           "drc_metadata.csv") %>%
+    readr::read_csv()
+
+drc_mean_area <- mean(drc_metadata$area)
+drc_mean_pop <- mean(drc_metadata$pop) ## use the one we calculated.
+```
+## List countries we are interested in
+
+```{r}
+drc_neighbors <- c("Angola",
+                   "Burundi",
+                   "Central African Republic",
+                   "Republic of Congo",
+                   "Rwanda",                   
+                   "South Sudan",
+                   "Tanzania",
+                   "Uganda",
+                   "Zambia")
+
+```
+
+## Read in ADM1 data
+
+```{r}
+centroids_adm1 <- here::here("data/Geography/GravityModel/raw",
+                             "adm1_centroids_fixed.tsv") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% drc_neighbors)
+
+mean_pop_adm1 <- group_by(centroids_adm1, ADM0) %>%
+    summarise(mean_adm1 = mean(Pop)) 
+```
+
+## Read in ADM2 data
+
+```{r}
+centroids_adm2 <- here::here("data/Geography/GravityModel/raw",
+                             "adm2-fixed.txt") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% drc_neighbors)
+
+mean_pop_adm2 <- group_by(centroids_adm2, ADM0) %>%
+    summarise(mean_adm2 = mean(Pop)) 
+
+pop_adm0 <- group_by(centroids_adm2, ADM0) %>%
+    summarise(pop_adm0 = sum(Pop)) 
+```
+
+## Put them together
+
+```{r}
+mean_pops <- left_join(pop_adm0, mean_pop_adm1) %>%
+    left_join(mean_pop_adm2)
+```
+
+## Choose wisely
+
+For each country, choose the level that most closely matches the 
+level at which you want to operate in DRC.
+
+```{r}
+
+
+## From vector "among" choose the index closest to
+## to
+choose_closest <- function(among, to) {
+    delta <- abs(among - to)
+    idx <- which(delta == min(delta))
+    idx
+}
+
+    
+    
+nghbr_levels <- c()
+for(nghbr in drc_neighbors) {
+    among <- filter(mean_pops, ADM0 == nghbr) %>% `[`(, 2:4)
+    idx <- choose_closest(among, drc_mean_pop)
+    idx <- paste0("ADM", idx - 1)
+    nghbr_levels <- c(nghbr_levels, idx)
+}    
+
+nghbr_levels_pops <- data.frame(ADM0 = drc_neighbors, level = nghbr_levels)
+```
+
+```{r}
+knitr::kable(nghbr_levels_pops)
+```
+
+## Choose according to area
+
+```{r}
+mean_areas <- here::here("data/Geography",
+                         "drc_neighbors_areas.csv") %>%
+    readr::read_csv()
+
+
+
+drc_neighbors <- mean_areas$ADM0
+nghbr_levels <- c()
+for(nghbr in drc_neighbors) {
+    among <- filter(mean_areas, ADM0 == nghbr) %>% `[`(, 2:4)
+    idx <- choose_closest(among, drc_mean_area)
+    idx <- paste0("ADM", idx - 1)
+    nghbr_levels <- c(nghbr_levels, idx)
+}    
+
+nghbr_levels_area <- data.frame(ADM0 = drc_neighbors, level = nghbr_levels)
+```
+
+```{r}
+nghbr_levels_area <- arrange(nghbr_levels_area, level)
+knitr::kable(nghbr_levels_area)
+``

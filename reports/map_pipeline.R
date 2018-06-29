@@ -3,10 +3,9 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-set.seed(42)
-alpha <- runif(10, 0.5, 2)
-beta <- runif(10, 0.5, 3)
-gamma <- runif(10, 0.5, 2.1)
+alpha <- 1
+beta <- 1
+gamma <- 1
 gm_params <- expand.grid(alpha = alpha, beta = beta, gamma = gamma)
 
 
@@ -26,7 +25,6 @@ apply(gm_params, 1, function(row) {
                        "_",
                        params$pow_N_to,
                        ".csv")
-
     params$from <- "mbandaka"
     here::here("reports", "relative_risk.Rmd") %>%
         rmarkdown::render(params = params)
@@ -39,10 +37,10 @@ apply(gm_params, 1, function(row) {
                        "_",
                        params$pow_N_to,
                        ".csv")
-    params <- list(cases = "22_may_2018.csv",
+    params <- list(cases = "21-May-2018.csv",
                    risk = c(outfile1, outfile2),
-                   simean = 14,
-                   sisd = 1)
+                   simean = 15.3,
+                   sisd = 9.1)
     here::here("reports", "importation_risk.Rmd") %>%
         rmarkdown::render(params = params)
 })

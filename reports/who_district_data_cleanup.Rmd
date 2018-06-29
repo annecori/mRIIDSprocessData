@@ -1,0 +1,148 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Collate and clean-up data from WHO
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+```
+WHO has published weekly incidence data on its website for each country affected
+by Ebola e.g., see
+(here)[http://apps.who.int/gho/data/node.ebola-sitrep.ebola-country-SLE?lang=en].
+
+This data set needs to be downloaded and cleaned-up before it can be
+used in any analysis.
+
+```{r flags, eval = TRUE}
+download <- FALSE
+process <- TRUE
+```
+Set-up the names as we will use them later to read in the files.
+
+```{r}
+start <- lubridate::dmy("12-11-2014")
+end <- lubridate::dmy("11-05-2016")
+weekly <- seq(from = start, to = end, by = "1 week")
+file_names <- paste0("who_sl_", weekly, ".csv")
+```
+
+```{r who_download, eval = download}
+url_prefix <- "http://apps.who.int/gho/athena/xmart/xmart.csv?target=EBOLA_MEASURE/CASES&profile=crosstable&filter=LOCATION:*;COUNTRY:SLE;INDICATOR_TYPE:SITREP_NEW;DATAPACKAGEID:"
+url_suffix <- ";SEX:-&x-sideaxis=LOCATION;EBOLA_DATA_SOURCE;INDICATOR_TYPE;CASE_DEFINITION&x-topaxis=COUNTRY;EPI_WEEK&x-collapse=true"
+url <- paste0(url_prefix, weekly, url_suffix)
+weekly_data <- lapply(url, function(u) data.table::fread(u))
+names(weekly_data) <- file_names
+lapply(names(weekly_data), function(name)
+    readr::write_csv(x = weekly_data[[name]],
+                     path = here::here("data/CaseCounts/raw", name)))
+```
+
+## Clean-up
+
+```{r}
+infile <- "data/CaseCounts/raw/who_sl_2014-11-26.csv"
+sl_26_nov <- readr::read_csv(infile)
+```
+
+The first 4 columns are separated by semi-colons rather than comma. 
+Separate the first column into 4 separate columns.
+
+```{r}
+sl_26_nov <- tidyr::separate(
+  data = sl_26_nov,
+  col = `Location; Ebola data source; Indicator type; Case definition`,
+  sep = ";",
+  into = c("location", "data_source", "type", "case")
+)
+```
+
+Next get rid of the country name is the column names.
+
+```{r}
+colnames(sl_26_nov) <- stringr::str_remove_all(
+  colnames(sl_26_nov),
+  "Sierra Leone; "
+)
+```
+
+Now reshape the data frame so that time (which currently runs across the
+columns) runs down rows.
+
+```{r}
+sl_26_nov <- tidyr::gather(sl_26_nov, "week", "new_cases", 5:51)
+```
+And some more separation of columns.
+
+```{r}
+sl_26_nov <- tidyr::separate(
+  sl_26_nov,
+  col = week,
+  sep = " to ",
+  into = c("week_starting", "week_ending")
+)
+
+sl_26_nov <- tidyr::separate(
+  sl_26_nov,
+  col = week_ending,
+  sep = " \\(",
+  into = c("week_ending", "week_of_year")
+)
+
+sl_26_nov$week_of_year <- stringr::str_remove_all(sl_26_nov$week_of_year, "\\)")
+```
+Remove the quotation marks in fields and trim the whitespaces.
+
+```{r}
+sl_26_nov$data_source <- stringr::str_remove_all(
+  sl_26_nov$data_source,
+  "[[:punct:] ]"
+) %>%
+  stringr::str_trim(side = "both") %>%
+  tolower()
+
+sl_26_nov$type <- stringr::str_remove_all(
+  sl_26_nov$type,
+  "[[:punct:] ]"
+) %>%
+  stringr::str_trim(side = "both") %>%
+  tolower()
+
+sl_26_nov$case <- stringr::str_remove_all(
+  sl_26_nov$case,
+  "[[:punct:] ]"
+) %>%
+  stringr::str_trim(side = "both") %>%
+  tolower()
+
+sl_26_nov$new_cases <- as.integer(sl_26_nov$new_cases)
+```
+Write out the processed file.
+
+```{r}
+select(sl_26_nov, -week_starting, -week_ending) %>%
+  readr::write_csv(path = here::here(
+    "data/CaseCounts/processed/",
+    paste0("processed_", infile)
+  ))
+```

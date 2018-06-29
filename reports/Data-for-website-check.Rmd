@@ -1,0 +1,67 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(purrr)
+```
+# Introduction
+
+```{r}
+given <- here::here("output", "MRIIDS Ebola Epi Curve Data.csv") %>%
+    readr::read_csv(.)
+
+p <- ggplot(given, aes(Date, Guinea)) + geom_point()
+p <- p + geom_ribbon(aes(x = Projections_from,
+                         ymin = ymin4.Guinea,
+                         ymax = ymax4.Guinea),
+                     alpha = 0.5)
+p <- p + geom_line(aes(x = Projections_from, y = y4.Guinea))
+p
+```
+
+
+```{r}
+p2 <- ggplot(given, aes(Date, Liberia)) + geom_point()
+p2 <- p2 + geom_ribbon(aes(x = Projections_from,
+                         ymin = ymin4.Liberia,
+                         ymax = ymax4.Liberia),
+                     alpha = 0.5)
+p2 <- p2 + geom_line(aes(x = Projections_from, y = y4.Liberia))
+p2
+
+```
+
+```{r}
+p3 <- ggplot(given, aes(Date, `Sierra Leone`)) + geom_point()
+p3 <- p3 + geom_ribbon(aes(x = Projections_from,
+                         ymin = `ymin4.Sierra Leone`,
+                         ymax = `ymax4.Sierra Leone`),
+                     alpha = 0.5)
+p3 <- p3 + geom_line(aes(x = Projections_from, y = `y4.Sierra Leone`))
+p3
+
+```

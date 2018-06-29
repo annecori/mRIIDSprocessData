@@ -1,0 +1,118 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r Sys.Date()`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(purrr)
+devtools::load_all()
+```
+
+## Incidence data from WHO
+
+District-level data from WHO to compare our estimates with.
+
+
+```{r who, eval = FALSE}
+
+sl_weekly <- here::here(
+  "data/CaseCounts/processed",
+  "sl_weekly_tall.csv"
+) %>%
+  readr::read_csv(.) 
+
+
+```
+## Training Data set
+
+```{r trng}
+training <- here::here("output", "restim_training_2015-12-17.csv") %>%
+    readr::read_csv() %>%
+    rename("PORTLOKO" = `PORT LOKO`) %>%
+    tidyr::gather(district, incid, -week_of_year, -week_of)
+
+
+```
+## Read in projections
+
+```{r}
+#infiles <- paste0("output/", list.files("output",
+#                                        pattern = "restim_201"))
+infiles <- here::here("output", "restim_2015-12-17.csv")
+projections <- map_dfr(infiles, readr::read_csv)
+projections$district <- stringr::str_replace_all(projections$district,
+                                                 "PORT.LOKO",
+                                                 "PORTLOKO")
+projections$bin_from <- factor(projections$bin_from)
+```
+
+## Visualization
+
+
+```{r}
+## Plot training data
+p <- ggplot(training, aes(week_of, incid)) + geom_point(col = "red")
+p <- p + facet_wrap(~district, scale = "free_y")
+
+## Plot validation data
+sl_small <- filter(sl_weekly,
+                   Date >= min(training$week_of) &
+                   Date <= max(projections$Date) + 14)
+p <- p + geom_point(data = sl_small, aes(x = Date, y = incid))
+
+## Plot projections
+p <- p + geom_line(data = projections,
+                   aes(x = Date, y = `0.5`),
+                   col = "blue")
+p <- p + geom_ribbon(data = projections,
+                     aes(x = Date,
+                         ymin = `0.025`,
+                         ymax = `0.975`,
+                         fill = bin_from),
+                     alpha = 0.5,
+                     inherit.aes = FALSE)
+
+p <- p + theme_classic()
+p
+
+```
+
+```{r}
+compare <- left_join(projections, sl_weekly) %>%
+    filter(Date > "2014-11-27") 
+
+compare$district <- factor(compare$district)
+
+p <- ggplot(compare, aes(Date, incid, fill = bin_from)) +
+     geom_point(size = 0.5, col = "blue")
+p <- p + facet_wrap(~district, scale = "free_y")
+p <- p + geom_line(aes(y = `0.5`))
+p <- p + geom_ribbon(aes(ymin = `0.025`,
+                         ymax = `0.975`,
+                         fill = bin_from), alpha = 0.5)
+p <- p + theme_classic()
+p
+```
+

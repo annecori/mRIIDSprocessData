@@ -23,3 +23,26 @@ testthat::test_that("Log likelihood for a place for a bunch of dates", {
     expect_equal(ll, correct_ll)
 
 })
+
+testthat::test_that("Last date of the week is returned", {
+    year <- 2018
+    week <- 1
+    correct <- lubridate::ymd("2018-01-07")
+    expect_equal(week_to_maxdate(year, week), correct)
+
+    week <- 13
+    correct <- lubridate::ymd("2018-04-01")
+    expect_equal(week_to_maxdate(year, week), correct)
+
+    week <- 52
+    correct <- lubridate::ymd("2018-12-30")
+    expect_equal(week_to_maxdate(year, week), correct)
+
+    ## leap year
+    year <- 2016
+    week <- 52
+    correct <- lubridate::ymd("2016-12-30")
+    expect_equal(week_to_maxdate(year, week), correct)
+
+})
+

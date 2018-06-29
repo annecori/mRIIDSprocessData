@@ -26,7 +26,6 @@ endnote: no
 library(magrittr)
 library(ggplot2)
 library(dplyr)
-library(EpiEstim)
 devtools::load_all()
 
 ```
@@ -37,15 +36,20 @@ devtools::load_all()
 Read in cleaned-up and wide formatted data. 
 
 ```{r hm_dataload, eval = TRUE}
-hm_wide <- here::here("data",
-                      "CaseCounts/processed/HealthMap_Ebola_wide.csv")
-by.location_incid <- readr::read_csv(hm_wide)
+hm_wide <- here::here("data/CaseCounts/processed",
+                      "HealthMap_Ebola_wide.csv") %>%
+    readr::read_csv(.) %>%
+    rename(Sierra.Leone = `Sierra Leone`)
 
-weekly_incid <- daily.to.weekly(by.location_incid)
+hm_wide$aggregated <- hm_wide$Guinea +
+    hm_wide$Liberia +
+    hm_wide$`Sierra.Leone`
+
+weekly_incid <- daily.to.weekly(hm_wide)
 
 weekly_tall <- tidyr::gather(weekly_incid, Country, Incidence, -Date)
 weekly_tall$Date %<>% as.Date
-weekly_tall$week_starting <- round_date(weekly_tall$Date, "week")
+weekly_tall$week_starting <- lubridate::round_date(weekly_tall$Date, "week")
 
 ```
 
@@ -53,17 +57,20 @@ weekly_tall$week_starting <- round_date(weekly_tall$Date, "week")
 
 ```{r}
 projections_7 <-  here::here("output",
-                            "hm-dates_sim-8.csv") %>%
+                            "hm_projections_0.99_1_7.csv") %>%
                   readr::read_csv(.)
 
-projections_14 <- here::here("output",
-                             "hm-dates_sim-15.csv") %>%
+projections_14 <-  here::here("output",
+                            "hm_projections_0.99_1_14.csv") %>%
                   readr::read_csv(.)
 
 projections_28 <- here::here("output",
-                             "hm-dates_sim-29.csv") %>%
+                             "hm_projections_0.99_1_28.csv") %>%
                   readr::read_csv(.)
+```
 
+
+```{r}
 colnames(projections_7) <- sub("ymax", "ymax1", colnames(projections_7))
 colnames(projections_7) <- sub("ymin", "ymin1", colnames(projections_7))
 colnames(projections_7) <- sub("y\\.", "y1.", colnames(projections_7))
@@ -95,12 +102,12 @@ weekly_incid$Date %<>% as.Date
 tmp <- plyr::join_all(list(projections_7,
                            projections_14,
                            projections_28),
-                      by = c("Date", "Projections_from"),
+                      by = c("Date", "projection_from"),
                       type = "left")
 
 desired  <- dplyr::inner_join(weekly_incid, tmp,
                                  by =  "Date")
 
-desired <- select(desired, Projections_from, Date, Guinea:`ymax4.Sierra Leone`)
+desired <- select(desired, projection_from, Date, Guinea:`ymax4.aggregated`)
 
 ```

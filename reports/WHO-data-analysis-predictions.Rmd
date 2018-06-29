@@ -181,7 +181,7 @@ centroids <- left_join(districts, centroids)
 flow.matrix  <- flow_matrix(longitude   = centroids$lon,
                             latitude    = centroids$lat,
                             population  = centroids$pop,
-                            place.names = centroids$CL_DistrictRes,
+                            place_names = centroids$CL_DistrictRes,
                             model = "gravity", K = K,
                             pow_N_from = pow_N_from,
                             pow_N_to   = pow_N_to,
@@ -225,43 +225,27 @@ national counts, for each date, draw a random sample of size $k$ from
 the $N$ simulated numbers for each district. Shuffle each sample and 
 add.
 
-```{r agg_country, eval = FALSE}
+```{r agg_country, eval = TRUE}
 
-num_samples <- 2000
-random_sample <- list()
+num_samples <- 200
 districts <- select(incid_wide, -Date) %>% colnames
-for (district in districts){
-    idx    <- sample(seq_len(n.sim), num_samples)
-    draw   <- daily_projections[idx]
-    d_sims <- lapply(draw, function(x){
-                              select(x, sim = district)})
-    d_sims %<>% bind_cols(.)
-    d_sims$district <- district
-    d_sims$date <- dates_forecast
-    random_sample %<>% c(list(d_sims))
-}
-
-
-
-shuffle_cols <- function(df){
-    df[ , sample(ncol(df))]
-}
-
-national <- bind_rows(random_sample) %>%
-             split(.$date) %>%
-             lapply(function(x)
+national <- purrr::map_dfr(districts, function(x){
+    out <- sample_projections(daily_projections, x, num_samples)
+    out$date <- dates_forecast
+    out
+})
+aggregated <- split(national, national$date) %>%
+             purrr::map(function(x)
                        select(x, starts_with("sim")) %>%
-                        rowwise() %>%
                         shuffle_cols() %>%
                         colSums) 
+aggregated <- purrr::map_dfr(aggregated, function(x)
+                         data.frame(matrix(x, nrow = 1)), .id = "Date") 
 
 
-national %<>%  lapply(function(x)
-                         data.frame(matrix(x, nrow = 1))) %>%
-                 bind_rows(.id = "Date")
 
-national$Date %<>% as.Date
-national_weekly <- daily.to.weekly(national)
+aggregated$Date %<>% as.Date
+national_weekly <- daily.to.weekly(aggregated)
 
 national_distr <- tidyr::gather(national_weekly, sim, val, -Date) %>%
                    projection_quantiles

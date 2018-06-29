@@ -1,0 +1,29 @@
+Location; Ebola data source; Indicator type; Case definition,Sierra Leone; 30 December 2013 to 05 January 2014 (2014-W01),Sierra Leone; 06 to 12 January 2014 (2014-W02),Sierra Leone; 13 to 19 January 2014 (2014-W03),Sierra Leone; 20 to 26 January 2014 (2014-W04),Sierra Leone; 27 January to 02 February 2014 (2014-W05),Sierra Leone; 03 to 09 February 2014 (2014-W06),Sierra Leone; 10 to 16 February 2014 (2014-W07),Sierra Leone; 17 to 23 February 2014 (2014-W08),Sierra Leone; 24 February to 02 March 2014 (2014-W09),Sierra Leone; 03 to 09 March 2014 (2014-W10),Sierra Leone; 10 to 16 March 2014 (2014-W11),Sierra Leone; 17 to 23 March 2014 (2014-W12),Sierra Leone; 24 to 30 March 2014 (2014-W13),Sierra Leone; 31 March to 06 April 2014 (2014-W14),Sierra Leone; 07 to 13 April 2014 (2014-W15),Sierra Leone; 14 to 20 April 2014 (2014-W16),Sierra Leone; 21 to 27 April 2014 (2014-W17),Sierra Leone; 28 April to 04 May 2014 (2014-W18),Sierra Leone; 05 to 11 May 2014 (2014-W19),Sierra Leone; 12 to 18 May 2014 (2014-W20),Sierra Leone; 19 to 25 May 2014 (2014-W21),Sierra Leone; 26 May to 01 June 2014 (2014-W22),Sierra Leone; 02 to 08 June 2014 (2014-W23),Sierra Leone; 09 to 15 June 2014 (2014-W24),Sierra Leone; 16 to 22 June 2014 (2014-W25),Sierra Leone; 23 to 29 June 2014 (2014-W26),Sierra Leone; 30 June to 06 July 2014 (2014-W27),Sierra Leone; 07 to 13 July 2014 (2014-W28),Sierra Leone; 14 to 20 July 2014 (2014-W29),Sierra Leone; 21 to 27 July 2014 (2014-W30),Sierra Leone; 28 July to 03 August 2014 (2014-W31),Sierra Leone; 04 to 10 August 2014 (2014-W32),Sierra Leone; 11 to 17 August 2014 (2014-W33),Sierra Leone; 18 to 24 August 2014 (2014-W34),Sierra Leone; 25 to 31 August 2014 (2014-W35),Sierra Leone; 01 to 07 September 2014 (2014-W36),Sierra Leone; 08 to 14 September 2014 (2014-W37),Sierra Leone; 15 to 21 September 2014 (2014-W38),Sierra Leone; 22 to 28 September 2014 (2014-W39),Sierra Leone; 29 September to 05 October 2014 (2014-W40),Sierra Leone; 06 to 12 October 2014 (2014-W41),Sierra Leone; 13 to 19 October 2014 (2014-W42),Sierra Leone; 20 to 26 October 2014 (2014-W43),Sierra Leone; 27 October to 02 November 2014 (2014-W44),Sierra Leone; 27 October to 09 November 2014 (2014-W45),Sierra Leone; 10 to 16 November 2014 (2014-W46),Sierra Leone; 17 to 23 November 2014 (2014-W47)
+BO; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,20,16,18,21,14,15,12,33,14
+BO; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,2,,1,1,4,5,10,15,9,24,52,17,19,7,29,22,21,34,17,20,32,8,
+BOMBALI; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,35,79,52,94,72,56,90,69,52,54
+BOMBALI; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,1,,,,1,,,5,1,2,5,17,32,30,46,88,93,85,67,66,76,69,62,43,16
+BONTHE; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0,0,0,1,0,0,0,1,0
+BONTHE; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,,,,,,1,,,,,
+KAILAHUN; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,23,0,3,3,11,6,4,3,1,2
+KAILAHUN; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,3,20,33,60,38,35,55,84,42,36,76,48,26,19,24,23,12,9,8,4,5,31,10,7,5,3,1
+KAMBIA; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,7,4,7,4,2,4,16,6,5,5
+KAMBIA; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,5,10,5,8,3,5,17,7,5,1
+KENEMA; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,8,10,5,13,26,13,10,0,0,1
+KENEMA; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,1,1,20,16,33,22,31,46,43,45,52,46,23,28,22,7,12,7,22,18,7,10,1,2,
+KOINADUGU; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,0,0,0,0,2,11,10,25,25,5
+KOINADUGU; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,,,1,8,12,25,39,35,20,
+KONO; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,0,7,6,3,4,1,7,12,16
+KONO; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,3,,,,2,,,,3,8,5,3,6,20,17,12,4,1,6,15,1
+MOYAMBA; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,24,13,13,9,10,8,3,41,10,10
+MOYAMBA; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,1,,,,,,2,5,6,5,3,1,13,2,67,16,8,4,8,2,,5,1,
+PORT LOKO; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,44,83,53,55,46,53,64,56,95,72
+PORT LOKO; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,1,,,,2,1,,,,2,,1,7,17,18,23,32,40,55,68,90,50,100,99,132,152,187,47,
+PUJEHUN; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,3,6,5,0,1,1,2,0,0,2
+PUJEHUN; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,1,,4,,3,,3,6,8,1,4,4,1,,,
+TONKOLILI; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,24,18,26,27,21,37,30,56,29,31
+TONKOLILI; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,2,,6,8,15,12,34,35,94,52,62,46,27,61,31,7
+WESTERN AREA RURAL; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,31,64,52,65,72,102,75,69,102,55
+WESTERN AREA RURAL; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1,,,1,2,14,14,16,10,40,48,50,60,98,87,99,58,12,
+WESTERN AREA URBAN; Situation report; New; Confirmed,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,51,53,76,77,98,90,115,77,168,118
+WESTERN AREA URBAN; Patient database; New; Confirmed and probable case total,,,,,,,,,,,,,,,,,,,1,,,,,,,,,1,,1,,1,1,8,21,13,18,51,42,55,77,68,79,110,102,19,

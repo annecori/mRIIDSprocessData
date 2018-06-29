@@ -19,10 +19,10 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 400
-  n.sim : 1000
-  n.dates.sim : 8
-  p.stay: 1
+  t.proj : 300
+  n.sim : 5000
+  n.dates.sim : 28
+  p.stay: 0.99
 ---
 
 # Introduction
@@ -134,7 +134,7 @@ lapply(names(r.estim), function(country) {
          geom_line(aes(y =  `Mean(R)`)) +
          theme_minimal() +
          ylab("Reproduction Number R")
-    ggsave(file = paste0("figures/", country, "-R.png"), p)
+    ggsave(file = paste0("figures/", country, "-R.pdf"), p)
 })
 
 ```
@@ -170,7 +170,7 @@ names(adm0_centroids) <- c("country", "id", "lon", "lat", "pop")
 flow.matrix           <- flow_matrix(longitude = adm0_centroids[, "lon"],
                                      latitude  = adm0_centroids[, "lat"],
                                      population = adm0_centroids[, "pop"],
-                                     place.names = adm0_centroids[, "country"],
+                                     place_names = adm0_centroids[, "country"],
                                      model = "gravity",
                                      K = K, pow_N_from = pow_N_from,
                                      pow_N_to = pow_N_to, pow_dist = pow_dist)
@@ -253,9 +253,64 @@ projections_distr <- projection_quantiles(weekly.projections)
 
 ```
 
-```{r webapp, eval = TRUE}
+## Aggregate projections for West African Region
 
-<<<<<<< HEAD
+```{r agg, eval = TRUE}
+num_samples <- 4550
+countries <- select(daily.projections[[1]], -Date) %>% colnames()
+wafrica_all <- purrr::map_dfr(countries, function(x){
+    out <- sample_projections(daily.projections, x, num_samples)
+    out$date <- dates_pred
+    out
+})
+aggregated <- split(wafrica_all, wafrica_all$date) %>%
+             purrr::map(function(x)
+                 select(x, starts_with("sim")) %>%
+                 shuffle_cols() %>%
+                        colSums) 
+aggregated <- purrr::map_dfr(aggregated, function(x)
+    data.frame(matrix(x, nrow = 1, dimnames = list("1", names(x)))),
+    .id = "Date") 
+
+
+
+aggregated$Date %<>% as.Date
+wafrica_weekly <- daily.to.weekly(aggregated)
+
+wafrica_distr <- tidyr::gather(wafrica_weekly, sim, aggregated, -Date) %>%
+                   projection_quantiles
+```
+
+Stack them together and write them out for later.
+
+```{r}
+projections_distr <- rbind(projections_distr, wafrica_distr)
+
+projections_distr_wide <- reshape(projections_distr,
+                                  idvar = 'Date',
+                                  timevar = 'Country',
+                                  direction = 'wide')
+projections_distr_wide$projection_from <- max(training$Date)
+projections_distr_wide <- select(projections_distr_wide,
+                                 projection_from,
+                                 Date,
+                                 y.Guinea:ymax.aggregated)
+
+outfile <- paste0("hm_projections_",
+                  p.stay, "_",
+                  pow_dist, "_",
+                  n.dates.sim, ".csv")
+outfile <- here::here("output", outfile)
+append  <- file.exists(outfile)
+readr::write_csv(x = projections_distr_wide,
+                 path = outfile,
+                 append = append)
+
+```
+
+```{r webapp, eval = FALSE}
+
+
 
 tmp <- select(weekly.available, -Category) %>%
         tidyr::gather(Country, Incidence, -Date)
@@ -270,16 +325,34 @@ here::here("output",
 outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
 outfile <- here::here("output", outfile)
 
-## tmp <- reshape(projections_distr, idvar='Date',
-##               timevar='Country',direction='wide')
-## tmp$Projections_from <- by.location_incid[t.proj,]$Date
-## outfile   <-  paste0("hm-dates_sim-",  n.dates.sim, ".csv")
-## outfile   <- here::here("output", outfile) 
-## col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
 
 
 ## write.table(tmp, outfile,  
 ##            sep = ",", col.names = col.names, append = T,
 ##            row.names = F, quote = F)
+
+```
+
+
+```{r, eval = FALSE}
+aggregated$place <- "aggregated"
+aggregated <- select(aggregated, starts_with("sim"), place, date = Date)
+wafrica_all <- rbind(wafrica_all, aggregated)
+wafrica_tall <- tidyr::gather(wafrica_all, sim, val, -date, -place)
+projections_range <-  wafrica_tall %>%
+  group_by(date, place) %>%
+  summarise(sim_range = list(range(val))) %>%
+  mutate(sim_range = purrr::map(sim_range, tibble::enframe, name = "range")) %>%
+    tidyr::unnest() %>%
+  tidyr::spread(range, value)
+
+outfile <- paste0("hm_projections_",
+                  p.stay, "_",
+                  pow_dist, "_",
+                  t.proj, "_",
+                  n.dates.sim, "_range.csv")
+outfile <- here::here("output", outfile)
+readr::write_csv(x = projections_range, path = outfile)
+
 
 ```

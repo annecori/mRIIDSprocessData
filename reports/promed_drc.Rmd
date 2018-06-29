@@ -1,0 +1,171 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+devtools::load_all()
+```
+## Data pre-processing
+
+1. Read in data.
+```{r s1, eval = TRUE}
+promed_drc <- here::here("data/CaseCounts/raw",
+                         "ProMED_ebola_drc_2018_fixed_colnames.csv") %>%
+    read.csv(stringsAsFactors = FALSE)
+
+```
+
+2. Extract the cumulative case count as a sum of suspected and
+confirmed cases.
+
+```{r s2, eval = TRUE}
+cols.to.keep <- c("Location", "Country", "Disease", "Species",
+                  "HealthMap.Alert.ID", "Headline", "URL",
+                  "Alert.Tag", "Feed.Name", "Lon", "Lat")
+
+## These are columns we generate ourselves later on
+cols.to.keep <- c(cols.to.keep, "Date", "Cases")
+case_type <- "SCC"
+step_1 <- update_cases_column(promed_drc, case_type)
+
+```
+
+Merge duplicate alerts.
+
+```{r dups_check, eval = TRUE}
+step_2 <- merge_duplicates(step_1, cols.to.keep)
+```
+
+3. Remove outliers and interpolate missing data.
+
+```{r intp, eval = TRUE}
+step_2 <- arrange(step_2, Date)
+not.na          <- which(!is.na(step_2$Cases))
+cum.incidence   <- step_2[not.na, c('Date', 'Cases')]
+first.row       <- step_2[1, c('Date', 'Cases')]
+first.row$Date  <- first.row$Date - 1
+first.row$Cases <- 0
+cum.incidence <- rbind(first.row, cum.incidence)
+cum.incidence <- make_monotonically_increasing(cum.incidence)
+interpolated <-  interpolate_missing_data(cum.incidence)
+
+```
+4. Check the effect of each pre-processing step visually.
+```{r}
+list(SCC = select(step_1, Date, Cases),
+     merged_duplicated = select(step_2, Date, Cases),
+     made_increasing = cum.incidence,
+     interpolated = interpolated) %>%
+    bind_rows(.id = "step") %>%
+    ggplot(aes(Date, Cases, col = step)) + geom_point()
+
+
+```
+
+5. Determine the incidence count from the cumulative case count.
+
+
+```{r}
+interpolated$incid <- c(0, diff(interpolated$Cases))
+```
+
+## Estimate R
+
+Values taken from Lancet draft.
+
+```{r ebola_params}
+
+mean_SI     <- 15.3
+CV_SI       <- 9.1 / 15.3
+SItrunc     <- 40
+SI_Distr    <- sapply(0:SItrunc,
+                      function(e) EpiEstim::DiscrSI(e, mean_SI, mean_SI * CV_SI))
+SI_Distr    <- SI_Distr / sum(SI_Distr)
+
+
+```
+
+
+```{r restim, eval = TRUE}
+time_window <- 7
+start     <- 2:(length(interpolated$Date) - time_window)
+end       <- start + time_window
+end.dates <- interpolated[end, "Date"]
+I <- interpolated$incid
+r.estim   <- EpiEstim::EstimateR(I,
+                                 T.Start = start,
+                                 T.End = end,
+                                 method = "NonParametricSI",
+                                 SI.Distr = SI_Distr,
+                                 plot = FALSE,
+                                 CV.Posterior = 1,
+                                 Mean.Prior = 1,
+                                 Std.Prior = 0.5)
+
+
+
+```
+
+## Samples from the posterior distribution for R
+
+
+
+```{r rjt, eval = TRUE}
+n.dates.sim <- 7
+nsim   <- 1000
+cutoff <- 10
+shape  <- r.estim$R[cutoff, "Mean(R)"]^2 / r.estim$R[cutoff, "Std(R)"]^2
+scale  <- r.estim$R[cutoff, "Std(R)"]^2 / r.estim$R[cutoff, "Mean(R)"]
+rsamples <- rgamma(nsim, shape = shape, scale = scale)
+rsamples <- matrix(rsamples, ncol = 1, nrow = nsim)
+
+
+
+```
+
+## Project
+
+```{r}
+pmovement <- matrix(1, nrow = 1)
+incid <- matrix(interpolated$incid, ncol = 1)
+dates_pred <-  seq(from = max(interpolated$Date) + 1,
+                   length.out = n.dates.sim,
+                   by = 1)
+
+daily.projections <- plyr::alply(rsamples, 1, function(r.t){
+    out   <- project(incid,
+                     as.matrix(r.t),
+                     SI_Distr,
+                     pmovement,
+                     n.dates.sim)
+    out <- data.frame(out)
+    out$Date <- dates_pred
+    out
+})
+
+daily.projections <- bind_rows(daily.projections)
+projection_quantiles(daily.projections)
+```

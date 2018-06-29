@@ -2,7 +2,8 @@
 % Please edit documentation in R/util.R
 \name{ctest}
 \alias{ctest}
-\title{Test if two samples were drawn from a Poisson distribution with the same rate parameter}
+\title{Test if two samples were drawn from a Poisson distribution with
+the same rate parameter}
 \usage{
 ctest(x, y)
 }
@@ -16,12 +17,16 @@ pvalue for H_0: lambda_1 = lamnda_2
 }
 \description{
 http://www.sciencedirect.com/science/article/pii/S0378375802004081
-Homogeneity of Results in Testing Samples from Poisson Series: With an Application to Testing Clover Seed for Dodder
-J. Przyborowski and H. Wilenski Biometrika Vol. 31, No. 3/4 (Mar., 1940), pp. 313-323
+Homogeneity of Results in Testing Samples from Poisson Series:
+With an Application to Testing Clover Seed for Dodder
+J. Przyborowski and H. Wilenski Biometrika Vol. 31, No. 3/4
+(Mar., 1940), pp. 313-323
 }
 \details{
-The smaller the difference between the two rate parameters, the harder it will be to detect, especially with small
-sample sizes. x and y should have same length otherwise the return value will be nonsensical
+The smaller the difference between the two rate parameters,
+the harder it will be to detect, especially with small
+sample sizes. x and y should have same length otherwise the return
+value will be nonsensical
 }
 \author{
 Sangeeta Bhatia

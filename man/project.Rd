@@ -4,30 +4,40 @@
 \alias{project}
 \title{Project future incidence at a location
 Simulates future incidence based on past incidence data at a
-given set of locations, the Reproduction numbers at each location and the distribution of the serial interval.
+given set of locations, the Reproduction numbers and
+the distribution of the serial interval.
 Runs a single simulation.}
 \usage{
-project(incid, R, si, pij, n.days = 7)
+project(incid, R, si, pij, n_days = 7)
 }
 \arguments{
 \item{incid}{A data frame of incidence counts for n locations and t days.
-Dates run down the rows and locations are across columns. Must contain a column called Date.}
+Dates run down the rows and locations are across columns.}
 
-\item{R}{A positive vector of reproduction numbers for each location.}
+\item{R}{either a 1 X n matrix of reproduction numbers
+for each location or a matrix of n_days X n with R for
+each time instant and each location for which projection
+is to be made.}
 
-\item{si}{A vector}
+\item{si}{A vector drawn from serial interval
+distribution. If the length of the vector is less than
+the nrow(incid) + n_days, it is padded with 0s.}
 
-\item{pij}{a n x n matrix of probabilities where n is the number of locations.}
+\item{pij}{a n x n matrix of probabilities where n is
+the number of locations.}
 
-\item{n.days}{number of days for which each simulation should be run.}
+\item{n_days}{number of days for which a simulation
+should be run.}
 }
 \value{
-data frame containing projected incidence count with n.days rows and n columns.
+data frame containing projected incidence count
+with n_days rows and n columns.
 }
 \description{
 Project future incidence at a location
 Simulates future incidence based on past incidence data at a
-given set of locations, the Reproduction numbers at each location and the distribution of the serial interval.
+given set of locations, the Reproduction numbers and
+the distribution of the serial interval.
 Runs a single simulation.
 }
 \author{

@@ -19,7 +19,7 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 1
-  t.proj : 98
+  t.proj : 400
   n.sim : 1000
   n.dates.sim : 8
   p.stay: 1
@@ -208,7 +208,12 @@ validation <- by.location_incid[(t.proj + 1):nrow(by.location_incid), ]
 incidence.count <- select(training, -Date)
 incid           <- as.matrix(incidence.count)
 dates.all       <- training$Date %>%
-                       c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+    c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
+
+dates_pred <-  seq(from = max(training$Date) + 1,
+                   length.out = n.dates.sim,
+                   by = 1)
+
 t.max           <- nrow(incidence.count) + n.dates.sim - 1
 
 daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
@@ -216,9 +221,9 @@ daily.projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     out   <- project(incid, r.t, SI_Distr,
                                                      p.movement, n.dates.sim)
 
-                                    incidence.proj  <- rbind(incidence.count, out)
-                                    incidence.proj %<>% cbind(Date = dates.all)
-                                    return(incidence.proj[(nrow(incidence.count) + 1):t.max, ])})
+                                    out <- data.frame(out)
+                                    out$Date <- dates_pred
+                                    out})
 
 
 
@@ -236,6 +241,7 @@ weekly.available <- c(training    = list(training),
 weekly.projections <- lapply(daily.projections, daily.to.weekly) %>% bind_rows(.)
 
 
+
 projections_distr <- projection_quantiles(weekly.projections)
 #outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".csv")
 #outfile <- here::here("output", outfile)
@@ -249,15 +255,31 @@ projections_distr <- projection_quantiles(weekly.projections)
 
 ```{r webapp, eval = TRUE}
 
-tmp <- reshape(projections_distr, idvar='Date',
-               timevar='Country',direction='wide')
-tmp$Projections_from <- by.location_incid[t.proj,]$Date
-outfile   <-  paste0("hm-dates_sim-",  n.dates.sim, ".csv")
-outfile   <- here::here("output", outfile) 
-col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+<<<<<<< HEAD
 
-write.table(tmp, outfile,  
-            sep = ",", col.names = col.names, append = T,
-            row.names = F, quote = F)
+tmp <- select(weekly.available, -Category) %>%
+        tidyr::gather(Country, Incidence, -Date)
+tmp$Date %<>% as.Date
+tmp2 <- dplyr::left_join(projections_distr, tmp,
+                         by = c("Date", "Country"))
+
+here::here("output",
+           paste0("healthmap_goodness_fit_", t.proj, ".csv")) %>%
+   readr::write_csv(x = tmp2, path = .)
+
+outfile <- paste0("hm_summary_projections_", p.stay, "_", pow_dist, "_", t.proj, ".png")
+outfile <- here::here("output", outfile)
+
+## tmp <- reshape(projections_distr, idvar='Date',
+##               timevar='Country',direction='wide')
+## tmp$Projections_from <- by.location_incid[t.proj,]$Date
+## outfile   <-  paste0("hm-dates_sim-",  n.dates.sim, ".csv")
+## outfile   <- here::here("output", outfile) 
+## col.names <- ifelse(file.exists(outfile), FALSE, TRUE)
+
+
+## write.table(tmp, outfile,  
+##            sep = ",", col.names = col.names, append = T,
+##            row.names = F, quote = F)
 
 ```

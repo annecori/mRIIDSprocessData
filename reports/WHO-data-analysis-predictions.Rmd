@@ -11,7 +11,7 @@ author:
   affiliation: Imperial College London
 abstract: 
 keywords: 
-date: "Y"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 geometry: margin=1in
 fontfamily: mathpazo
 fontsize: 11pt
@@ -21,11 +21,11 @@ biblio-style: apsr
 endnote: no
 params:
   pow_dist : 2
-  t.proj : 300
-  n.sim : 2
+  t.proj : 500
+  n.sim : 1000
   n.dates.sim : 49
   p.stay: 0.9
-  ADM0: GUINEA
+  ADM0: SIERRALEONE
 ---
 
 ```{r global_options, include=FALSE}
@@ -53,7 +53,7 @@ ADM0        <- params$ADM0
 
 ```{r data_read, eval = TRUE}
 infile     <- paste0(ADM0, "_wide.csv") 
-infile     <- here::here("data/CaseCounts/processed/", infile)
+infile     <- here::here("data/CaseCounts/processed", infile)
 incid_wide <- readr::read_csv(infile)
 
 ```
@@ -118,6 +118,21 @@ r.estim   <- select(training, -Date)  %>%
 
 ```
 
+Write the reproduction numbers out for future analysis.
+
+```{r}
+district_rs <- lapply(r.estim, function(df)
+                                  filter(df,
+                                         Date == training$Date[t.proj]))
+
+district_rs <- bind_rows(district_rs, .id = "Country")
+
+here::here("output", paste0("district_Rs_", t.proj, ".csv")) %>%
+    readr::write_csv(x = district_rs, path = .)
+
+```
+
+
 We use the estimated R at t.proj to be the R for the window over which
 predictions are being carried out.
 
@@ -140,18 +155,33 @@ Calculate the probability of movement between locations. There is some
 extra arranging of variables here to ensure that the columns in the
 incidence data and movement matrix are in the same order.
 
-```{r pmovement, eval = TRUE}
+```{r adm0_centroids, eval = FALSE}
 
-infile <- here::here("data/Geography/GravityModel/processed/", "all_centroids.csv")
+centroids <- here::here("data/Geography/GravityModel/raw",
+                     "adm0_centroids.tsv") %>%
+             readr::read_tsv(., col_names = c("CL_DistrictRes", "id",
+                                     "lon", "lat", "pop")) %>% 
+                   filter(CL_DistrictRes %in% names(incid_wide)[-1]) 
+
+
+```
+
+```{r districts_coord, eval = TRUE}
+
+infile <- here::here("data/Geography/GravityModel/processed",
+                     "all_centroids.csv")
 centroids <- readr::read_csv(infile) %>% 
                    filter(ADM0 == ADM0) 
 districts <- data.frame(CL_DistrictRes = colnames(incid_wide)[-1])
 centroids <- left_join(districts, centroids)
+```
 
-flow.matrix  <- flow_matrix(longitude   = centroids[, "Centroid_Lon"],
-                            latitude    = centroids[, "Centroid_Lat"],
-                            population  = centroids[, "Pop"],
-                            place.names = centroids[, "CL_DistrictRes"],
+
+```{r pmovement, eval = TRUE}
+flow.matrix  <- flow_matrix(longitude   = centroids$lon,
+                            latitude    = centroids$lat,
+                            population  = centroids$pop,
+                            place.names = centroids$CL_DistrictRes,
                             model = "gravity", K = K,
                             pow_N_from = pow_N_from,
                             pow_N_to   = pow_N_to,
@@ -171,21 +201,110 @@ incid     <- as.matrix(select(training, -Date))
 dates.all <- pull(training, Date) %>%
              c(seq(max(.) + 1, length.out = n.dates.sim, by = 1))
 t.max     <- t.proj + n.dates.sim - 1
-
+dates_forecast <-  seq(from = max(training$Date) + 1,
+                       length.out = n.dates.sim,
+                       by = 1)
 
 daily_projections <- plyr::alply(r.j.t, 1, function(r.t){
                                     r.t   <- as.matrix(r.t)
                                     out   <- project(incid, r.t, SI_Distr,
-                                                     p.movement, n.dates.sim) 
-                                    incidence.proj <- rbind(incid, out)
-                                    incidence.proj %<>% data.frame(check.names = F)
-                                    incidence.proj %<>% cbind(Date = dates.all)
-                                    return(incidence.proj[(nrow(training) + 1):t.max, ])})
+                                                     p.movement, n.dates.sim)
+                                    out <- data.frame(out)
+                                    out$Date <- dates_forecast
+                                    out })
 
 
 weekly_projections <- lapply(daily_projections, daily.to.weekly) %>% bind_rows(.)
 
 ```
+## Aggregating district predictions 
+
+We have $N$ simulations for predictions. This means that for each 
+district we have $N$ simulated numbers. To obtain the aggregated
+national counts, for each date, draw a random sample of size $k$ from 
+the $N$ simulated numbers for each district. Shuffle each sample and 
+add.
+
+```{r agg_country, eval = FALSE}
+
+num_samples <- 2000
+random_sample <- list()
+districts <- select(incid_wide, -Date) %>% colnames
+for (district in districts){
+    idx    <- sample(seq_len(n.sim), num_samples)
+    draw   <- daily_projections[idx]
+    d_sims <- lapply(draw, function(x){
+                              select(x, sim = district)})
+    d_sims %<>% bind_cols(.)
+    d_sims$district <- district
+    d_sims$date <- dates_forecast
+    random_sample %<>% c(list(d_sims))
+}
+
+
+
+shuffle_cols <- function(df){
+    df[ , sample(ncol(df))]
+}
+
+national <- bind_rows(random_sample) %>%
+             split(.$date) %>%
+             lapply(function(x)
+                       select(x, starts_with("sim")) %>%
+                        rowwise() %>%
+                        shuffle_cols() %>%
+                        colSums) 
+
+
+national %<>%  lapply(function(x)
+                         data.frame(matrix(x, nrow = 1))) %>%
+                 bind_rows(.id = "Date")
+
+national$Date %<>% as.Date
+national_weekly <- daily.to.weekly(national)
+
+national_distr <- tidyr::gather(national_weekly, sim, val, -Date) %>%
+                   projection_quantiles
+                 
+
+```
+And write them out.
+
+```{r agg_write, eval = FALSE}
+
+paste0(ADM0, "_aggregated_projections_weekly_", p.stay,
+       "_", pow_dist, "_", t.proj, ".csv") %>%
+here::here("output", .) %>%
+readr::write_csv(x = national_distr, path = .)
+
+
+```
+
+## WHO weekly country data
+
+```{r who_weekly, eval = FALSE}
+
+incid_country <- select(incid_wide, -Date) %>% rowSums
+
+incid_weekly <- data.frame(Date = incid_wide$Date,
+                           incid = incid_country) %>% daily.to.weekly
+
+date_min <- "2014-08-01"
+small <- filter(incid_weekly, Date > date_min)
+p <- ggplot(small, aes(as.Date(Date), incid)) + geom_point()
+p <- p + geom_point(data = national_distr, aes(Date, y), col = "red")
+p <- p + geom_ribbon(data = national_distr,
+                aes(x = Date,
+                    ymin = ymin,
+                    ymax = ymax,
+                    group = 1),
+                    inherit.aes = FALSE,
+                    alpha = 0.3)
+p <- p + theme_tufte()
+p <- p + xlab("Date") + ylab("Weekly Incidence")
+
+```
+## Quantiles for district predictions
 
 ```{r predictions_write, eval = TRUE}
 
@@ -206,6 +325,7 @@ readr::write_csv(daily_projections_distr, path = outfile)
 
 ```
 
+
 # Forecast visualisation
 
 The plot consists of the following elements: the training and
@@ -213,7 +333,20 @@ validation sets, distribution of the predictions (quantiles) and some
 data beyond the last date for which prediction has been carried out so
 that we can see the trend.
 
-```{r predictions_viz, eval = TRUE}
+```{r obs_weekly, eval = TRUE}
+
+trng_weekly  <- daily.to.weekly(training) 
+vldtn_weekly <- daily.to.weekly(validation)
+
+tmp <- list(Training = trng_weekly, Validation = vldtn_weekly) %>%
+        bind_rows(.id = "Category")  %>%
+        tidyr::gather(Country, Incidence, -c(Date, Category))
+
+tmp$Date %<>% as.Date
+
+```
+
+```{r predictions_viz, eval = FALSE}
 
 date_min <- "2014-08-01"
 date_max <- max(projections_distr$Date) + 45
@@ -229,14 +362,6 @@ p <- ggplot(full_df, aes(Date, Incidence)) +
 
 p <- p +  theme_tufte() + geom_rangeframe() 
 
-trng_weekly  <- daily.to.weekly(training) %>% filter(Date >= date_min)
-vldtn_weekly <- daily.to.weekly(validation)
-
-tmp <- list(Training = trng_weekly, Validation = vldtn_weekly) %>%
-        bind_rows(.id = "Category")  %>%
-        tidyr::gather(Country, Incidence, -c(Date, Category))
-
-tmp$Date %<>% as.Date
 
 p <- p  +
     geom_point(data = tmp,
@@ -270,5 +395,51 @@ outfile <- paste0(ADM0, "_projections_", p.stay, "_", pow_dist, "_", t.proj, ".p
 outfile <- here::here("output", outfile)
 
 ggsave(outfile, p)
+
+```
+
+# Evaluating Goodness-of-Fit
+## Proportion of weekly incidence points that fall inside the 95% CI
+
+```{r, eval = TRUE}
+tmp2 <- dplyr::left_join(projections_distr, tmp,
+                         by = c("Date", "Country"))
+
+#num_districts <- length(unique(tmp2$Country))
+
+#goodness <- filter(tmp2, ymin < Incidence & Incidence < ymax) %>%
+#            group_by(Date) %>% summarise(n()/num_districts)
+
+            
+
+here::here("output", paste0(ADM0, "_goodness_fit_", t.proj, ".csv")) %>%
+       readr::write_csv(x = tmp2, path = .)
+
+```
+
+## Coefficient of Determination
+
+For $k$ spatial units,
+
+\[ R^2 = 1 - \frac{SS_{res}}{SS_{tot}},\]
+
+where 
+
+\[ SS_{res} = \sum_{i = 1}^n{y_i - \hat{y_i}},\]
+
+and
+\[ SS_{tot} = \sum_{k}{\sum_{i = 1}^n{y_{i, k} - \bar{y_k}}}.\]
+
+```{r, eval = FALSE}
+
+ss_res <- (tmp2$Incidence - tmp2$y)^2 %>% sum
+group_means <- group_by(tmp2, Country) %>%
+               summarise_at("Incidence", mean) %>%
+               rename(mean = Incidence)
+
+tmp2 <- left_join(tmp2, group_means, by = "Country")
+ss_tot <- (tmp2$Incidence - tmp2$mean)^2 %>% sum
+
+r2 <- 1 - (ss_res / ss_tot)
 
 ```

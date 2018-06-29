@@ -1,0 +1,94 @@
+---
+output: 
+  pdf_document:
+    citation_package: natbib
+    keep_tex: true
+    fig_caption: true
+    latex_engine: pdflatex
+title: Estimating parameters of gravity model
+author:
+- name: Sangeeta Bhatia
+  affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "Y"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+# spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(rstan)
+
+```
+
+Extract airport codes for Guinea, Liberia and Sierra Leone.
+
+```{r}
+airports <- here::here("data/Geography/GravityModel/global_flight_data",
+                       "Airports_2010.csv") %>%
+            readr::read_csv(.) %>%
+            filter(CountryCode %in% c("SL", "GN", "LR")) 
+
+nodes <- pull(airports, NodeName)
+
+passenger_flow <- here::here("data/Geography/GravityModel/global_flight_data",
+                             "Prediction_Monthly.csv") %>%
+                  read.csv(.) %>%
+                  filter(Origin %in% nodes & Dest %in% nodes)
+
+
+annual <- passenger_flow %>% group_by(Origin, Dest) %>%
+           summarise(total = sum(Prediction))
+ 
+
+
+```
+
+Now for the five airports, extract the populations of the cities they
+serve and their co-ordinates.
+
+```{r}
+
+pops <- c(FNA = 802639, CKY = 1693456, CPA = 136404,
+          NZE = 442820, MLW = 1010970)
+
+origin_pop <- pops[as.character(annual$Origin)]
+dest_pop   <- pops[as.character(annual$Dest)]
+pop_prod   <- origin_pop * dest_pop
+
+
+distances <- apply(annual, 1, function(row){
+                                orig <- row["Origin"]
+                                dest <- row["Dest"]
+                                coord1 <- filter(airports,
+                                                 NodeName == orig) %>%
+                                          select(Lon, Lat)
+                                coord2 <- filter(airports,
+                                                 NodeName == dest) %>%
+                                          select(Lon, Lat)
+                                geosphere::distm(x = coord1,
+                                                 y = coord2)})
+
+annual$pop_prod <- pop_prod
+annual$dist <- distances
+
+standata <- list(N = nrow(annual), flow = pull(annual, total),
+                 pop_prod = pull(annual,pop_prod),
+                 dist = pull(annual, dist))
+model_file <- here::here("R", "gravity_model.stan")
+
+fit1 <- stan( file = model_file,
+ data = standata,
+ chains = 5,
+ warmup = 1000,
+ iter = 20000,
+ cores = 2)
+
+```

@@ -20,18 +20,28 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  cases: 22_may_2018.csv
-  risk: !r c("flow_from_mbandaka_1.csv", "flow_from_Équateur_1.csv")
+  cases: 21-May-2018.csv
+  risk: !r c("flow_from_mbandaka_1_1_1.csv", "flow_from_équateur_1_1_1.csv")
   pstay: 0.95
   sim: 10000
-  simean: 14
-  sisd: 1
+  simean: 15.3
+  sisd: 9.1
 ---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width = 12,
+                      fig.height = 6,
+                      echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.path = "figures/")
+
+```
 ```{r setup, eval = TRUE, echo = FALSE}
 library(dplyr)
 library(magrittr)
 library(stringr)
 library(ggplot2)
+library(ggthemes)
 ```
 
 This analysis uses a daily incidence time series to estimate the
@@ -56,13 +66,39 @@ Serial interval estimation over however many days worth of data we
 have at this point.
 
 ```{r}
-si <- EpiEstim::DiscrSI(k = seq_len(nrow(incid)),
+si <- EpiEstim::DiscrSI(k = 0:nrow(incid),
                         mu = params$simean,
                         sigma  = params$sisd) %>% round(3)
-eq_infectivity <- EpiEstim::OverallInfectivity(incid$eq, si)
-mb_infectivity <- EpiEstim::OverallInfectivity(incid$mb, si)
+eq_infectivity <- EpiEstim::overall_infectivity(incid$eq, si)
+mb_infectivity <- EpiEstim::overall_infectivity(incid$mb, si)
 
 ```
+
+
+
+```{r eqinf}
+p1 <- ggplot(NULL, aes(factor(seq_len(length(eq_infectivity))),
+                       eq_infectivity)) +
+    geom_col() +
+    ylab("Infectivity") +
+    xlab("Day") +
+    ylim(0, 1) +
+    theme_tufte() 
+```
+
+```{r mbinf}
+p2 <- ggplot(NULL, aes(factor(seq_len(length(mb_infectivity))),
+                       mb_infectivity)) +
+    geom_col() +
+    ylab("Infectivity") +
+    xlab("Day") +
+    ylim(0, 1) +
+    theme_tufte() 
+```
+```{r together}
+ggpubr::ggarrange(p1, p2, nrow = 1, ncol = 2)
+```
+
 Read in the relative risk profiles
 
 ```{r relrisk, eval = TRUE}
@@ -87,7 +123,8 @@ wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
     (normalised[2] * rel_risk[[2]]$relative_flow)
 
 
-wtd_risk_profile <- data.frame(flow_to = rel_risk[[1]]$flow_to ,
+wtd_risk_profile <- data.frame(orig_name = rel_risk[[1]]$district,
+                               flow_to = rel_risk[[1]]$flow_to,
                                wtd_rel_risk = wtd_rel_risk,
                                adm0 = rel_risk[[1]]$ADM0)
 ```

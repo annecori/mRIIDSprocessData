@@ -1,0 +1,64 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: Find average area at ADM0, ADM1 and ADM2 levels
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(purrr)
+```
+
+
+
+```{r}
+drc_nghbrs <- c("CAF", "RWA", "SSD", "ZMB", "GAB",
+                "AGO", "BDI", "COG", "TZA", "UGA")
+
+shp_dirs <- paste0("data/Geography/gadm36_", drc_nghbrs, "_shp")
+names(shp_dirs) <- drc_nghbrs
+shp_adm0 <- paste0("gadm36_", drc_nghbrs, "_0.shp")
+shp_adm1 <- paste0("gadm36_", drc_nghbrs, "_1.shp")
+shp_adm2 <- paste0("gadm36_", drc_nghbrs, "_2.shp")
+
+mean_areas <- 
+purrr::map_dfr(list(adm0 = shp_adm0, adm1 = shp_adm1, adm2 = shp_adm2),
+               function(x) {
+                   purrr::map2_dfr(shp_dirs, x, ~ here::here(.x, .y) %>%
+                                        st_read %>%
+                                        st_area %>%
+                                        mean)}, .id = "level")
+```
+
+Re-write it in appropriate format.
+
+```{r}
+mean_areas <- tidyr::gather(mean_areas, ADM0, mean_area, -level) %>%
+    tidyr::spread(level, mean_area) %>%
+    rename("area_adm0" = "adm0",
+           "mean_area_adm1" = "adm1",
+           "mean_area_adm2" = "adm2")
+
+readr::write_csv(mean_areas, path = here::here("data/Geography",
+                                               "drc_neighbors_areas.csv"))
+
+```

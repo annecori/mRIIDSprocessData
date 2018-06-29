@@ -1,0 +1,50 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: 
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(tabulizer)
+```
+# Read in the sitrep
+
+```{r}
+case_counts <- here::here("data/CaseCounts/drc", "as_of_17_may.pdf") %>%
+    extract_tables(.)
+
+case_counts <- rbind(case_counts[[1]], case_counts[[2]])
+```
+
+## Useful columns and rows
+
+The only thing we need right now are the total number of cases.
+Will hard-code now; worry about it later.
+
+```{r}
+
+idx <- which(case_counts[ ,1] == "Total des décès")
+as.data.frame(case_counts[c(1, idx), ]) %>%
+    readr::write_csv(path = here::here("data/CaseCounts/drc", "as_of_17_may.csv"))
+```

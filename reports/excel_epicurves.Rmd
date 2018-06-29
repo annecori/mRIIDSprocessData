@@ -1,0 +1,54 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Read in epicurves prepared in excel
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+```
+
+```{r}
+may22_bikoro <- here::here("data/CaseCounts/drc",
+                    "22_may_2018.xlsx") %>%
+    readxl::read_excel(sheet = "Bikoro")
+
+may22_iboko <- here::here("data/CaseCounts/drc",
+                          "22_may_2018.xlsx") %>%
+    readxl::read_excel(sheet = "Iboko")
+
+may22_wangata <- here::here("data/CaseCounts/drc",
+                          "22_may_2018.xlsx") %>%
+    readxl::read_excel(sheet = "Wangata")
+
+
+all_regions <- data.frame(date = may22_bikoro$date_onset_iso,
+                          Bikoro = may22_bikoro$total,
+                          Iboko = may22_iboko$total,
+                          Wangata = may22_wangata$total)
+all_regions$date <- lubridate::ymd(all_regions$date)
+all_regions$date <- lubridate::dmy(all_regions$date)
+readr::write_csv(x = all_regions,
+                 path = here::here("data/CaseCounts/drc",
+                                   "22_may_2018.csv"))
+```

@@ -178,7 +178,10 @@ compute.cumulative.incidence <- function(no_duplicates){
 ##' last and interpolated case counts for the dates for
 ##' which this was missing.
 ##' @author Sangeeta Bhatia
-interpolate_missing_data  <- function(cum_incidence) {
+interpolate_missing_data  <- function(cum_incidence,
+                                      method = c("linear",
+                                                 "loglinear")) {
+    match.arg(method)
     if (nrow(cum_incidence) < 2){
         warning("need at least two non-NA values to interpolate.
                  Returning input unchanged.")
@@ -189,10 +192,14 @@ interpolate_missing_data  <- function(cum_incidence) {
     cum_incidence <- merge(cum_incidence,
                            data.frame(date = dates_all),
                            all.y = TRUE)
-    out <- approx(cum_incidence$date, cum_incidence$cases,
-                  xout = cum_incidence$date,
-                  method = "linear", rule = 2)
-    cum_incidence$date  <- out$x
+    if (method == "linear") {
+        out <- approx(cum_incidence$date, cum_incidence$cases,
+                      xout = cum_incidence$date,
+                      method = "linear", rule = 2)
+    } else {
+        stop("Method not yet implemented.")
+    }
+    cum_incidence$interpolated_date  <- out$x
     cum_incidence$interpolated_cases <- out$y
     cum_incidence
 }

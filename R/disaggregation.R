@@ -30,9 +30,10 @@ disaggregate <- function(total, pmatrix, sim = 1000){
 ##' @return desired quantiles for each spatial sub-unit.
 disaggregate_distr <- function(sample_mat, probs =  c(0.025, 0.5, 0.975)){
 
-    out <- map_dfr(data.frame(sample_mat), quantile, probs)
+    out <- purrr::map_dfr(data.frame(sample_mat), quantile, probs)
     out$quantiles <- probs
     out <- tidyr::gather(out, district, val, -quantiles)
     out <- tidyr::spread(out, quantiles, val)
+    out
 
 }

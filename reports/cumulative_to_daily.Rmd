@@ -1,0 +1,110 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Cumulative incidence into daily incidence
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  cases: 14_to_17_may.csv
+  risk: !r c("flow_from_mbandaka_2.csv", "flow_from_Équateur_2.csv")
+  pstay: 0.95
+  sim: 10000
+  simean: 16
+  sisd: 4.4
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+devtools::load_all()
+```
+This file outputs an incidence time series from cumulative case count.
+
+##  Case Counts
+Read in the case counts from the sitrep and calculate overall
+infectivity at the current time.
+
+```{r}
+cum_cases <- here::here("data/CaseCounts/drc",
+                        params$cases) %>%
+    readr::read_csv()
+
+cum_cases$date <- lubridate::dmy(cum_cases$date)
+```
+## Fixing data
+
+According to the report on 17th May, the cumulative case count in
+Bikoro has *reduced* from 36 to 29. Ignore this point.
+
+```{r}
+cum_cases <- cum_cases[ -nrow(cum_cases), ]
+```
+
+Assume a starting point.
+
+```{r, eval = FALSE}
+cum_cases <- rbind(data.frame(date = lubridate::dmy("01/05/20180"),
+                              Bikoro = NA,
+                              Iboko = NA,
+                              Wangata = NA),
+                   cum_cases)
+
+```
+## Interpolation
+
+Fit a line to fill in missing data.
+
+```{r}
+linear_fit <- select_if(cum_cases, is.numeric) %>%
+    purrr:: map_dfr(function(x) {
+        interpolate_missing_data(cum_incidence = data.frame(date = cum_cases$date,
+                                                            cases = x),
+                                 method = "linear")},
+        .id = "district")
+
+linear_fit <- select(linear_fit,
+                     district,
+                     interpolated_date,
+                     interpolated_cases) %>%
+    tidyr::spread(district, interpolated_cases)
+```
+
+
+BIKORO and Iboko are in Equateur province while Wangata is in Mbandaka
+province.
+
+```{r}
+linear_fit$eq_cases <- linear_fit$Bikoro + linear_fit$Iboko
+linear_fit$mb_cases <- linear_fit$Wangata
+```
+
+And the incidence curve from the cumulative case count.
+```{r}
+eq_incid <- c(linear_fit$eq_cases[1], diff(linear_fit$eq_cases))
+mb_incid <- c(linear_fit$mb_cases[1], diff(linear_fit$mb_cases))
+```
+
+## Write out incidence curve
+
+```{r}
+here::here("data/CaseCounts/drc",
+           paste0("interpolated_", params$cases)) %>%
+    readr::read_csv(x = linear_fit, path = .)
+```

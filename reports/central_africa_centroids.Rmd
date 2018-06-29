@@ -1,0 +1,158 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: true
+fig_caption: true
+latex_engine: pdflatex
+title: Pull out centroids for regions in Central Africa
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+
+For some countries we want to deal at ADM1 level while for others we
+want to work at ADM2 level. 
+
+If we choose to work at ADM2 level in DRC then we should work at ADM1 
+in all other countries (if we try to match populations).
+If, on the other hand, we work at ADM1 level in DRC then the closest
+population match is achieved by working at the following levels.
+
+|ADM0                             |level |
+|:--------------------------------|:-----|
+|Angola                           |ADM1  |
+|Burundi                          |ADM0  |
+|Central African Republic         |ADM0  |
+|Democratic Republic of the Congo |ADM1  |
+|Republic of Congo                |ADM0  |
+|Rwanda                           |ADM0  |
+|South Sudan                      |ADM0  |
+|Tanzania                         |ADM1  |
+|Uganda                           |ADM1  |
+|Zambia                           |ADM0  |
+
+
+For ease of analysis, pull out the
+meta-data and put them together.
+
+
+## Read in ADM2 data
+
+```{r pop_match, eval = TRUE}
+adm2_neighbors <- c("Democratic Republic of the Congo")
+
+adm1_neighbors <- c("Angola", "Burundi", "Tanzania",
+                   "Uganda", "Republic of Congo",
+                   "Central African Republic",
+                   "South Sudan",
+                   "Rwanda",
+                   "Zambia")
+                   
+
+outfile <- here::here("data/Geography/GravityModel/processed",
+                      "drc_neighbors_pops.csv")
+
+
+```
+
+## Working to match spatial area
+
+```{r area_match, eval = TRUE}
+adm1_neighbors <- c("Uganda",
+                    "Angola",
+                    "Central African Republic",
+                    "Republic of Congo",
+                    "South Sudan",
+                    "Zambia")
+##                    "Tanzania")
+
+adm0_neighbors <- c("Burundi", 
+                    "Rwanda")
+
+outfile <- here::here("data/Geography/GravityModel/processed",
+                      "drc_neighbors_area.csv")
+
+```
+
+## Stack them together
+
+```{r}
+centroids_adm2 <- here::here("data/Geography/GravityModel/raw",
+                             "adm2-fixed.txt") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% adm2_neighbors)
+
+
+centroids_adm1 <- here::here("data/Geography/GravityModel/raw",
+                             "adm1_centroids_fixed.tsv") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% adm1_neighbors)
+
+centroids_adm0 <- here::here("data/Geography/GravityModel/raw",
+                             "adm0.txt") %>%
+    readr::read_tsv(.) %>%
+    filter(ADM0 %in% adm0_neighbors) %>%
+    select(ADM0,
+           Centroid_Lon,
+           Centroid_Lat,
+           Pop)    
+
+centroids_adm0$district <- centroids_adm0$ADM0
+
+centroids <- select(centroids_adm2,
+                    ADM0,
+                    district = ADM2,
+                    Centroid_Lon,
+                    Centroid_Lat,
+                    Pop)
+
+centroids <- select(centroids_adm1,
+                    ADM0,
+                    district = ADM1,
+                    Centroid_Lon,
+                    Centroid_Lat,
+                    Pop) #%>% rbind(centroids)
+
+centroids <- rbind(centroids, centroids_adm0)
+
+                    
+```
+## Affix DRC Centroids.
+```{r}
+drc_metadata <- here::here("data/Geography/GravityModel/processed",
+                           "drc_metadata.csv") %>%
+    readr::read_csv() %>%
+    select(ADM0,
+           district = adm2,
+           Centroid_Lon,
+           Centroid_Lat,
+           Pop = pop)
+
+centroids <- rbind(centroids, drc_metadata)
+```
+## Write out processed file
+
+```{r}
+
+
+readr::write_csv(centroids,
+                 path = outfile)
+```
+

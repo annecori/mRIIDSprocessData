@@ -13,3 +13,4 @@ output/*
 reports/*.pdf
 /.RData
 /.Rbuildignore
+/reports/disaggregation.tex

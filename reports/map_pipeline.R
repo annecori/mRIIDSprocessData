@@ -3,47 +3,51 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-alpha <- 1
-beta <- 1
-gamma <- 1
-gm_params <- expand.grid(alpha = alpha, beta = beta, gamma = gamma)
+K <- -23.51
+alpha <- 1.13
+beta <- 1.11
+gamma <- -0.95
+params <- list(K = K,
+               from = "équateur",
+               alpha = 1.70,
+               rho = 38.47,
+               tau = 0.91)
+## params$pow_N_from <- alpha
+## params$pow_N_to <- beta
+## params$pow_dist <- gamma
+here::here("reports", "relative_risk.Rmd") %>%
+    rmarkdown::render(params = params)
+outfile1 <- paste0("flow_from_",
+                   params$from,
+                   "_",
+                   params$pow_dist,
+                   "_",
+                   params$pow_N_from,
+                   "_",
+                   params$pow_N_to,
+                   ".csv")
+params$from <- "mbandaka"
+here::here("reports", "relative_risk.Rmd") %>%
+    rmarkdown::render(params = params)
+outfile2 <- paste0("flow_from_",
+                   params$from,
+                   "_",
+                   params$pow_dist,
+                   "_",
+                   params$pow_N_from,
+                   "_",
+                   params$pow_N_to,
+                   ".csv")
+params <- list(cases = "21-May-2018.csv",
+               risk = c(outfile1, outfile2),
+               simean = 15.3,
+               sisd = 9.1,
+               R = 1.03,
+               pmove = c(eq = "pmovement_from_équateur_1_1_1.csv",
+                         mb = "pmovement_from_mbandaka_1_1_1.csv"))
+here::here("reports", "importation_risk.Rmd") %>%
+    rmarkdown::render(params = params)
 
-
-apply(gm_params, 1, function(row) {
-    params <- list(K = 1, from = "équateur")
-    params$pow_N_from <- row["alpha"]
-    params$pow_N_to <- row["beta"]
-    params$pow_dist <- row["gamma"]
-    here::here("reports", "relative_risk.Rmd") %>%
-        rmarkdown::render(params = params)
-    outfile1 <- paste0("flow_from_",
-                       params$from,
-                       "_",
-                       params$pow_dist,
-                       "_",
-                       params$pow_N_from,
-                       "_",
-                       params$pow_N_to,
-                       ".csv")
-    params$from <- "mbandaka"
-    here::here("reports", "relative_risk.Rmd") %>%
-        rmarkdown::render(params = params)
-    outfile2 <- paste0("flow_from_",
-                       params$from,
-                       "_",
-                       params$pow_dist,
-                       "_",
-                       params$pow_N_from,
-                       "_",
-                       params$pow_N_to,
-                       ".csv")
-    params <- list(cases = "21-May-2018.csv",
-                   risk = c(outfile1, outfile2),
-                   simean = 15.3,
-                   sisd = 9.1)
-    here::here("reports", "importation_risk.Rmd") %>%
-        rmarkdown::render(params = params)
-})
 
 
 ## Read in the files and determine quantiles.

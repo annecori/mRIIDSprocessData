@@ -25,7 +25,9 @@ params:
   pow_N_from : 1
   pow_N_to : 1
   from : équateur
-  p_stay: 1
+  tau: 1
+  rho: 1
+  alpha: -1
 ---
 
 ```{r setup, eval = TRUE}
@@ -63,19 +65,45 @@ flow_from_to <- flow_matrix(
   latitude = centroids$Centroid_Lat,
   population = centroids$Pop,
   place_names = centroids$district_clean,
-  model = "gravity",
-  K = params$K,
-  pow_N_from = params$pow_N_from,
-  pow_N_to = params$pow_N_to,
-  pow_dist = params$pow_dist
+  model = "gravity_alt",
+  tau = params$tau,
+  rho = params$rho,
+  alpha = params$alpha
 )
 
 
 ## Relative Flow
 relative_risk <- flow_from_to / rowSums(flow_from_to, na.rm = TRUE)
+```
 
-## matrix characterising the population movement between geographical units
-# pmovement <- probability_movement(relative_risk, params$p_stay)
+Probability that 1 person from params$from will move to j.
+Note that there is no reason why flow from i to j should be smaller
+than the population at i. Hence the "probability" here can be greater
+than 1.
+
+```{r}
+
+source_pop <- filter(centroids, district_clean == params$from) %>%
+    pull(Pop)
+pij <- flow_from_to[params$from, ] / source_pop
+pij_df <- tibble::rownames_to_column(data.frame(pij),
+                                     var = "flow_to" )
+pij_df$flow_from <- params$from
+pij_df <- left_join(pij_df,
+                    centroids,
+                    by = c("flow_to" = "district_clean")) %>%
+    select(flow_from, flow_to, pij, district)
+here::here("output",
+           paste0("pmovement_from_",
+                  params$from,
+                  "_",
+                  params$pow_dist,
+                  "_",
+                  params$pow_N_from,
+                  "_",
+                  params$pow_N_to,
+                  ".csv")) %>% readr::write_csv(x = pij_df,
+                                                path = .)
 
 ```
 

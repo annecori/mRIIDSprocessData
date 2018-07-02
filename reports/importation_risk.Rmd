@@ -21,11 +21,13 @@ biblio-style: apsr
 endnote: no
 params:
   cases: 21-May-2018.csv
-  risk: !r c("flow_from_mbandaka_1_1_1.csv", "flow_from_équateur_1_1_1.csv")
+  risk: !r c("flow_from_mbandaka_1_1_1.csv","flow_from_équateur_1_1_1.csv")
+  pmove: !r c(mb = "pmovement_from_mbandaka_1_1_1.csv", eq = "pmovement_from_équateur_1_1_1.csv")
   pstay: 0.95
   sim: 10000
   simean: 15.3
   sisd: 9.1
+  R: 1.03
 ---
 ```{r global_options, include=FALSE}
 knitr::opts_chunk$set(fig.width = 12,
@@ -141,10 +143,54 @@ readr::write_csv(x = wtd_risk_profile, path = outfile)
 ```
 
 ## Number of cases that move out
+Read in the probability of moving out.
 
-```{r export, eval = FALSE}
-weekly$exported <- (1 - params$pstay) * weekly$incid
+```{r export, eval = TRUE}
+pmovement <- purrr::map(params$pmove, function(x) {
+    here::here("output", x) %>%
+    readr::read_csv() 
+})
+
 ```
+
+Mean for the Poisson process.
+
+```{r}
+lambda <- function(ws, I, r_t) {
+    (ws  %*% I) * r_t
+}    
+
+mean_eq <- lambda(r_t = params$R, 
+                  I = matrix(c(0, incid$eq), ncol = 1),
+                  ws = rev(si))
+
+mean_mb <- lambda(r_t = params$R, 
+                  I = matrix(c(0, incid$mb), ncol = 1),
+                  ws = rev(si))
+
+```
+## Expected number of infected people
+```{r}
+pmovement$eq$expected <- pmovement$eq$pij * mean_eq
+pmovement$mb$expected <- pmovement$mb$pij * mean_mb
+readr::write_csv(pmovement$eq, path = "from_eq.csv")
+readr::write_csv(pmovement$mb, path = "from_mb.csv")
+```
+
+Finally join and add.
+
+```{r}
+from_both <- left_join(pmovement$eq,
+                      pmovement$mb,
+                      by = c("flow_to" = "flow_to"))
+
+from_both$total <- from_both$expected.x + from_both$expected.y
+
+here::here("output",
+           "absolute_risk.csv") %>% readr::write_csv(x = from_both,
+                                                     path = .)
+```
+
 ## Relative Risk 
 
 ```{r binning, eval = FALSE}
@@ -157,6 +203,8 @@ binned <- split(weekly, weekly$date) %>%
     disaggregate_distr(tmp)
     }, .id = "date")
 ```
+
+
 
 ## Results
 

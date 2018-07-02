@@ -78,7 +78,8 @@ update_cases_column <- function(case_count, case_type = c("scc", "sc",
 
   ### create dates without time from issue_date
 
-  case_count$date <- lubridate::ymd(case_count$issue_date)
+    case_count$date <- lubridate::parse_date_time(case_count$issue_date,
+                                                  c("mdy", "ymd", "dmY"))
 
   ##################################################################
   ### Create column called cases which comprises all relevant cases

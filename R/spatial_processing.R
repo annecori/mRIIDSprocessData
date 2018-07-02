@@ -24,14 +24,57 @@ flow_vector <- function(N_from,
       pow_dist   <- params$pow_dist
       gravity_model_flow(N_from, N_to, distance, K,
                          pow_N_from, pow_N_to, pow_dist)
-    } else if (model == "radiation")
-      stop("Model not yet implemented")
-    else
+    } else if (model == "poisson_gravity") {
+      K          <- params$K
+      pow_N_from <- params$pow_N_from
+      pow_N_to   <- params$pow_N_to
+      pow_dist   <- params$pow_dist
+      poisson_gravity(N_from, N_to, distance, K,
+                      pow_N_from, pow_N_to, pow_dist)
+    } else if (model == "gravity_alt") {
+        tau <- params$tau
+        rho <- params$rho
+        alpha <- params$alpha
+        gravity_alt(N_to, distance, tau, rho, alpha)
+    } else
       stop("Model not yet implemented")
  }
 
+
+gravity_alt <- function(N_to, distance, tau, rho, alpha) {
+    (N_to ^ tau) * ((1 + distance/rho)^(-alpha))
+}
+
+##' Flow using gravity model based on Poisson process
 ##'
-##'
+##' @details In this model the flow between locations is
+##' distributed accordin to a poisson process with mean
+##' lamda_ij = exp(b0 + b1*ln(P1) + b2*ln(P2) + b3*ln(dij))
+##' @title
+##' @param N_from
+##' @param N_to
+##' @param distance
+##' @param K
+##' @param pow_N_from
+##' @param pow_N_to
+##' @param pow_dist note that this must be entered as a -ve number.
+##' @return
+##' @author Sangeeta Bhatia
+poisson_gravity <- function(N_from,
+                            N_to,
+                            distance,
+                            K,
+                            pow_N_from,
+                            pow_N_to,
+                            pow_dist) {
+
+    exp(K +
+        pow_N_from * log(N_from) +
+        pow_N_to * log(N_to) +
+        pow_dist * log(distance))
+}
+
+
 ##' Given the populations of A and B and the distance between them,
 ##' return the estimated population flow between
 ##' them modeled as
@@ -64,7 +107,7 @@ flow_matrix <- function(longitude,
                         latitude,
                         population,
                         place_names,
-                        model = c("gravity"),
+                        model = c("gravity", "poisson_gravity"),
                         ...) {
     distances <- geosphere::distm(cbind(longitude, latitude))
     distances <-

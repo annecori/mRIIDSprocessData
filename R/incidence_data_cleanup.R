@@ -78,8 +78,7 @@ update_cases_column <- function(case_count, case_type = c("scc", "sc",
 
   ### create dates without time from issue_date
 
-    case_count$date <- lubridate::parse_date_time(case_count$issue_date,
-                                                  c("mdy", "ymd", "dmY"))
+    case_count$date <- lubridate::mdy(case_count$issue_date)
 
   ##################################################################
   ### Create column called cases which comprises all relevant cases
@@ -158,8 +157,8 @@ check.columns <- function(case_count, good_colnames){
 ##' @author Sangeeta Bhatia
 prediction_interval <- function(x, k){
     n <- length(x)
-    mu.hat <- mean(x)
-    sd.hat <- sd(x)
+    mu.hat <- mean(x, na.rm = TRUE) ## questionable?
+    sd.hat <- sd(x, na.rm = TRUE)  ## questionable?
     lambda <- ( (n + 1) / n) %>% sqrt %>% `*`(k)
 
     c(mu.hat - (lambda * sd.hat), mu.hat + (lambda * sd.hat))

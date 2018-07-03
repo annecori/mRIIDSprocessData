@@ -3,12 +3,7 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-K <- -23.51
-alpha <- 1.13
-beta <- 1.11
-gamma <- -0.95
-params <- list(K = K,
-               from = "équateur",
+params <- list(from = "équateur",
                alpha = 1.70,
                rho = 38.47,
                tau = 0.91)
@@ -17,34 +12,28 @@ params <- list(K = K,
 ## params$pow_dist <- gamma
 here::here("reports", "relative_risk.Rmd") %>%
     rmarkdown::render(params = params)
-outfile1 <- paste0("flow_from_",
-                   params$from,
-                   "_",
-                   params$pow_dist,
-                   "_",
-                   params$pow_N_from,
-                   "_",
-                   params$pow_N_to,
-                   ".csv")
+outfile_suffix <- paste(sapply(params, paste, collapse=""),
+                        collapse = "_")
+outfile1 <-  paste0("pmovement_from_",
+                    outfile_suffix,
+                    ".csv")
+
 params$from <- "mbandaka"
 here::here("reports", "relative_risk.Rmd") %>%
     rmarkdown::render(params = params)
-outfile2 <- paste0("flow_from_",
-                   params$from,
-                   "_",
-                   params$pow_dist,
-                   "_",
-                   params$pow_N_from,
-                   "_",
-                   params$pow_N_to,
-                   ".csv")
+outfile_suffix <- paste(sapply(params, paste, collapse=""),
+                        collapse = "_")
+outfile2 <-  paste0("pmovement_from_",
+                    outfile_suffix,
+                    ".csv")
+
 params <- list(cases = "21-May-2018.csv",
                risk = c(outfile1, outfile2),
                simean = 15.3,
                sisd = 9.1,
                R = 1.03,
-               pmove = c(eq = "pmovement_from_équateur_1_1_1.csv",
-                         mb = "pmovement_from_mbandaka_1_1_1.csv"))
+               pmove = c(eq = outfile1,
+                         mb = outfile2))
 here::here("reports", "importation_risk.Rmd") %>%
     rmarkdown::render(params = params)
 

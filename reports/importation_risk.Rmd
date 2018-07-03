@@ -103,7 +103,7 @@ ggpubr::ggarrange(p1, p2, nrow = 1, ncol = 2)
 
 Read in the relative risk profiles
 
-```{r relrisk, eval = TRUE}
+```{r relrisk, eval = FALSE}
 
 rel_risk <- purrr::map(params$risk, function(x) {
     here::here("output", x) %>%
@@ -120,7 +120,7 @@ normalised <- weights / sum(weights)
 ```
 ## Risk profile weighted by infectivity
 
-```{r}
+```{r wtdrelrisk, eval = FALSE}
 wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
     (normalised[2] * rel_risk[[2]]$relative_flow)
 
@@ -131,7 +131,7 @@ wtd_risk_profile <- data.frame(orig_name = rel_risk[[1]]$district,
                                adm0 = rel_risk[[1]]$ADM0)
 ```
 
-```{r}
+```{r wtdrelriskout, eval = FALSE}
 outfile <- purrr::map_chr(params$risk,
                           function(x) stringr::str_replace(x ,
                                                            ".csv",
@@ -155,7 +155,7 @@ pmovement <- purrr::map(params$pmove, function(x) {
 
 Mean for the Poisson process.
 
-```{r}
+```{r poismean, eval = TRUE}
 lambda <- function(ws, I, r_t) {
     (ws  %*% I) * r_t
 }    
@@ -171,8 +171,8 @@ mean_mb <- lambda(r_t = params$R,
 ```
 ## Expected number of infected people
 ```{r}
-pmovement$eq$expected <- pmovement$eq$pij * mean_eq
-pmovement$mb$expected <- pmovement$mb$pij * mean_mb
+pmovement$eq$expected <- pmovement$eq$pij * c(mean_eq)
+pmovement$mb$expected <- pmovement$mb$pij * c(mean_mb)
 readr::write_csv(pmovement$eq, path = "from_eq.csv")
 readr::write_csv(pmovement$mb, path = "from_mb.csv")
 ```
@@ -181,14 +181,19 @@ Finally join and add.
 
 ```{r}
 from_both <- left_join(pmovement$eq,
-                      pmovement$mb,
-                      by = c("flow_to" = "flow_to"))
+                       pmovement$mb,
+                       by = c("flow_to" = "flow_to"))
 
 from_both$total <- from_both$expected.x + from_both$expected.y
-
+from_both <- select(from_both,
+                    flow_to,
+                    district = district.x,
+                    ADM0 = ADM0.x,
+                    total)
 here::here("output",
-           "absolute_risk.csv") %>% readr::write_csv(x = from_both,
-                                                     path = .)
+           "absolute_risk.csv") %>%
+    readr::write_csv(x = from_both,
+                     path = .)
 ```
 
 ## Relative Risk 

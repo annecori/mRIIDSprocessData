@@ -20,10 +20,6 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  pow_dist : 1
-  K : 1
-  pow_N_from : 1
-  pow_N_to : 1
   from : équateur
   tau: 1
   rho: 1
@@ -46,7 +42,7 @@ devtools::load_all()
 
 ```{r}
 centroids <- outfile <- here::here("data/Geography/GravityModel/processed",
-                                   "drc_neighbors_pops.csv") %>%
+                                   "drc_neighbors_area.csv") %>%
     readr::read_csv()
 
 
@@ -73,7 +69,7 @@ flow_from_to <- flow_matrix(
 
 
 ## Relative Flow
-relative_risk <- flow_from_to / rowSums(flow_from_to, na.rm = TRUE)
+
 ```
 
 Probability that 1 person from params$from will move to j.
@@ -86,66 +82,49 @@ than 1.
 source_pop <- filter(centroids, district_clean == params$from) %>%
     pull(Pop)
 pij <- flow_from_to[params$from, ] / source_pop
-pij_df <- tibble::rownames_to_column(data.frame(pij),
-                                     var = "flow_to" )
-pij_df$flow_from <- params$from
-pij_df <- left_join(pij_df,
-                    centroids,
-                    by = c("flow_to" = "district_clean")) %>%
-    select(flow_from, flow_to, pij, district)
-here::here("output",
-           paste0("pmovement_from_",
-                  params$from,
-                  "_",
-                  params$pow_dist,
-                  "_",
-                  params$pow_N_from,
-                  "_",
-                  params$pow_N_to,
-                  ".csv")) %>% readr::write_csv(x = pij_df,
-                                                path = .)
+abs_risk_df <- tibble::rownames_to_column(data.frame(pij),
+                                          var = "flow_to" )
+abs_risk_df$flow_from <- params$from
+from_source <- left_join(abs_risk_df,
+                         centroids,
+                         by = c("flow_to" = "district_clean")) %>%
+    select(flow_from, flow_to, district, ADM0, pij)
+outfile_prefix <- "pmovement_from_"
+
 
 ```
 
 Write it out in a clean format. The rownames will be the cleaned
 district names.
 
-```{r write, eval = TRUE}
+```{r relrisk, eval = FALSE}
+relative_risk <- flow_from_to / rowSums(flow_from_to, na.rm = TRUE)
 rel_risk_df <- tibble::rownames_to_column(data.frame(relative_risk),
                                             var = "flow_from")
 from_source <- filter(rel_risk_df,
                       flow_from == params$from) %>%
     tidyr::gather(flow_to, relative_flow, -flow_from) 
 
-##    top_n(10)
-##from_source$relative_flow <- round(from_source$relative_flow, 3)
-
-idx <- which(from_source$flow_to == "louvakou.loubomo.")
-from_source$flow_to[idx] <- "louvakou(loubomo)"
-
 from_source <- left_join(from_source,
                          centroids,
                          by = c("flow_to" = "district_clean")) %>%
     select(flow_from, flow_to, district, ADM0, relative_flow)
+outfile_prefix <- "flow_from_"
+##    top_n(10)
+##from_source$relative_flow <- round(from_source$relative_flow, 3)
+```
 
+```{r write, eval = TRUE}
+idx <- which(from_source$flow_to == "louvakou.loubomo.")
+from_source$flow_to[idx] <- "louvakou(loubomo)"
+
+outfile_suffix <- paste(sapply(params, paste, collapse=""),
+                        collapse = "_")
 here::here("output",
-           paste0("flow_from_",
-                  params$from,
-                  "_",
-                  params$pow_dist,
-                  "_",
-                  params$pow_N_from,
-                  "_",
-                  params$pow_N_to,
-                  ".csv")) %>% readr::write_csv(x = from_source,
-                                                path = .)
+           paste0(outfile_prefix, outfile_suffix, ".csv")) %>%
+    readr::write_csv(x = from_source,
+                     path = .)
 ```
 
 
-## Top 10 regions at risk
 
-```{r}
-arrange(from_source, desc(relative_flow)) %>%
-    top_n(10) %>%
-    knitr::kable()
-```

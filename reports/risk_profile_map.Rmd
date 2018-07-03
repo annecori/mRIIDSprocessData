@@ -46,8 +46,12 @@ Read in the weighted risk.
 
 ```{r}
 wtd_risk_pops <- here::here("output",
-                            "weighted_rel_risk_pops.csv") %>%
-    readr::read_csv()
+                            "absolute_risk_pops.csv") %>%
+    readr::read_csv() %>%
+    select(orig_name = district,
+           wtd_rel_risk = total,
+           adm0 = ADM0,
+           flow_to = flow_to)
 
 wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
                                                "country.name",
@@ -55,8 +59,12 @@ wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
 
 
 wtd_risk_area <- here::here("output",
-                            "weighted_rel_risk_area.csv") %>%
-    readr::read_csv()
+                            "absolute_risk_area.csv") %>%
+    readr::read_csv() %>%
+    select(orig_name = district,
+           wtd_rel_risk = total,
+           adm0 = ADM0,
+           flow_to = flow_to)    
 
 wtd_risk_area$adm0_iso3 <- countrycode::countrycode(wtd_risk_area$adm0,
                                                "country.name",
@@ -292,7 +300,7 @@ centroids_adm0 <- here::here("data/Geography/GravityModel/raw",
 
 ```{r distr_risk}
 
-
+max_risk <- max(cum_risk_pops$cum_risk, cum_risk_area$cum_risk)
 
 p <- ggplot()
 p <- p + geom_sf(data = drc_nghbrs_boundary[[1]], 
@@ -311,11 +319,10 @@ p <- p + geom_sf(data = drc_nghbrs_boundary[[7]],
                  col = "blue", lwd = 1.05)
 p <- p + geom_sf(data = drc_nghbrs_boundary[[8]],
                  col = "blue", lwd = 1.05)
-
-    
 p <- p + scale_fill_distiller(palette = "Spectral",
                               name = "Relative Risk",
-                              limits = c(0, 0.15))
+                              limits = c(0, max_risk),
+                              labels = waiver())
 p <- p + coord_sf(datum = NA)
 p <- p + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 

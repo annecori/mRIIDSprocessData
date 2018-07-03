@@ -21,25 +21,25 @@ is_monotonically_increasing <- function(vec){
 ##' @seealso chebyshev_ineq_sample for the proportion *outside* a
 ##' certain interval around the mean
 ##' @title Tests for outlier.
-##' @param Cases numeric vector
+##' @param cases numeric vector
 ##' @param use_last number of points preceeding the last one to be
 ##' used for estimation. If this is more than
 ##' the number of available data points, all points are used.
 ##' @param k_sd
 ##' @return TRUE is the last point is outside the prediction_interval
 ##' @author Sangeeta Bhatia
-is_outlier <- function(Cases, use_last, k_sd){
-    if (length(Cases) < use_last){
+is_outlier <- function(cases, use_last, k_sd){
+    if (length(cases) < use_last){
         warning("use_last is smaller than the length of the input.
                  Using full vector.")
-        use_last <- length(Cases)
+        use_last <- length(cases)
     }
-    p_interval <- Cases              %>%
+    p_interval <- cases              %>%
                   tail(use_last + 1) %>%
                   `[`(-1)            %>%
                   prediction_interval(k_sd)
 
-    last_point <- Cases[length(Cases)]
+    last_point <- cases[length(cases)]
     if (last_point < p_interval[1] ||
         last_point > p_interval[2]) return(TRUE)
     else return(FALSE)
@@ -52,39 +52,39 @@ is_outlier <- function(Cases, use_last, k_sd){
 ##'
 ##' @return
 ##' @author Sangeeta Bhatia
-remove_last_outliers <- function(cum_incidence,
+remove_last_outliers <- function(df,
                                  use_last = 20, k_sd = 6){
-    outlier <- is_outlier(cum_incidence$Cases, use_last, k_sd)
+    outlier <- is_outlier(df$cases, use_last, k_sd)
     while (outlier){
-        remove <- nrow(cum_incidence)
-        cum_incidence <- cum_incidence[-remove, ]
-        outlier <- is_outlier(cum_incidence$Cases, use_last, k_sd)
+        remove <- nrow(df)
+        df <- df[-remove, ]
+        outlier <- is_outlier(df$cases, use_last, k_sd)
     }
-    cum_incidence
+    df
 }
 
-make_increasing_at_end <- function(cum_incidence, t1){
-    cum_incidence[-t1, ]
+make_increasing_at_end <- function(df, t1){
+    df[-t1, ]
 }
 
-make_increasing_at_k <- function(cum_incidence, t1){
+make_increasing_at_k <- function(df, t1){
 
     t2 <- t1 + 1
-    if (nrow(cum_incidence) == t2 ) cum_incidence %<>%
-                                     make_increasing_at_end(t1)
-    else {
-        cum_incidence_copy  <- cum_incidence
-        cum_incidence_no_t1 <- cum_incidence_copy
-        cum_incidence_no_t1 %<>% .[-t1, ]
-        is_increasing_no_t1 <- cum_incidence_no_t1$Cases[c(t1 - 1,
-                                                           t2 - 1)] %>%
-                               is_monotonically_increasing %>% length
+    if (nrow(df) == t2 ) df <- make_increasing_at_end(df, t1)
 
-        cum_incidence_no_t2 <- cum_incidence_copy
-        cum_incidence_no_t2 %<>% .[-t2, ]
-        is_increasing_no_t2 <- cum_incidence_no_t2$Cases[c(t1 - 1,
-                                                           t2 - 1)] %>%
-                               is_monotonically_increasing %>% length
+    else {
+        df_copy  <- df
+        df_no_t1 <- df_copy
+        df_no_t1 <- df_no_t1[-t1, ]
+        is_increasing_no_t1 <- is_monotonically_increasing(df_no_t1$cases[c(t1 - 1,
+                                                                            t2 - 1)])
+        is_increasing_no_t1 <- length(is_increasing_no_t1)
+
+        df_no_t2 <- df_copy
+        df_no_t2 <- df_no_t2[-t2, ]
+        is_increasing_no_t2 <- is_monotonically_increasing(df_no_t2$cases[c(t1 - 1,
+                                                                            t2 - 1)])
+        is_increasing_no_t2 <- length(is_increasing_no_t2)
 
         both_worked <- is_increasing_no_t1 == 0 &
                        is_increasing_no_t2 == 0
@@ -99,10 +99,10 @@ make_increasing_at_k <- function(cum_incidence, t1){
             remove <- t2
         }
 
-        cum_incidence <- cum_incidence[-remove, ]
+        df <- df[-remove, ]
     }
      ## May still be non-increasing. We will fix it in the while loop.
-     cum_incidence
+     df
  }
 
 
@@ -115,19 +115,20 @@ make_increasing_at_k <- function(cum_incidence, t1){
 ##' cumulative case counts. We fix this issue using
 ##' the following rules.
 ##' @title
-##' @param cum_incidence a data frame containing a numeric column
-##' called 'Cases'.
+##' @param df a data frame containing a numeric column
+##' called 'cases'.
 ##' @return
 ##' @author Sangeeta Bhatia
-make_monotonically_increasing <- function(cum_incidence){
-    not_increasing <- cum_incidence$Cases %>%
-                      is_monotonically_increasing
+make_monotonically_increasing <- function(df){
+    not_increasing <- is_monotonically_increasing(df$cases)
+
     while (length(not_increasing) > 0){
-        cum_incidence %<>% make_increasing_at_k(t1 = not_increasing[1])
-        not_increasing <- cum_incidence$Cases %>%
-                           is_monotonically_increasing
+        df <- make_increasing_at_k(df,
+                                   t1 = not_increasing[1])
+        not_increasing <- is_monotonically_increasing(df$cases)
+
     }
-    cum_incidence
+    df
 }
 
 ##' .. content for \description{} (no empty lines) ..
@@ -145,13 +146,13 @@ compute.cumulative.incidence <- function(no_duplicates){
     ## incidence on that day is zero
 
     not_na        <- which(!is.na(no_duplicates$cases))
-    cum_incidence <- no_duplicates[not_na, c("date", "cases")]
+    df <- no_duplicates[not_na, c("date", "cases")]
 
     first_row       <- no_duplicates[1, c("date", "cases")]
     first_row$date  <- first_row$date - 1
     first_row$cases <- 0
 
-    cum_incidence %<>% rbind(first_row, .)
+    df <- rbind(first_row, df)
 
     ## params for outlier removal.
     use_last   <- 20
@@ -160,46 +161,44 @@ compute.cumulative.incidence <- function(no_duplicates){
                   sqrt %>% `[`(2)
 
 
-    cum_incidence %<>%
-        remove_last_outliers(use_last = use_last, k_sd = k_sd) %<>%
-        make_monotonically_increasing %<>%
-        interpolate_missing_data
-
-    cum_incidence
+    df <- remove_last_outliers(df, use_last = use_last, k_sd = k_sd)
+    df <- make_monotonically_increasing(df)
+    df <- interpolate_missing_data(df)
+    df
 }
 
 ##' Pads the input data frame with interpolated count for dates for
 ##' which no data are available.
 ##'
 ##' @title
-##' @param cum_incidence a data frame containing the columns date and
+##' @param df a data frame containing the columns date and
 ##' cases
 ##' @return a data frame with all the dates from the first and the
 ##' last and interpolated case counts for the dates for
 ##' which this was missing.
 ##' @author Sangeeta Bhatia
-interpolate_missing_data  <- function(cum_incidence,
+interpolate_missing_data  <- function(df,
                                       method = c("linear",
                                                  "loglinear")) {
     match.arg(method)
-    if (nrow(cum_incidence) < 2){
+    if (nrow(df) < 2){
         warning("need at least two non-NA values to interpolate.
                  Returning input unchanged.")
-        return(cum_incidence)
+        return(df)
     }
-    dates_all <- seq(from = min(cum_incidence$date) - 1,
-                     to = max(cum_incidence$date), by = 1)
-    cum_incidence <- merge(cum_incidence,
+    dates_all <- seq(from = min(df$date) - 1,
+                     to = max(df$date), by = 1)
+    df <- merge(df,
                            data.frame(date = dates_all),
                            all.y = TRUE)
     if (method == "linear") {
-        out <- approx(cum_incidence$date, cum_incidence$cases,
-                      xout = cum_incidence$date,
+        out <- approx(df$date, df$cases,
+                      xout = df$date,
                       method = "linear", rule = 2)
     } else {
         stop("Method not yet implemented.")
     }
-    cum_incidence$interpolated_date  <- out$x
-    cum_incidence$interpolated_cases <- out$y
-    cum_incidence
+    df$interpolated_date  <- out$x
+    df$interpolated_cases <- out$y
+    df
 }

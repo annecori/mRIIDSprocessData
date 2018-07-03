@@ -19,7 +19,8 @@ log_likelihood_1step <- function(incid, window = 2, start, end, pij, R, si){
         i_t    <- incid[(i - window + 1):i, ]
         w_t    <- utils::tail(ws, nrow(i_t))
         lambda <- lambda_j_t(pij, R, i_t, w_t)
-        loglh  %<>% c(sum(dpois(incid[i, ], lambda = lambda, log = TRUE)))
+        loglh <-  c(loglh,
+                    sum(dpois(incid[i, ], lambda = lambda, log = TRUE)))
     }
     loglh
 }

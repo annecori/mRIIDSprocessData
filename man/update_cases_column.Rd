@@ -5,13 +5,12 @@
 \title{Update the case count with a column for dates and a column
 for the appropriate case definition.}
 \usage{
-update_cases_column(case_count, case_type = c("SCC", "SC", "CC", "SCD", "SD",
-  "CD", "ALL"))
+update_cases_column(case_count, case_type = c("scc", "sc", "cc", "scd", "sd",
+  "cd", "ALL"))
 }
 \description{
-adds a column "Cases" with appropriate case definition and
-a column "Date" with date extracted from timestamp
-.. content for \details{} ..
+adds a column "cases" with appropriate case definition and
+a column "date" with date extracted from timestamp
 }
 \author{
 Sangeeta Bhatia

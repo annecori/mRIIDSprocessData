@@ -44,7 +44,7 @@ devtools::load_all()
 
 species   <- "Humans"
 disease   <- "Ebola"
-case.type <- "SCC"
+case.type <- "scc"
 
 ```
 
@@ -56,176 +56,200 @@ Visualising the raw data.
 
 ```{r}
 
-healthmap <- here::here("data", "CaseCounts/raw/HealthMap_Ebola_GNE_WHO.csv") %>%
+healthmap <- here::here("data/CaseCounts/raw",
+                        "HealthMap_Ebola_GNE_WHO.csv") %>%
              read.csv(stringsAsFactors = FALSE) %>%
              filter(Species == species & Disease == disease)
 
+healthmap <- janitor::clean_names(healthmap)
 
 ```
 
-```{r hm_rawviz, eval = TRUE}
+Strip the date of the time stamp
+```{r}
+healthmap <- tidyr::separate(healthmap,
+                             issue_date,
+                             sep = " ",
+                             into = c("issue_date", "time"),
+                             remove = TRUE
+                             )
+```
 
-healthmap.raw <- healthmap %>%
-                  select(Issue.Date, SC, SD, CC, CD, Country) %>%
-                  tidyr::gather(case_type,
-                                count, -c(Issue.Date, Country)) 
-    
+## Data clean-up
 
-healthmap.raw$Issue.Date %<>% as.Date(format = "%m/%d/%y")
+Split the data by country.
 
-p <- healthmap.raw %>%
-     ggplot(aes(Issue.Date, count, color = case_type)) +
-     geom_point(size = 1.1, stroke = 0, shape = 16) +
-     facet_wrap(~Country) +
-     xlab("") + ylab("Cumulative Case Count")
-
-p <- p + geom_rangeframe() + theme_tufte() 
-p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
-p <- p + theme(legend.title = element_blank())
-p <- p + xlab("")
-p <- p + scale_x_date(date_labels =  "%b %Y")
-p
+```{r split}
+by.location <- healthmap %>%
+    split(.$country) 
 
 ```
-The data clean-up consists of the following steps:
-1. Extract the cumulative case count as a sum of suspected and
+
+Extract the total case count as a sum of suspected and
 confirmed cases.
-2. Merge duplicate alerts.
-3. Remove outliers and interpolate missing data.
-4. Determine the incidence count from the cumulative case count.
 
+
+```{r cumcases}
+
+cum_cases <- purrr::map(by.location, function(df) {
+    update_cases_column(df, case.type) 
+})
+    
+```
+
+## Merge duplicate alerts
 
 ```{r}
-
-
-cols.to.keep <- c("Location", "Country", "Disease", "Species",
-                   "HealthMap.Alert.ID", "Headline", "URL",
-                  "Alert.Tag", "Feed.Name", "Lon", "Lat")
+cols.to.keep <- c("location", "country", "disease", "species",
+                  "healthmap_alert_id", "headline", "url",
+                  "alert_tag", "feed_name", "lon", "lat")
 ## These are columns we generate ourselves later on
-cols.to.keep <- c(cols.to.keep, "Date", "Cases") 
+cols.to.keep <- c(cols.to.keep, "date", "cases") 
+```
 
-## params for outlier removal.
-use.last   <- 20
+```{r nodups}
+no_dups <- purrr::map(cum_cases, function(df) {
+    merge_duplicates(df, cols.to.keep)
+})    
+```
+
+## Remove outliers. 
+
+```{r}
+use_last   <- 20
 p.within.k <- 0.50
-k.sd       <- interval_width_for_p(use.last,
-                                   1 - p.within.k) %>%     sqrt %>% `[`(2)
+k_sd       <- interval_width_for_p(use_last,
+                                   1 - p.within.k) %>%
+    sqrt %>%
+    `[`(2)
 
-
-by.location <- healthmap %>%
-                split(.$Country) %>%
-                lapply(function(case.count){
-                    case.count %<>% update_cases_column(case.type) 
-                    results <- list(update_cases_col =
-                                        case.count[, c("Date", "Cases")])
-                    case.count %<>% merge_duplicates(cols.to.keep)
-                    results    %<>% c(merge_duplicates =
-                                          list(case.count[, c("Date", "Cases")]))
-                    
-                    case.count %<>% arrange(Date) 
-
-                    not.na          <- which(!is.na(case.count$Cases))
-                    cum.incidence   <- case.count[not.na, c('Date', 'Cases')]
-                    first.row       <- case.count[1, c('Date', 'Cases')]
-                    first.row$Date  <- first.row$Date - 1
-                    first.row$Cases <- 0
-
-                    cum.incidence %<>% rbind(first.row, .)
-
-
-                   cum.incidence %<>%
-                       remove.last.outliers(use.last=use.last, k.sd=k.sd)
-                   results %<>% c(outliers_removed = list(cum.incidence)) 
-
-                   cum.incidence %<>% make_monotonically_increasing
-                   results %<>% c(make_increasing = list(cum.incidence))
-                    
-                   cum.incidence %<>% interpolate.missing.data
-                   results %<>% c(interpolate  = list(cum.incidence))
-
-                   results %<>% bind_rows(.id = "cleanup_step")
-
-                   return(results)}) 
+no_outliers <- purrr::map(no_dups, function(df) {
+    df <- arrange(df, date)
+    df <- filter(df, !is.na(cases)) %>% select(date, cases)
+    df <- remove_last_outliers(df, use_last = use_last, k_sd = k_sd)
+    message(df$country[1])
+    df
+})    
 
 ```
 
-```{r lib_eg, eval = TRUE}
-
-lapply(names(by.location), function(n){
-                      df <- by.location[[n]]
-                      df$cleanup_step %<>% factor
-                      df %<>%
-                          mutate(cleanup_step =
-                                 forcats::fct_recode(cleanup_step, 
-                                     "Cases" = "update_cases_col",
-                                     "Merge_Duplicates" = "merge_duplicates",
-                                     "Outliers Removed" = "outliers_removed",
-                                     "Make increasing" = "make_increasing",
-                                     "Interpolate" = "interpolate"))
-
-                      df$cleanup_step %<>% forcats::fct_inorder()
- 
-                      p <- ggplot(df, aes(Date, Cases)) +
-                          facet_wrap(~cleanup_step, nrow = 1) +
-                          geom_point(size = 1.1,
-                                     stroke = 0,
-                                     shape = 16,
-                                     colour = "gray") 
-
-                      p <- p + geom_rangeframe() + theme_tufte() 
-                      p <- p + theme(axis.text.x = element_text(angle = 80,
-                                                                hjust = 1))
-                      p <- p + theme(legend.title = element_blank())
-                      p <- p + xlab("")
-                      p <- p + scale_x_date(date_labels =  "%b %Y")
-                      outfile <- paste0("figures/", n, "-cleanup.png")
-                      print(outfile)
-                      ggsave(outfile, p)
-    
-    })
+## Make monotonically increasing.
+```{r}
+mono_inc <- purrr::map(no_outliers,
+                       ~ make_monotonically_increasing(.x))
 
 ```
+
+## Interpolate missing data
+Finally, interpolate missing data.
+```{r}
+interpolated <- purrr::map(mono_inc, interpolate_missing_data)
+```
+
+## Plot
+
+### Raw data by case category
+
+```{r}
+raw_p <- purrr::map(by.location, function(x) {
+    x <- select(x, issue_date, sc, sd, cc, cd, country) %>%
+        tidyr::gather(case_type,
+                      count, -c(issue_date, country)) 
+    x$issue_date <- as.Date(x$issue_date,
+                            format = "%m/%d/%y")
+    p <- ggplot(x ,
+                aes(issue_date, count, col = case_type)) +
+        geom_point()
+    p <- p + theme_classic()
+    p <- p + xlab("") + ylab("Cases")
+    p <- p + theme(panel.border=element_blank(), axis.line = element_line())
+    p <- p + coord_capped_cart(left = "top", bottom = "right")
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+    p <- p + theme(legend.title = element_blank())
+    p <- p + xlab("")
+    p <- p + scale_x_date(date_labels =  "%b %Y")
+    p
+})
+
+```
+
+## Total cases as sum of sc and cc.
+Common plotting logic. x must have a date and a cases column.
+
+```{r}
+cases_ts <- function(x) {
+    p <- ggplot(x, aes(date, cases)) + geom_point()
+    p <- p + theme_classic() 
+    p <- p + xlab("") + ylab("Cases")
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+    p <- p + xlab("")
+    p <- p + scale_x_date(date_labels =  "%b %Y")
+    p     
+}
+
+```
+
+```{r}
+total_p <- purrr::map(cum_cases, cases_ts)
+```
+
+## Remove duplicate alerts
+
+```{r}
+nodups_p <- purrr::map(no_dups, cases_ts) 
+```
+
+## Remove outliers 
+
+```{r}
+nooutss_p <- purrr::map(no_outliers, cases_ts)
+```
+
+## Make increasing
+
+```{r}
+monoinc_p <- purrr::map(mono_inc, cases_ts)
+```
+
+## Interpolated data
+
+This needs a slightly different viz.
+
+```{r}
+interp_p <- purrr::map(interpolated, function(x) {
+    x$src <- "Raw"
+    idx <- which(is.na(x$cases))
+    x$src[idx] <- "Interpolated"
+    x <- select(x,
+                date = interpolated_date,
+                cases = interpolated_cases,
+                src)
+    p <- ggplot(x, aes(date, cases, col = src)) + geom_point()
+    p <- p + theme_classic() 
+    p <- p + xlab("") + ylab("Cases")
+    p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
+    p <- p + theme(legend.position="top", legend.direction="horizontal")
+    p <- p + xlab("") + theme(legend.title = element_blank())
+    p <- p + scale_x_date(date_labels =  "%b %Y")
+    p     
+})    
+```
+
+Putting them together.
 
 ```{r incid_tall, eval = TRUE}
 
-by.location %<>% lapply(function(df){
-                         df %<>% filter(cleanup_step == "interpolate")
-                         df$incid <- c(0, diff(df$Cases))
-                         df %<>% select(-c(cleanup_step, Cases)) 
-                         return(df)})
-
-
-by.location_weekly <- lapply(by.location, daily.to.weekly) %>%
-                       bind_rows(.id = "Country") %>%
-                       filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
-
-by.location_incid <- bind_rows(by.location, .id = "Country")
-by.location_incid %<>% filter(Country %in% c("Guinea", "Sierra Leone", "Liberia"))
-
-```
-
-```{r hm_weekly_incid, eval = TRUE}
-
-by.location_weekly$Date %<>% as.Date
-p <- ggplot(by.location_weekly , aes(Date, incid)) +
-     geom_point(size = 1.5, stroke = 0, shape = 16) +
-    facet_wrap(~Country, scales = "free_y", nrow = 6) +
-    ylab("Incidence")
-
-p <- p + geom_rangeframe() + theme_tufte() 
-p <- p + theme(axis.text.x = element_text(angle = 80, hjust = 1))
-p <- p + theme(legend.title = element_blank())
-p <- p + xlab("")
-p <- p + scale_x_date(date_labels =  "%b %Y")
-
-p
-
-```
-
-```{r incid_wide, eval = TRUE}
-
-by.location_incid %<>% tidyr::spread(key = Country, value = incid, fill = 0)
-
-hm_wide <- here::here("data", "CaseCounts/processed/HealthMap_Ebola_wide.csv")
-readr::write_csv(by.location_incid, path = hm_wide)
+countries <- names(by.location)
+graphs <- list(raw_p,
+               total_p,
+               nodups_p,
+               nooutss_p,
+               monoinc_p,
+               interp_p)
+purrr::map(countries, function(c){
+    cspecific <- purrr::map(graphs, ~ .x[[c]])
+    p <- ggpubr::ggarrange(plotlist = cspecific, nrow = 3, ncol = 2)
+    ggpubr::ggexport(p, filename = here::here("output", paste0(c, ".png")))
+})
 
 ```

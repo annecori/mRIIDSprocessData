@@ -21,9 +21,10 @@ biblio-style: apsr
 endnote: no
 params:
   from : équateur
-  tau: 1
-  rho: 1
-  alpha: -1
+  pow_N_from: 1
+  pow_N_to: 1
+  pow_dist: -1
+  K: 1  
 ---
 
 ```{r setup, eval = TRUE}
@@ -61,10 +62,11 @@ flow_from_to <- flow_matrix(
   latitude = centroids$Centroid_Lat,
   population = centroids$Pop,
   place_names = centroids$district_clean,
-  model = "gravity_alt",
-  tau = params$tau,
-  rho = params$rho,
-  alpha = params$alpha
+  model = "gravity",
+  K = params$K,
+  pow_N_from = params$pow_N_from,
+  pow_N_to = params$pow_N_to,
+  pow_dist = params$pow_dist
 )
 
 
@@ -77,7 +79,7 @@ Note that there is no reason why flow from i to j should be smaller
 than the population at i. Hence the "probability" here can be greater
 than 1.
 
-```{r}
+```{r absrisk, eval = FALSE}
 
 source_pop <- filter(centroids, district_clean == params$from) %>%
     pull(Pop)
@@ -97,7 +99,7 @@ outfile_prefix <- "pmovement_from_"
 Write it out in a clean format. The rownames will be the cleaned
 district names.
 
-```{r relrisk, eval = FALSE}
+```{r relrisk, eval = TRUE}
 relative_risk <- flow_from_to / rowSums(flow_from_to, na.rm = TRUE)
 rel_risk_df <- tibble::rownames_to_column(data.frame(relative_risk),
                                             var = "flow_from")

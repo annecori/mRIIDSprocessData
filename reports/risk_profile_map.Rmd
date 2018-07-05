@@ -19,9 +19,7 @@ spacing: double
 bibliography: 
 biblio-style: apsr
 endnote: no
-params:
-  relrisk: flow_from_équateur_1_1_1_flow_from_mbandaka_1_1_1.csv
----
+	---
 
 
 ```{r global_options, include=FALSE}
@@ -46,12 +44,8 @@ Read in the weighted risk.
 
 ```{r}
 wtd_risk_pops <- here::here("output",
-                            "absolute_risk_pops.csv") %>%
-    readr::read_csv() %>%
-    select(orig_name = district,
-           wtd_rel_risk = total,
-           adm0 = ADM0,
-           flow_to = flow_to)
+                            "weighted_rel_risk_pops.csv") %>%
+    readr::read_csv() 
 
 wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
                                                "country.name",
@@ -59,12 +53,9 @@ wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
 
 
 wtd_risk_area <- here::here("output",
-                            "absolute_risk_area.csv") %>%
-    readr::read_csv() %>%
-    select(orig_name = district,
-           wtd_rel_risk = total,
-           adm0 = ADM0,
-           flow_to = flow_to)    
+                            "weighted_rel_risk_area.csv") %>%
+    readr::read_csv() 
+
 
 wtd_risk_area$adm0_iso3 <- countrycode::countrycode(wtd_risk_area$adm0,
                                                "country.name",
@@ -286,22 +277,39 @@ nghbrs_cumrisk_pops <- purrr::map(drc_nghbrs_iso, function(x) {
 ## Read in centroids to place labels
 
 ```{r}
-centroids_adm0 <- here::here("data/Geography/GravityModel/raw",
-                             "adm0.txt") %>%
-    readr::read_tsv() %>%
-    filter(ADM0 %in% unique(wtd_risk_pops$adm0))
 
+centroids_lon <- purrr::map_dfr(drc_nghbrs_boundary,
+                                 ~st_centroid(.x)$geometry[[1]][1])
 
+centroids_lon <- tidyr::gather(centroids_lon, adm0_iso3, centroid_lon)
+centroids_lat <- purrr::map_dfr(drc_nghbrs_boundary,
+                                 ~st_centroid(.x)$geometry[[1]][2])
+centroids_lat <- tidyr::gather(centroids_lat, adm0_iso3, centroid_lat)
+
+centroids_adm0 <- left_join(centroids_lat, centroids_lon)
+drc_labels <- data.frame(adm0_iso3 = "COD",
+                         centroid_lat = -4,
+                         centroid_lon = 21)
+
+centroids_adm0 <- rbind(centroids_adm0, drc_labels)
 ```
+
 
 ## Plot
 
 ## Common stuff
 
 ```{r distr_risk}
+library(ggrepel)
+m1 <- filter(cum_risk_pops,
+             adm0 != "Democratic Republic of the Congo") %>%
+    pull(cum_risk)
 
-max_risk <- max(cum_risk_pops$cum_risk, cum_risk_area$cum_risk)
+m2 <- filter(cum_risk_area,
+             adm0 != "Democratic Republic of the Congo") %>%
+    pull(cum_risk)
 
+max_risk <- max(m1, m2)
 p <- ggplot()
 p <- p + geom_sf(data = drc_nghbrs_boundary[[1]], 
                  col = "blue", lwd = 1.05)
@@ -321,10 +329,11 @@ p <- p + geom_sf(data = drc_nghbrs_boundary[[8]],
                  col = "blue", lwd = 1.05)
 p <- p + scale_fill_distiller(palette = "Spectral",
                               name = "Relative Risk",
-                              limits = c(0, max_risk),
-                              labels = waiver())
-p <- p + coord_sf(datum = NA)
-p <- p + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
+                              limits = c(0, max_risk))
+##                              labels = waiver())
+p <- p + xlab("") + ylab("")
+
+
 
 ```
 
@@ -333,21 +342,33 @@ p <- p + theme(plot.margin=grid::unit(c(0,0,0,0), "mm"))
 ```{r}
 
 p1 <- p
+p1 <- p1 + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+               rect = element_blank())
 for (df in drc_popsrisk) {
     p1 <- p1 + geom_sf(data = df,
-                     aes(fill = wtd_rel_risk),
-                     lwd = 0,
-                     alpha = 0.8) 
+                       aes(fill = wtd_rel_risk),
+                       lwd = 0,
+                       alpha = 0.8) 
 }
-
-
 for (df in pops_nghbrs_adm1_risk) {
     p1 <- p1 + geom_sf(data = df, aes(fill = wtd_rel_risk),
                      lwd = 0.1,
                      alpha = 0.8)
-
 }
-
+p1 <- p1 + coord_sf(datum = NA)
+p1 <- p1 + geom_label_repel(data = centroids_adm0,
+                          arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = adm0_iso3,
+                              x = centroid_lon,
+                              y = centroid_lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
 
 ```
 
@@ -356,6 +377,12 @@ Same as before, just plot aggregated risk.
 ```{r cum_risk}
 
 p2 <- p
+p2 <- p2 + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+               rect = element_blank(), 
+               text = element_blank())
 for (df in drc_popsrisk) {
     p2 <- p2 + geom_sf(data = df,
                      aes(fill = wtd_rel_risk),
@@ -367,7 +394,17 @@ for (df in nghbrs_cumrisk_pops) {
                      lwd = 0.1,
                      alpha = 0.8)
 }
-
+p2 <- p2 + coord_sf(datum = NA)
+p2 <- p2 + geom_label_repel(data = centroids_adm0,
+                          arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = adm0_iso3,
+                              x = centroid_lon,
+                              y = centroid_lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
 
 
 ```
@@ -377,6 +414,12 @@ Now for area
 ```{r}
 
 p3 <- p
+p3 <- p3 + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+               rect = element_blank(), 
+               text = element_blank())
 for (df in drc_arearisk) {
     p3 <- p3 + geom_sf(data = df,
                      aes(fill = wtd_rel_risk),
@@ -389,7 +432,17 @@ for (df in area_all_nghbrs_risk) {
                      lwd = 0.1,
                      alpha = 0.8)
 }
-
+p3 <- p3 + coord_sf(datum = NA)
+p3 <- p3 + geom_label_repel(data = centroids_adm0,
+                          arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = adm0_iso3,
+                              x = centroid_lon,
+                              y = centroid_lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
 
 
 ```
@@ -399,6 +452,12 @@ Same as before, just plot aggregated risk.
 ```{r cum_risk2}
 
 p4 <- p
+p4 <- p4 + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+               rect = element_blank(), 
+               text = element_blank())
 for (df in drc_arearisk) {
     p4 <- p4 + geom_sf(data = df,
                      aes(fill = wtd_rel_risk),
@@ -411,6 +470,17 @@ for (df in nghbrs_cumrisk_area) {
                      lwd = 0.1,
                      alpha = 0.8)
 }
+p4 <- p4 + coord_sf(datum = NA)
+p4 <- p4 + geom_label_repel(data = centroids_adm0,
+                          arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = adm0_iso3,
+                              x = centroid_lon,
+                              y = centroid_lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
 
 ```
 Finally
@@ -419,9 +489,11 @@ Finally
 
 ggpubr::ggarrange(p1, p2, p3, p4,
                   ncol=2, nrow=2, common.legend = TRUE, legend="bottom") %>%
-    ggpubr::ggexport(filename = "relative_risks.pdf")
+    ggpubr::ggexport(filename = "relative_risks2.pdf")
 
+```
 
+```{r eval = FALSE}
 ggpubr::ggarrange(p1, p2,
                   ncol = 2, nrow = 1, common.legend = TRUE, legend="bottom") %>%
     ggpubr::ggexport(filename = "bypops_relative_risks.pdf")

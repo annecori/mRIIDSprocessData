@@ -3,18 +3,19 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-params <- list(from = "équateur",
-               alpha = 1.70,
-               rho = 38.47,
-               tau = 0.91)
-## params$pow_N_from <- alpha
-## params$pow_N_to <- beta
-## params$pow_dist <- gamma
+params <- list(from = "équateur")
+#               alpha = 1.70,
+#               rho = 38.47,
+#               tau = 0.91)
+params$pow_N_from <- 1
+params$pow_N_to <-  1
+params$pow_dist <- 1
+params$K <- 1
 here::here("reports", "relative_risk.Rmd") %>%
     rmarkdown::render(params = params)
 outfile_suffix <- paste(sapply(params, paste, collapse=""),
                         collapse = "_")
-outfile1 <-  paste0("pmovement_from_",
+outfile1 <-  paste0("flow_from_",
                     outfile_suffix,
                     ".csv")
 
@@ -23,7 +24,7 @@ here::here("reports", "relative_risk.Rmd") %>%
     rmarkdown::render(params = params)
 outfile_suffix <- paste(sapply(params, paste, collapse=""),
                         collapse = "_")
-outfile2 <-  paste0("pmovement_from_",
+outfile2 <-  paste0("flow_from_",
                     outfile_suffix,
                     ".csv")
 

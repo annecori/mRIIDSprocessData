@@ -47,11 +47,12 @@ incid <- here::here("data/CaseCounts/drc", "21-May-2018_ADM2.csv") %>%
     readr::read_csv()
 simean <- 15.3
 sisd <- 9.1
+R <- 1.03
 si <- EpiEstim::DiscrSI(k = 0:60,
                         mu = simean,
                         sigma  = sisd) %>% round(3)
-eq_infectivity <- EpiEstim::overall_infectivity(incid$eq, si)
-mb_infectivity <- EpiEstim::overall_infectivity(incid$mb, si)
+eq_infectivity <- R * EpiEstim::overall_infectivity(incid$eq, si)
+mb_infectivity <- R * EpiEstim::overall_infectivity(incid$mb, si)
 
 ```
 Serial Interval.
@@ -59,9 +60,9 @@ Serial Interval.
 p1 <- ggplot(NULL, aes(0:60, si)) +
     geom_col() +
     theme_classic() +
-    xlab("Date") +
-    ylab("") +
-    ggtitle("Serial Interval Distribution")
+    xlab("") +
+    ylab("") 
+    ##ggtitle("Serial Interval Distribution")
 
 ```
 Take a lot at infectivity.
@@ -75,9 +76,11 @@ p2 <- ggplot(infectivity, aes(Date, Infectivity, col = Location)) +
     geom_line() +
     ylim(0, 1.2) +
     theme_classic() +
+    xlab("") + 
     theme(legend.title = element_blank()) +
-    ggtitle("Overall Infectivity") +
     scale_colour_manual(values=cols)
+
+
 
 ```
 Incidence
@@ -89,7 +92,7 @@ p3 <- ggplot(incid_wide, aes(Date, incid, fill = location)) +
     geom_col(position = "stack")
 p3 <- p3 + xlab("") + ylab("Incidence")
 p3 <- p3 + theme_classic() + theme(legend.title = element_blank())
-p3 <- p3 + ggtitle("Incidence")
+##p3 <- p3 + ggtitle("Incidence")
 p3 <- p3 + scale_fill_manual(values=cols)
 ```
 
@@ -104,14 +107,20 @@ drc_metadata <- here::here("data/Geography/GravityModel/processed",
     select(adm2, Centroid_Lon, Centroid_Lat)
 drc_metadata[drc_metadata$adm2 == "Équateur", "Centroid_Lat"] <- 1
 p4 <- ggplot(drc) + geom_sf(aes(fill = NAME_2), lwd = 0.1)
+p4 <- p4 + coord_sf(datum = NA)
 p4 <- p4 + scale_fill_manual(values = cols)
-p4 <- p4 + geom_text_repel(data = drc_metadata,
+p4 <- p4 + geom_label_repel(data = drc_metadata,
                      aes(label = adm2,
                          x = Centroid_Lon,
                          y = Centroid_Lat),
-                     size = 3)
+                     size = 2)
 p4 <- p4 + theme_void() + xlab("") + ylab("")
 p4 <- p4 + theme(legend.position="none")
+p4 <- p4 + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+               rect = element_blank())
 
 ```
 Finally
@@ -122,5 +131,9 @@ ggpubr::ggarrange(p3, p2, p1, p4,
                   common.legend = TRUE,
                   legend = "bottom",
                   align = "hv") %>%
-    ggpubr::ggexport(filename = "who_report_fig1.pdf")
+    ggpubr::ggexport(filename = "who_report_fig1_withR.png",
+                     width = 960,
+                     height = 960,
+                     pointsize = 8,
+                     res = 200)
 ```

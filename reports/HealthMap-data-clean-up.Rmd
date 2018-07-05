@@ -23,15 +23,17 @@ endnote: no
 
 
 ```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=6, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "figures/")
+knitr::opts_chunk$set(fig.width = 12, fig.height = 6, echo = FALSE,
+                      warning = FALSE, message = FALSE,
+                      fig.path = "figures/")
 
 ```
 
 ```{r setup}
-library(magrittr)
 library(ggplot2)
 library(ggthemes)
 library(scales)
+library(lemon)
 library(dplyr)
 devtools::load_all()
 

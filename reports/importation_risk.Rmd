@@ -21,7 +21,7 @@ biblio-style: apsr
 endnote: no
 params:
   cases: 21-May-2018.csv
-  risk: !r c("flow_from_mbandaka_1_1_1.csv","flow_from_équateur_1_1_1.csv")
+  risk: !r c("flow_from_mbandaka_1_1_1_1.csv","flow_from_équateur_1_1_1_1.csv")
   pmove: !r c(mb = "pmovement_from_mbandaka_1_1_1.csv", eq = "pmovement_from_équateur_1_1_1.csv")
   pstay: 0.95
   sim: 10000
@@ -40,7 +40,6 @@ knitr::opts_chunk$set(fig.width = 12,
 ```
 ```{r setup, eval = TRUE, echo = FALSE}
 library(dplyr)
-library(magrittr)
 library(stringr)
 library(ggplot2)
 library(ggthemes)
@@ -71,8 +70,8 @@ have at this point.
 si <- EpiEstim::DiscrSI(k = 0:nrow(incid),
                         mu = params$simean,
                         sigma  = params$sisd) %>% round(3)
-eq_infectivity <- EpiEstim::overall_infectivity(incid$eq, si)
-mb_infectivity <- EpiEstim::overall_infectivity(incid$mb, si)
+eq_infectivity <- params$R * EpiEstim::overall_infectivity(incid$eq, si)
+mb_infectivity <- params$R * EpiEstim::overall_infectivity(incid$mb, si)
 
 ```
 
@@ -103,7 +102,7 @@ ggpubr::ggarrange(p1, p2, nrow = 1, ncol = 2)
 
 Read in the relative risk profiles
 
-```{r relrisk, eval = FALSE}
+```{r relrisk, eval = TRUE}
 
 rel_risk <- purrr::map(params$risk, function(x) {
     here::here("output", x) %>%
@@ -120,7 +119,7 @@ normalised <- weights / sum(weights)
 ```
 ## Risk profile weighted by infectivity
 
-```{r wtdrelrisk, eval = FALSE}
+```{r wtdrelrisk, eval = TRUE}
 wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
     (normalised[2] * rel_risk[[2]]$relative_flow)
 
@@ -131,7 +130,7 @@ wtd_risk_profile <- data.frame(orig_name = rel_risk[[1]]$district,
                                adm0 = rel_risk[[1]]$ADM0)
 ```
 
-```{r wtdrelriskout, eval = FALSE}
+```{r wtdrelriskout, eval = TRUE}
 outfile <- purrr::map_chr(params$risk,
                           function(x) stringr::str_replace(x ,
                                                            ".csv",
@@ -145,7 +144,7 @@ readr::write_csv(x = wtd_risk_profile, path = outfile)
 ## Number of cases that move out
 Read in the probability of moving out.
 
-```{r export, eval = TRUE}
+```{r export, eval = FALSE}
 pmovement <- purrr::map(params$pmove, function(x) {
     here::here("output", x) %>%
     readr::read_csv() 
@@ -155,7 +154,7 @@ pmovement <- purrr::map(params$pmove, function(x) {
 
 Mean for the Poisson process.
 
-```{r poismean, eval = TRUE}
+```{r poismean, eval = FALSE}
 lambda <- function(ws, I, r_t) {
     (ws  %*% I) * r_t
 }    
@@ -170,7 +169,7 @@ mean_mb <- lambda(r_t = params$R,
 
 ```
 ## Expected number of infected people
-```{r}
+```{r, eval = FALSE}
 pmovement$eq$expected <- pmovement$eq$pij * c(mean_eq)
 pmovement$mb$expected <- pmovement$mb$pij * c(mean_mb)
 readr::write_csv(pmovement$eq, path = "from_eq.csv")
@@ -179,7 +178,7 @@ readr::write_csv(pmovement$mb, path = "from_mb.csv")
 
 Finally join and add.
 
-```{r}
+```{r, eval = FALSE}
 from_both <- left_join(pmovement$eq,
                        pmovement$mb,
                        by = c("flow_to" = "flow_to"))

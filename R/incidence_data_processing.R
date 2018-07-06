@@ -189,8 +189,12 @@ interpolate_missing_data  <- function(df,
     dates_all <- seq(from = min(df$date) - 1,
                      to = max(df$date), by = 1)
     df <- merge(df,
-                           data.frame(date = dates_all),
-                           all.y = TRUE)
+                data.frame(date = dates_all),
+                all.y = TRUE)
+    ## merge will set this to NA and linear interpolation
+    ## will make this equal to the number of cases on the first day
+    ## for which we have data whereas we want it to start at 0.
+    df$cases[1] <- 0
     if (method == "linear") {
         out <- approx(df$date, df$cases,
                       xout = df$date,

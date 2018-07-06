@@ -28,30 +28,29 @@ params:
 # Introduction
 
 ```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.width=12, fig.height=6, echo=FALSE, warning=FALSE, message=FALSE, fig.path = "figures/")
-
+knitr::opts_chunk$set(
+  fig.width = 12, fig.height = 6, echo = FALSE,
+  warning = FALSE, message = FALSE, fig.path = "figures/"
+)
 ```
 
 
 ```{r setup}
-library(magrittr)
 library(ggplot2)
 library(dplyr)
 library(EpiEstim)
 devtools::load_all()
 
-pow_dist    <- params$pow_dist
-t.proj      <- params$t.proj
-n.sim       <- params$n.sim
+pow_dist <- params$pow_dist
+t.proj <- params$t.proj
+n.sim <- params$n.sim
 n.dates.sim <- params$n.dates.sim
-p.stay      <- params$p.stay
-
+p.stay <- params$p.stay
 ```
 
 ```{r hm_wafrica, eval = TRUE}
 
 w.africa <- c("Guinea", "Liberia", "Sierra Leone")
-
 ```
 # Parameters for Ebola and Reproduction Number Estimation
 

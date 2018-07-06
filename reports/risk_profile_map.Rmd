@@ -292,8 +292,60 @@ drc_labels <- data.frame(adm0_iso3 = "COD",
                          centroid_lon = 21)
 
 centroids_adm0 <- rbind(centroids_adm0, drc_labels)
+centroids_adm0$country_name <- countrycode::countrycode(centroids_adm0$adm0_iso3,
+                                                        origin = "iso3c",
+                                                        destination = "country.name")
+
+idx <- which(centroids_adm0$country_name == "Congo - Brazzaville")
+centroids_adm0$country_name[idx] <- "Republic of Congo"
+
+idx <- which(centroids_adm0$country_name == "Congo - Kinshasa")
+centroids_adm0$country_name[idx] <- "Democratic Republic of the Congo"
+
+## manually adjust some labels
+idx <- which(centroids_adm0$adm0_iso3 == "RWA")
+centroids_adm0$centroid_lon[idx] <- 32
+centroids_adm0$centroid_lat[idx] <- -2.5
+
+idx <- which(centroids_adm0$adm0_iso3 == "BDI")
+centroids_adm0$centroid_lon[idx] <- 31.5
+
+idx <- which(centroids_adm0$adm0_iso3 == "ZMB")
+centroids_adm0$centroid_lat[idx] <- -15
+
+idx <- which(centroids_adm0$adm0_iso3 == "COD")
+centroids_adm0$centroid_lon[idx] <- 22
+
+
 ```
 
+A plain map with only country outline and label.
+
+```{r}
+drc_outline <- st_union(drc) %>% st_sf
+p <- ggplot() + geom_sf(data = drc_outline, fill = "white")
+p <- p + theme(
+             panel.ontop = FALSE,
+             panel.grid = element_blank(), 
+             line = element_blank(), 
+             rect = element_blank())
+for (df in drc_nghbrs_boundary) {
+    p <- p + geom_sf(data = df, fill = "white")
+}
+p <- p + coord_sf(datum = NA)
+p <- p + geom_text_repel(data = centroids_adm0,
+                         arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = country_name,
+                              x = centroid_lon,
+                              y = centroid_lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
+p <- p + xlab("") + ylab("")
+ggpubr::ggexport(p, filename = "central_africa.png", res = 100)
+```
 
 ## Plot
 

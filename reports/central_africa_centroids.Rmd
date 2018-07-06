@@ -56,9 +56,9 @@ meta-data and put them together.
 ## Read in ADM2 data
 
 ```{r pop_match, eval = TRUE}
-adm2_neighbors <- c("Democratic Republic of the Congo")
+#adm2_neighbors <- c("Democratic Republic of the Congo")
 
-adm1_neighbors <- c("Angola", "Burundi", "Tanzania",
+adm1_neighbors <- c("Angola", "Burundi", 
                    "Uganda", "Republic of Congo",
                    "Central African Republic",
                    "South Sudan",

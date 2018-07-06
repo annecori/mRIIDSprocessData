@@ -105,27 +105,31 @@ drc_metadata <- here::here("data/Geography/GravityModel/processed",
     readr::read_csv() %>%
     filter(adm2 %in% c("Équateur", "Mbandaka")) %>%
     select(adm2, Centroid_Lon, Centroid_Lat)
-drc_metadata[drc_metadata$adm2 == "Équateur", "Centroid_Lat"] <- 1
+drc_metadata[drc_metadata$adm2 == "Équateur", "Centroid_Lat"] <- 0.75
+drc_metadata[drc_metadata$adm2 == "Mbandaka", "Centroid_Lon"] <- 17
 p4 <- ggplot(drc) + geom_sf(aes(fill = NAME_2), lwd = 0.1)
-p4 <- p4 + coord_sf(datum = NA)
-p4 <- p4 + scale_fill_manual(values = cols)
-p4 <- p4 + geom_label_repel(data = drc_metadata,
-                     aes(label = adm2,
-                         x = Centroid_Lon,
-                         y = Centroid_Lat),
-                     size = 2)
-p4 <- p4 + theme_void() + xlab("") + ylab("")
-p4 <- p4 + theme(legend.position="none")
 p4 <- p4 + theme(
                panel.ontop = FALSE,
                panel.grid = element_blank(), 
                line = element_blank(), 
                rect = element_blank())
+p4 <- p4 + coord_sf(datum = NA)
+p4 <- p4 + scale_fill_manual(values = cols)
+p4 <- p4 + geom_text_repel(data = drc_metadata,
+                           aes(label = adm2,
+                               x = Centroid_Lon,
+                               y = Centroid_Lat),
+                           size = 3)
+p4 <- p4 + theme_void() + xlab("") + ylab("")
+p4 <- p4 + theme(legend.position = "none")
+p4 <- p4 + geom_path(data = data.frame(x = c(17, 18.3), y = c(-0.15, -0.08)),
+                     aes(x = x, y = y))
+ggsave(here::here("reports","mbandka.png"), p4)
 
 ```
 Finally
 ```{r}
-ggpubr::ggarrange(p3, p2, p1, p4,
+ggpubr::ggarrange(p3, p2, p1,
                   nrow = 2,
                   ncol = 2,
                   common.legend = TRUE,

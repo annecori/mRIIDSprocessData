@@ -144,6 +144,8 @@ mono_inc <- purrr::map(no_outliers,
 Finally, interpolate missing data.
 ```{r}
 interpolated <- purrr::map(mono_inc, interpolate_missing_data)
+    
+  
 ```
 
 ## Plot

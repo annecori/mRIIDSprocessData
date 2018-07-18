@@ -59,13 +59,12 @@ Culled from [literature](http://www.nejm.org/doi/suppl/10.1056/NEJMc1414992/supp
 
 ```{r ebola_params}
 
-mean_SI     <- 14.2
-CV_SI       <- 9.6 / 14.2
-SItrunc     <- 40
-SI_Distr    <- sapply(0:SItrunc, function(e) DiscrSI(e, mean_SI, mean_SI * CV_SI))
-SI_Distr    <- SI_Distr / sum(SI_Distr)
+mean_SI <- 14.2
+CV_SI <- 9.6 / 14.2
+SItrunc <- 40
+SI_Distr <- sapply(0:SItrunc, function(e) discr_si(e, mean_SI, mean_SI * CV_SI))
+SI_Distr <- SI_Distr / sum(SI_Distr)
 time_window <- 7 * 7
-
 ```
 
 # Gravity model parameters
@@ -73,8 +72,7 @@ time_window <- 7 * 7
 ```{r gm_params}
 
 pow_N_to <- pow_N_from <- 1
-K        <- 1
-
+K <- 1
 ```
 
 # Wide Data load
@@ -82,61 +80,66 @@ K        <- 1
 Read in cleaned-up and wide formatted data. 
 
 ```{r hm_dataload, eval = TRUE}
-hm_wide <- here::here("data",
-                      "CaseCounts/processed/HealthMap_Ebola_wide.csv")
-by.location_incid <- readr::read_csv(hm_wide)
-
+hm_wide <- here::here(
+  "data/CaseCounts/processed",
+  "HealthMap_Ebola_wide.csv"
+  ) %>%
+    readr::read_csv()
 ```
 We now use the incidence count to estimate reproduction number.
 
 ```{r hm_restim, eval = TRUE}
 
-start     <- 2:(length(by.location_incid$Date) - time_window)
-end       <- start + time_window
-end.dates <- by.location_incid[end, "Date"]
-r.estim   <- select(by.location_incid, -Date) %>%
-             plyr::alply(2, .dims = TRUE, function(incid) {
-                                                 I <- pull(incid, 1)
-                                                 res <- EstimateR(I,
-                                                                  T.Start = start,
-                                                                  T.End = end,
-                                                                  method = "NonParametricSI",
-                                                                  SI.Distr = SI_Distr,
-                                                                  plot = FALSE,
-                                                                  CV.Posterior = 1,
-                                                                  Mean.Prior = 1,
-                                                                  Std.Prior = 0.5)
-                                                 res$R %<>% cbind(Date = end.dates)
-                                                 return(res$R)})
+start <- 2:(length(hm_wide$date) - time_window)
+end <- start + time_window
+end.dates <- hm_wide[end, "date"]
+r.estim <- select(hm_wide, -date) %>%
+    map(function(x) {
+    res <- EstimateR(
+      x,
+      T.Start = start,
+      T.End = end,
+      method = "NonParametricSI",
+      SI.Distr = SI_Distr,
+      plot = FALSE,
+      CV.Posterior = 1,
+      Mean.Prior = 1,
+      Std.Prior = 0.5
+    )
+    res$R <- cbind(res$R, date = end.dates)
+    res$R
+    })
 
 ```
 
 ```{r write_r, eval = FALSE}
 
 lapply(names(r.estim), function(country) {
-    R <- r.estim[[country]]
-    outfile <- paste0("output/", country, "-R.csv")
-    write.csv(R, file = outfile, row.names = F, quote = F)
+  R <- r.estim[[country]]
+  outfile <- paste0("output/", country, "-R.csv")
+  write.csv(R, file = outfile, row.names = F, quote = F)
 })
-
-
 ```
 
 ```{r hm_r_viz, eval = FALSE}
 
-lapply(names(r.estim), function(country) {
-    R <- r.estim[[country]]
-    p <- ggplot(R, aes(Date)) +
-        geom_ribbon(aes(ymin = `Quantile.0.025(R)`,
-                        ymax = `Quantile.0.975(R)`),
-                    fill = "grey70") +
-         geom_line(aes(y =  `Mean(R)`)) +
-         theme_minimal() +
-         ylab("Reproduction Number R")
-    ggsave(file = paste0("figures/", country, "-R.pdf"), p)
+imap(r.estim, function(R, country) {
+  p <- ggplot(R, aes(date)) +
+    geom_ribbon(
+      aes(
+        ymin = `Quantile.0.025(R)`,
+        ymax = `Quantile.0.975(R)`
+      ),
+      fill = "grey70"
+    ) +
+    geom_line(aes(y = `Mean(R)`)) +
+      theme_classic() +
+      xlab("") +
+    ylab("Reproduction Number R")
+  ggsave(file = here::here("output", paste0(country, "-R.pdf")), p)
 })
-
 ```
+
 We assume that the reproduction number remains unchanged for the time
 period over which we wish to project. For each location, distribution of
 r_t at t.proj is r_t over the next n.days.sim.

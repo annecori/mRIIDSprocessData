@@ -255,3 +255,33 @@ purrr::map(countries, function(c){
 })
 
 ```
+
+## Derive incidence time series from interpolated cumulative cases
+
+```{r}
+incid_tall <- purrr::map_dfr(interpolated, function(x) {
+    x <- select(x,
+                date = interpolated_date,
+                cases = interpolated_cases)
+    x$incid <- c(0, diff(x$cases))
+    x <- select(x, date, incid)
+    x
+}, .id = "country")                 
+```
+
+And reshape
+
+```{r}
+incid_wide <- tidyr::spread(incid_tall, country, incid, fill = 0)
+```
+
+
+## Write the output
+
+```{r}
+here::here("data/CaseCounts/processed", "HealthMap_Ebola_wide.csv") %>%
+    readr::write_csv(x = incid_wide, path = .)
+
+here::here("data/CaseCounts/processed", "HealthMap_Ebola_tall.csv") %>%
+    readr::write_csv(x = incid_tall, path = .)
+```

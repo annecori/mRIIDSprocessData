@@ -21,10 +21,9 @@ biblio-style: apsr
 endnote: no
 params:
   from : équateur
-  pow_N_from: 1
-  pow_N_to: 1
-  pow_dist: -1
-  K: 1  
+  alpha : 2.01
+  rho : 1.30
+  tau : 1.12
 ---
 
 ```{r setup, eval = TRUE}

@@ -107,7 +107,7 @@ flow_matrix <- function(longitude,
                         latitude,
                         population,
                         place_names,
-                        model = c("gravity", "poisson_gravity"),
+                        model = c("gravity", "gravity_alt"),
                         ...) {
     distances <- geosphere::distm(cbind(longitude, latitude))
     distances <-

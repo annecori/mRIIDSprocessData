@@ -21,7 +21,7 @@ biblio-style: apsr
 endnote: no
 params:
   cases: 21-May-2018.csv
-  risk: !r c("flow_from_mbandaka_1_1_1_1.csv","flow_from_équateur_1_1_1_1.csv")
+  risk: !r c("flow_from_mbandaka_1_1_1_1.csv","flow_from_équateur_2.01_1.3_1.12.csv")
   pmove: !r c(mb = "pmovement_from_mbandaka_1_1_1.csv", eq = "pmovement_from_équateur_1_1_1.csv")
   pstay: 0.95
   sim: 10000

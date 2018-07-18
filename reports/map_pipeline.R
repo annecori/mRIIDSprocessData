@@ -3,14 +3,14 @@
 ## SI mean and sd.
 ## Then create the map
 library(dplyr)
-params <- list(from = "équateur")
-#               alpha = 1.70,
-#               rho = 38.47,
-#               tau = 0.91)
-params$pow_N_from <- 1
-params$pow_N_to <-  1
-params$pow_dist <- 1
-params$K <- 1
+params <- list(from = "mbandaka",
+               alpha = 2.01,
+               rho = 1.30,
+               tau = 1.12)
+#params$pow_N_from <- 1
+#params$pow_N_to <-  1
+#params$pow_dist <- 2
+#params$K <- 1
 here::here("reports", "relative_risk.Rmd") %>%
     rmarkdown::render(params = params)
 outfile_suffix <- paste(sapply(params, paste, collapse=""),

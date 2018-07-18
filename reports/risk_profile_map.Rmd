@@ -45,7 +45,7 @@ Read in the weighted risk.
 
 ```{r}
 wtd_risk_pops <- here::here("output",
-                            "weighted_rel_risk_pops.csv") %>%
+                            "weighted_rel_risk_pops_alt.csv") %>%
     readr::read_csv() 
 
 wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
@@ -54,7 +54,7 @@ wtd_risk_pops$adm0_iso3 <- countrycode::countrycode(wtd_risk_pops$adm0,
 
 
 wtd_risk_area <- here::here("output",
-                            "weighted_rel_risk_area.csv") %>%
+                            "weighted_rel_risk_area_alt.csv") %>%
     readr::read_csv() 
 
 
@@ -353,7 +353,7 @@ ggpubr::ggexport(p, filename = "central_africa.png", res = 100)
 ## Common stuff
 
 ```{r distr_risk}
-library(ggrepel)
+
 m1 <- filter(cum_risk_pops,
              adm0 != "Democratic Republic of the Congo") %>%
     pull(cum_risk)

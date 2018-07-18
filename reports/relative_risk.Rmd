@@ -42,7 +42,7 @@ devtools::load_all()
 
 ```{r}
 centroids <- outfile <- here::here("data/Geography/GravityModel/processed",
-                                   "drc_neighbors_area.csv") %>%
+                                   "drc_neighbors_pops.csv") %>%
     readr::read_csv()
 
 

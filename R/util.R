@@ -42,43 +42,6 @@ daily.to.weekly    <- function(daily) {
   weekly
 }
 
-## For each country, we want to plot the training data, the validation
-## data and a polygon spanned by the 2.5% and 97.5% quantiles.
-plot.weekly <- function(available, projection) {
-  available$date %<>% as.date
-  p     <- ggplot(available, aes_string("date",
-                                        colnames(available)[3],
-                                        color = "Category")) + geom_point()
-  ci.95 <- projection     %>%
-    split(.$date) %>%
-    plyr::ldply(. %>% `[`(, 2)
-                %>% quantile(probs = c(0.5, 0.025, 0.975))) %>%
-    dplyr::rename(date = .id)
-  x <- ci.95$date %>% c(rev(.)) %>% as.date
-  y <- c(ci.95[, 3], rev(ci.95[, 4]))
-
-  p   <-
-    p + geom_polygon(
-      data = data.frame(x = x, y = y),
-      aes(x, y, alpha = 0.01),
-      color = "red",
-      size = 0.3,
-      linetype = "blank"
-    )
-  p   <-
-    p + geom_line(
-      data = data.frame(x = as.date(ci.95$date), y = ci.95[, 2]),
-      aes(x, y),
-      size = 0.3,
-      color = "red",
-      inherit.aes = FALSE
-    )
-  p   <- p + theme_minimal() + theme(legend.position = "none")
-  p   <-
-    p + xlab("") + theme(axis.text.x = element_text(angle = 45, vjust = 0.2))
-  return(p)
-
-}
 
 add_0incid <- function(df) {
   df    <- arrange(df, DateOnsetInferred)

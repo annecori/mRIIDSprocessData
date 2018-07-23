@@ -7,6 +7,7 @@
 ##' @param merge_rule
 ##' @return duplicates free data frame
 ##' @author Sangeeta Bhatia
+##' @export
 merge_duplicates <- function(case_count,
                              cols_to_keep,
                              merge_rule=c("median")){
@@ -65,6 +66,7 @@ filter_case_count <- function(case_count, species, disease, location){
 ##' @param case_type
 ##' @return
 ##' @author Sangeeta Bhatia
+##' @export
 update_cases_column <- function(case_count, case_type = c("scc", "sc",
                                                           "cc", "scd",
                                                           "sd", "cd",

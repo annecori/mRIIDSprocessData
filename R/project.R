@@ -14,6 +14,7 @@
 ##' @return the mean of the Poisson distribution determining
 ##' the distribution of incidences at location j at time t.
 ##' @author Sangeeta Bhatia
+##' @export
 lambda_j_t <- function(pij, r_t, incid, ws){
     out <- (ws  %*% incid) * r_t
     out <-  out %*% pij

@@ -10,7 +10,6 @@
 ##' @param model
 ##' @return
 ##' @author Sangeeta Bhatia
-
 flow_vector <- function(N_from,
                         N_to,
                         distance,

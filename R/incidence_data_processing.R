@@ -7,6 +7,7 @@
 ##' (not decreasing). That is, return i if seq[i] <= seq[i+1]].
 ##' If there is no such index, return a list of length 0.
 ##' @author Sangeeta Bhatia
+##' @export
 is_monotonically_increasing <- function(vec){
     differences <- diff(vec)
     which(differences < 0)
@@ -28,16 +29,16 @@ is_monotonically_increasing <- function(vec){
 ##' @param k_sd
 ##' @return TRUE is the last point is outside the prediction_interval
 ##' @author Sangeeta Bhatia
+##' @export
 is_outlier <- function(cases, use_last, k_sd){
     if (length(cases) < use_last){
         warning("use_last is smaller than the length of the input.
                  Using full vector.")
         use_last <- length(cases)
     }
-    p_interval <- cases              %>%
-                  tail(use_last + 1) %>%
-                  `[`(-1)            %>%
-                  prediction_interval(k_sd)
+    p_interval <- tail(cases, use_last + 1)
+    p_interval <- prediction_interval(p_interval[-1],
+                                      k_sd)
 
     last_point <- cases[length(cases)]
     if (last_point < p_interval[1] ||

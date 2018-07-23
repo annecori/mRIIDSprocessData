@@ -5,6 +5,7 @@
 ##' @param df data frame
 ##' @return shuffled data frame
 ##' @author Sangeeta Bhatia
+##' @export
 shuffle_cols <- function(df){
 
     for (i in seq_len(nrow(df))){

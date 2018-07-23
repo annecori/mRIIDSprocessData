@@ -10,6 +10,7 @@
 ##' @return matrix with nrow(pmatrix) * sim rows and ncol(pmatrix)
 ##' columns
 ##' @author Sangeeta Bhatia
+##' @export
 disaggregate <- function(total, pmatrix, sim = 1000){
 
     psim <- nrow(pmatrix)

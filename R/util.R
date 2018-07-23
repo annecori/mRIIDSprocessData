@@ -200,28 +200,28 @@ log_likelihoods_atj <- function(observed, predicted) {
 
 
 projection_quantiles <- function(projections) {
-  by_date <- split(projections, projections$Date)
+  by_date <- split(projections, projections$date)
 
   projections_50 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.5, na.rm = TRUE)) %>%
-    bind_rows(.id = "Date") %>%
-    tidyr::gather(country, y,-Date)
+    bind_rows(.id = "date") %>%
+    tidyr::gather(country, y,-date)
 
   projections_025 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.025, na.rm = TRUE)) %>%
-    bind_rows(.id = "Date") %>%
-    tidyr::gather(country, ymin,-Date)
+    bind_rows(.id = "date") %>%
+    tidyr::gather(country, ymin,-date)
 
   projections_975 <- lapply(by_date, function(df)
     summarise_if(df, is.numeric, quantile, probs = 0.975, na.rm = TRUE)) %>%
-    bind_rows(.id = "Date") %>%
-    tidyr::gather(country, ymax,-Date)
+    bind_rows(.id = "date") %>%
+    tidyr::gather(country, ymax,-date)
 
   projections_distr <-
     left_join(projections_50, projections_025) %>%
     left_join(projections_975)
 
-  projections_distr$Date %<>% as.Date
+  projections_distr$date <- as.Date(projections_distr$date)
 
   projections_distr
 

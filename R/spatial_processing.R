@@ -102,6 +102,7 @@ gravity_model_flow <- function(N_from, N_to, distance, K,
 ##' @param
 ##' @return
 ##' @author Sangeeta Bhatia
+##' @export
 flow_matrix <- function(longitude,
                         latitude,
                         population,

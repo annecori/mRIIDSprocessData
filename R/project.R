@@ -43,6 +43,7 @@ lambda_j_t <- function(pij, r_t, incid, ws){
 ##' @return data frame containing projected incidence count
 ##' with n_days rows and n columns.
 ##' @author Sangeeta Bhatia
+##' @export
 project <- function(incid, R, si, pij, n_days = 7){
 
     if (ncol(R) != ncol(incid)){

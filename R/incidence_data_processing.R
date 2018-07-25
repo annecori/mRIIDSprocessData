@@ -53,6 +53,7 @@ is_outlier <- function(cases, use_last, k_sd){
 ##'
 ##' @return
 ##' @author Sangeeta Bhatia
+##' @export
 remove_last_outliers <- function(df,
                                  use_last = 20, k_sd = 6){
     outlier <- is_outlier(df$cases, use_last, k_sd)
@@ -120,6 +121,7 @@ make_increasing_at_k <- function(df, t1){
 ##' called 'cases'.
 ##' @return
 ##' @author Sangeeta Bhatia
+##' @export
 make_monotonically_increasing <- function(df){
     not_increasing <- is_monotonically_increasing(df$cases)
 
@@ -141,6 +143,7 @@ make_monotonically_increasing <- function(df){
 ##' @return data frame ordered by date with no missing cases count
 ##' and which has strictly non-decreasing case count.
 ##' @author Sangeeta Bhatia
+##' @export
 compute.cumulative.incidence <- function(no_duplicates){
 
     ## starting one day before the first entry so that cumulative
@@ -158,8 +161,8 @@ compute.cumulative.incidence <- function(no_duplicates){
     ## params for outlier removal.
     use_last   <- 20
     p_within_k <- 0.50
-    k_sd       <- interval_width_for_p(use_last, 1 - p_within_k) %>%
-                  sqrt %>% `[`(2)
+    k_sd       <- interval_width_for_p(use_last, 1 - p_within_k)
+    k_sd <- sqrt(k_sd)[2]
 
 
     df <- remove_last_outliers(df, use_last = use_last, k_sd = k_sd)
@@ -178,6 +181,7 @@ compute.cumulative.incidence <- function(no_duplicates){
 ##' last and interpolated case counts for the dates for
 ##' which this was missing.
 ##' @author Sangeeta Bhatia
+##' @export
 interpolate_missing_data  <- function(df,
                                       method = c("linear",
                                                  "loglinear")) {

@@ -21,6 +21,7 @@ shuffle_cols <- function(df){
 ##' @param k number of samples to draw. If k > length(projections_list), it is
 ##' set to length(projections_list)
 ##' @author Sangeeta Bhatia
+##' @export
 sample_projections <- function(projections_list, place, k){
 
     n_sim <- length(projections_list)

@@ -14,8 +14,7 @@ flow_vector <- function(N_from,
                         N_to,
                         distance,
                         model = c("gravity"),
-                        ...) {
-    params      <- list(...)
+                        params) {
     if (model == "gravity") {
       K          <- params$K
       pow_N_from <- params$pow_N_from
@@ -99,36 +98,45 @@ gravity_model_flow <- function(N_from, N_to, distance, K,
 ##'
 ##' .. content for \details{} ..
 ##' @title
-##' @param
-##' @return
+##' @param distances distance vector
+##' @param n_from population at source
+##' @param n_to population at destination
+##' @param place_names
+##' @param model must be one of gravity, gravity_alt
+##' @param params list of model-specific parameters
+##' @return matrix of population flow
 ##' @author Sangeeta Bhatia
 ##' @export
-flow_matrix <- function(longitude,
-                        latitude,
-                        population,
+flow_matrix <- function(distances,
+                        n_from,
+                        n_to,
                         place_names,
                         model = c("gravity", "gravity_alt"),
-                        ...) {
-    distances <- geosphere::distm(cbind(longitude, latitude))
-    distances <-
-      distances[lower.tri(distances)] # Extract the distances vector
-    pairs     <- combn(length(latitude), 2)
-    n_from    <- population[pairs[1, ]]
-    n_to      <- population[pairs[2, ]]
-
+                        params) {
 
     flow_mat  <-
-      matrix(NA, length(latitude), length(latitude))
+      matrix(NA, length(distances), length(distances))
     rownames(flow_mat) <- place_names
     colnames(flow_mat) <- place_names
     ## fill in the matrix from the vectors
-    flow_from_to <- flow_vector(n_from, n_to, distances, model, ...)
+    flow_from_to <- flow_vector(n_from,
+                                n_to,
+                                distances,
+                                model,
+                                params)
     flow_mat[lower.tri(flow_mat)] <- flow_from_to
-    flow_mat <- t(flow_mat) # fill out the upper triangle
+    ## fill out the upper triangle
+    flow_mat <- t(flow_mat)
 
-    flow_to_from <- flow_vector(n_to, n_from, distances, model, ...)
+    flow_to_from <- flow_vector(n_to,
+                                n_from,
+                                distances,
+                                model,
+                                params)
+
+    ## fill out the lower triangle
     flow_mat[lower.tri(flow_mat)] <-
-      flow_to_from # fill out the lower triangle
+      flow_to_from
 
     flow_mat
 }

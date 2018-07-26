@@ -1,3 +1,17 @@
+##' Generate indices for lower triangle of a matrix
+##'
+##' https://stackoverflow.com/questions/20898684
+##' @title
+##' @param nrow
+##' @return
+##' @author Sangeeta Bhatia
+lower_tri_idx <- function(nrow) {
+    s <- seq.int(nrow - 1)
+    x <- rev(abs(sequence(s) - nrow) + 1)
+    y <- rep.int(s, rev(s))
+    idx <- cbind(x, y)
+    idx
+}
 ##' Convert a week of year string to the last date of the week
 ##' @details For our purposes, Week 1 of the year starts on 1st Jan
 ##' and ends on 7th Jan. I am aware that there is more to the logic than

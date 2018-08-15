@@ -233,3 +233,10 @@ clean_names <- function(x) {
     x <- stringr::str_replace_all(x, "'", ".")
     x
 }
+
+
+weekly_average<- function(daily) {
+    weekly <- daily.to.weekly(daily)
+    weekly_avg <- dplyr::mutate_if(weekly, is.numeric, funs(. / 7))
+    weekly_avg
+}

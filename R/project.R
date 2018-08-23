@@ -1,7 +1,7 @@
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
-##' @param p_ij : row vector of length n where n is the
+##' @param pij : row vector of length n where n is the
 ##' number of locations. Each entry is the probability of
 ##' flow from i to j.
 ##' @param r_t : t X n matrix. Entry ij is the reproduction

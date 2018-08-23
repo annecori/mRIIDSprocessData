@@ -4,7 +4,7 @@
 \alias{remove_last_outliers}
 \title{Outlier Removal}
 \usage{
-remove_last_outliers(cum_incidence, use_last = 20, k_sd = 6)
+remove_last_outliers(df, use_last = 20, k_sd = 6)
 }
 \details{
 If the last datapoint is an outlier, remove it

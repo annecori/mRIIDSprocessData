@@ -4,8 +4,8 @@
 \alias{incidence.from.DS1}
 \title{Compute incidence from data stream 1}
 \usage{
-incidence.from.DS1(case_count, species, disease, case_type = c("SCC", "SC",
-  "CC", "SCD", "SD", "CD", "ALL"), location, merge_rule = c("median"))
+incidence.from.DS1(case_count, species, disease, case_type = c("scc", "sc",
+  "cc", "scd", "sd", "cd", "ALL"), location, merge_rule = c("median"))
 }
 \arguments{
 \item{case_count}{dataframe containing data stream 1 to be
@@ -17,10 +17,10 @@ incidence will be extracted}
 \item{disease}{string specifying disease of interest}
 
 \item{case_type}{string specifying column name from which
-incidence is extracted; one of "SCC" (suspected and
-confirmed cases), "SC" (suspected cases), "CC" (confirmed
-cases), "SCD" (suspected and confirmed deaths), "SD"
-(suspected deaths), or "CD" (confirmed deaths).}
+incidence is extracted; one of "scc" (suspected and
+confirmed cases), "sc" (suspected cases), "cc" (confirmed
+cases), "scD" (suspected and confirmed deaths), "sd"
+(suspected deaths), or "cd" (confirmed deaths).}
 
 \item{location}{string specifying location for which
 incidence will be computed}

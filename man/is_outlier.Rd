@@ -4,10 +4,10 @@
 \alias{is_outlier}
 \title{Tests for outlier.}
 \usage{
-is_outlier(Cases, use_last, k_sd)
+is_outlier(cases, use_last, k_sd)
 }
 \arguments{
-\item{Cases}{numeric vector}
+\item{cases}{numeric vector}
 
 \item{use_last}{number of points preceeding the last one to be
 used for estimation. If this is more than

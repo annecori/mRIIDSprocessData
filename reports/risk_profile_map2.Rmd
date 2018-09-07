@@ -1,0 +1,109 @@
+---
+output: 
+pdf_document:
+citation_package: natbib
+keep_tex: false
+fig_caption: true
+latex_engine: pdflatex
+title: Risk profile map
+author:
+- name: Sangeeta Bhatia
+affiliation: Imperial College London
+abstract: 
+keywords: 
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+spacing: double
+bibliography: 
+biblio-style: apsr
+endnote: no
+params:
+  risk: output/wtd_rel_risk_2.01_72.96_1.12.csv
+  places: !r c("SLE", "SEN", "MLI", "GMB", "CIV", "GNB", "GIN", "LBR")
+  centroids: data/Geography/centroids/processed/wafrica_adm0_centroids.csv
+---
+
+```{r setup, eval = TRUE}
+library(dplyr)
+library(purrr)
+library(ggplot2)
+library(sf)
+library(ggrepel)
+
+```
+
+Read in the shape files downloaded from GADM.
+
+```{r}
+shpfiles <- paste0("gadm36_",
+                   params$places,
+                   "_0_sf.rds")
+
+sfobjs <- map(shpfiles,
+              ~ readr::read_rds(here::here("data/Geography",
+                                           .x)))
+```
+
+Read in the weighted risks.
+
+```{r}
+wtd_risk <- here::here(params$risk) %>%
+    readr::read_csv() 
+
+```
+
+And join the data sets.
+
+
+```{r}
+joined_df <- map(sfobjs,
+                 function(x) {
+                     left_join(x,
+                               wtd_risk,
+                               by = c("NAME_0" = "flow_to"))
+                     })
+```
+
+Read in the centroids to place labels.
+
+And plot.
+
+```{r}
+p <- ggplot()
+p <- p + scale_fill_distiller(palette = "Spectral",
+                              name = "Relative Risk")
+p <- p + xlab("") + ylab("")
+p <- p + theme(
+               panel.ontop = FALSE,
+               panel.grid = element_blank(), 
+               line = element_blank(), 
+             rect = element_blank())
+
+for (df in joined_df) {
+    p <- p + geom_sf(data = df, aes(fill = wtd_rel_risk),
+                     lwd = 0.1,
+                     alpha = 0.8)
+}
+p <- p + coord_sf(datum = NA)
+p
+```
+
+Place labels.
+
+```{r}
+centroids <- readr::read_csv(here::here(params$centroids))
+p1 <- p + geom_text_repel(data = centroids,
+                          arrow = arrow(length = unit(0.03, "npc"),
+                                        type = "closed",
+                                        ends = "first"),
+                          aes(label = ADM0,
+                              x = Centroid_Lon,
+                              y = Centroid_Lat),
+                          size = 3,
+                          fontface = "bold",
+                          inherit.aes = FALSE)
+
+	
+```

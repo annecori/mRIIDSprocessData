@@ -26,7 +26,7 @@ model {
   real row_total;
   real pmovement[N, N];
   real a = ( prior_mean / prior_std)^2;
-  real b = ( prior_std ^ 2)/ prior_mean;
+  real b = prior_mean / ( prior_std ^ 2);
   R ~ gamma(a, b);  
 // For a given value of gamma, first calculate
 // pmovement. Then proceed as before.

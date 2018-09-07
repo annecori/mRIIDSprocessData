@@ -20,198 +20,84 @@ bibliography:
 biblio-style: apsr
 endnote: no
 params:
-  cases: 21-May-2018.csv
-  risk: !r c("flow_from_mbandaka_1_1_1_1.csv","flow_from_équateur_2.01_1.3_1.12.csv")
-  pmove: !r c(mb = "pmovement_from_mbandaka_1_1_1.csv", eq = "pmovement_from_équateur_1_1_1.csv")
-  pstay: 0.95
-  sim: 10000
+  sources: !r c("Guinea", "Liberia")
+  cases: data/CaseCounts/processed/HealthMap_Ebola_wide.csv
+  risk: !r list(Guinea = "output/flow_from_mbandaka_2.01_72.96_1.12.csv", Liberia = "output/flow_from_équateur_2.01_72.96_1.12.csv")
   simean: 15.3
   sisd: 9.1
   R: 1.03
+  onday: 300
+  outfile: "output/weighted_flow.csv"
 ---
-```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.width = 12,
-                      fig.height = 6,
-                      echo = FALSE,
-                      warning = FALSE,
-                      message = FALSE,
-                      fig.path = "figures/")
-
-```
 ```{r setup, eval = TRUE, echo = FALSE}
 library(dplyr)
-library(stringr)
-library(ggplot2)
-library(ggthemes)
+library(purrr)
+devtools::load_all()
 ```
 
 This analysis uses a daily incidence time series to estimate the
 overall infectivity at a given time. The relative risk profiles
 estimated in a previous step of the analysis pipeline are then
-weighted by the infectivity.
+weighted by infectivity.
 
 ## Ebola params
 ```{r}
-incid <- here::here("data/CaseCounts/drc",
-                    params$cases) %>%
-    readr::read_csv()
+incid <- here::here(params$cases) %>%
+    readr::read_csv(n_max = params$onday) %>%
+    select(date, params$sources)
 ```
-BIKORO and Iboko are in Equateur province while Wangata is in Mbandaka
-province.
-
-```{r}
-incid$eq <- incid$Bikoro + incid$Iboko
-incid$mb <- incid$Wangata
 ```
 Serial interval estimation over however many days worth of data we
 have at this point.
 
 ```{r}
-si <- EpiEstim::DiscrSI(k = 0:nrow(incid),
+si <- EpiEstim::DiscrSI(k = 0:params$onday,
                         mu = params$simean,
                         sigma  = params$sisd) %>% round(3)
-eq_infectivity <- params$R * EpiEstim::overall_infectivity(incid$eq, si)
-mb_infectivity <- params$R * EpiEstim::overall_infectivity(incid$mb, si)
+
+weights <- select(incid, params$sources) %>%
+    map_dbl(~infectivity_at_source(.x, si, params$R) %>%
+        `[`(params$onday))
 
 ```
 
+# Normalise weights
 
-
-```{r eqinf}
-p1 <- ggplot(NULL, aes(factor(seq_len(length(eq_infectivity))),
-                       eq_infectivity)) +
-    geom_col() +
-    ylab("Infectivity") +
-    xlab("Day") +
-    ylim(0, 1) +
-    theme_tufte() 
-```
-
-```{r mbinf}
-p2 <- ggplot(NULL, aes(factor(seq_len(length(mb_infectivity))),
-                       mb_infectivity)) +
-    geom_col() +
-    ylab("Infectivity") +
-    xlab("Day") +
-    ylim(0, 1) +
-    theme_tufte() 
-```
-```{r together}
-ggpubr::ggarrange(p1, p2, nrow = 1, ncol = 2)
+```{r}
+day <- params$onday
+normalised <- weights / sum(weights)
 ```
 
 Read in the relative risk profiles
 
 ```{r relrisk, eval = TRUE}
 
-rel_risk <- purrr::map(params$risk, function(x) {
-    here::here("output", x) %>%
-    readr::read_csv() 
-})
+relrisk_df <- purrr::map(params$risk,
+                         ~ readr::read_csv(here::here(.x)))
 
 ```
-# Normalise weights
 
-```{r}
-day <- nrow(incid)
-weights <- c(mb_infectivity[day], eq_infectivity[day])
-normalised <- weights / sum(weights)
-```
 ## Risk profile weighted by infectivity
 
 ```{r wtdrelrisk, eval = TRUE}
-wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
-    (normalised[2] * rel_risk[[2]]$relative_flow)
+## signf <- 7
+## normalised <- signif(normalised, 7)
 
 
-wtd_risk_profile <- data.frame(orig_name = rel_risk[[1]]$district,
-                               flow_to = rel_risk[[1]]$flow_to,
-                               wtd_rel_risk = wtd_rel_risk,
-                               adm0 = rel_risk[[1]]$ADM0)
+## wtd_rel_risk <- (normalised[1]  * rel_risk[[1]]$relative_flow) +
+##     (normalised[2] * rel_risk[[2]]$relative_flow)
+
+rel_risk <- map_dfc(relrisk_df, ~ .x$relative_flow)
+wtd_rel_risk <- map2_dfc(rel_risk,
+                         normalised,
+                         ~ .x * .y) %>%
+    rowSums(na.rm = TRUE)
+
+wtd_risk_profile <- data.frame(flow_to = relrisk_df[[1]]$flow_to,
+                               wtd_rel_risk = wtd_rel_risk)
 ```
 
 ```{r wtdrelriskout, eval = TRUE}
-outfile <- purrr::map_chr(params$risk,
-                          function(x) stringr::str_replace(x ,
-                                                           ".csv",
-                                                           "")) %>%
-    paste(collapse = "_")
-
-outfile <- here::here("output", paste0(outfile, ".csv"))
-readr::write_csv(x = wtd_risk_profile, path = outfile)
-```
-
-## Number of cases that move out
-Read in the probability of moving out.
-
-```{r export, eval = FALSE}
-pmovement <- purrr::map(params$pmove, function(x) {
-    here::here("output", x) %>%
-    readr::read_csv() 
-})
-
-```
-
-Mean for the Poisson process.
-
-```{r poismean, eval = FALSE}
-lambda <- function(ws, I, r_t) {
-    (ws  %*% I) * r_t
-}    
-
-mean_eq <- lambda(r_t = params$R, 
-                  I = matrix(c(0, incid$eq), ncol = 1),
-                  ws = rev(si))
-
-mean_mb <- lambda(r_t = params$R, 
-                  I = matrix(c(0, incid$mb), ncol = 1),
-                  ws = rev(si))
-
-```
-## Expected number of infected people
-```{r, eval = FALSE}
-pmovement$eq$expected <- pmovement$eq$pij * c(mean_eq)
-pmovement$mb$expected <- pmovement$mb$pij * c(mean_mb)
-readr::write_csv(pmovement$eq, path = "from_eq.csv")
-readr::write_csv(pmovement$mb, path = "from_mb.csv")
-```
-
-Finally join and add.
-
-```{r, eval = FALSE}
-from_both <- left_join(pmovement$eq,
-                       pmovement$mb,
-                       by = c("flow_to" = "flow_to"))
-
-from_both$total <- from_both$expected.x + from_both$expected.y
-from_both <- select(from_both,
-                    flow_to,
-                    district = district.x,
-                    ADM0 = ADM0.x,
-                    total)
-here::here("output",
-           "absolute_risk.csv") %>%
-    readr::write_csv(x = from_both,
-                     path = .)
-```
-
-## Relative Risk 
-
-```{r binning, eval = FALSE}
-pmatrix <- data.frame(matrix(rel_risk$relative_flow, nrow = 1))
-
-binned <- split(weekly, weekly$date) %>%
-    purrr::map_dfr(function(w){
-    tmp <- disaggregate(w$exported, pmatrix = pmatrix, sim = params$sim)
-    colnames(tmp) <- rel_risk$flow_to
-    disaggregate_distr(tmp)
-    }, .id = "date")
-```
-
-
-
-## Results
-
-```{r}
-#knitr::kable(binned)
+readr::write_csv(x = wtd_risk_profile,
+                 path = here::here(params$outfile))
 ```

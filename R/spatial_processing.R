@@ -13,7 +13,7 @@
 flow_vector <- function(N_from,
                         N_to,
                         distance,
-                        model = c("gravity"),
+                        model,
                         params) {
     if (model == "gravity") {
       K          <- params$K
@@ -115,7 +115,7 @@ flow_matrix <- function(distances,
                         params) {
 
     flow_mat  <-
-      matrix(NA, length(distances), length(distances))
+      matrix(NA, length(place_names), length(place_names))
     rownames(flow_mat) <- place_names
     colnames(flow_mat) <- place_names
     ## fill in the matrix from the vectors

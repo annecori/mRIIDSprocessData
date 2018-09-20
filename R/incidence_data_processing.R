@@ -31,11 +31,7 @@ is_monotonically_increasing <- function(vec){
 ##' @author Sangeeta Bhatia
 ##' @export
 is_outlier <- function(cases, use_last, k_sd){
-    if (length(cases) < use_last){
-        warning("use_last is smaller than the length of the input.
-                 Using full vector.")
-        use_last <- length(cases)
-    }
+
     p_interval <- tail(cases, use_last + 1)
     p_interval <- prediction_interval(p_interval[-1],
                                       k_sd)

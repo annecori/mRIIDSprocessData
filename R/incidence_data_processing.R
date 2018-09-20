@@ -52,6 +52,13 @@ is_outlier <- function(cases, use_last, k_sd){
 ##' @export
 remove_last_outliers <- function(df,
                                  use_last = 20, k_sd = 6){
+    if (nrow(df) < use_last) {
+        warning("use_last is smaller than the length of the input.
+                 It would be better to inspect the input manually.")
+
+        return(df)
+    }
+
     outlier <- is_outlier(df$cases, use_last, k_sd)
     while (outlier){
         remove <- nrow(df)

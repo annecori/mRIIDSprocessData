@@ -213,11 +213,20 @@ projection_quantiles <- function(projections) {
 ## [ 1 2 3
 ##   1 2 3
 ##   1 2 3
-##   1 2 3] and makeRmatrix(c(1, 2, 3), 1, 9, c(5, 7)) returns
-## [1 1 1 1 2 2 3 3 3]
+##   1 2 3]  
+## makeRmatrix(c(1, 2, 3), 1, 9, c(5, 7)) returns
+## [1 
+## 1 
+## 1 
+## 1 
+## 2 
+## 2 
+## 3 
+## 3 
+## 3]
 
 makeRmatrix <- function(R, ncol, nrow, change_at) {
-  split_at <- seq(from = 1, to = nrow, by = ncol)
+  split_at <- seq(from = 1, to = length(R), by = ncol)
   split_R  <- unname(split(R, cumsum(seq(R) %in%  split_at)))
   num_rows <- diff(c(1, change_at, nrow + 1))
 

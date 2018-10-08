@@ -175,26 +175,34 @@ log_likelihoods_atj <- function(observed, predicted) {
 
 
 projection_quantiles <- function(projections) {
-  by_date <- split(projections, projections$date)
+  grouped <- dplyr::group_by(projections, date) 
+  projections_50 <- dplyr::summarise_if(grouped, 
+                                        is.numeric, 
+                                        quantile, 
+                                        probs = 0.5, 
+                                        na.rm = TRUE)
+  
+  projections_50 <- tidyr::gather(projections_50, country, y,-date)
 
-  projections_50 <- lapply(by_date, function(df)
-    summarise_if(df, is.numeric, quantile, probs = 0.5, na.rm = TRUE)) %>%
-    bind_rows(.id = "date") %>%
-    tidyr::gather(country, y,-date)
+  projections_025 <- dplyr::summarise_if(grouped, 
+                                         is.numeric, 
+                                         quantile, 
+                                         probs = 0.025, 
+                                         na.rm = TRUE)
+  projections_025 <- tidyr::gather(projections_025, country, ymin,-date)
 
-  projections_025 <- lapply(by_date, function(df)
-    summarise_if(df, is.numeric, quantile, probs = 0.025, na.rm = TRUE)) %>%
-    bind_rows(.id = "date") %>%
-    tidyr::gather(country, ymin,-date)
+  projections_975 <- dplyr::summarise_if(grouped, 
+                                         is.numeric, 
+                                         quantile, 
+                                         probs = 0.975, 
+                                         na.rm = TRUE)
+  projections_975 <- tidyr::gather(projections_975, country, ymax,-date)
 
-  projections_975 <- lapply(by_date, function(df)
-    summarise_if(df, is.numeric, quantile, probs = 0.975, na.rm = TRUE)) %>%
-    bind_rows(.id = "date") %>%
-    tidyr::gather(country, ymax,-date)
-
-  projections_distr <-
-    left_join(projections_50, projections_025) %>%
-    left_join(projections_975)
+  projections_distr <- left_join(projections_50, 
+                                 projections_025) 
+  
+  projections_distr <- left_join(projections_distr, 
+                                 projections_975)
 
   projections_distr$date <- as.Date(projections_distr$date)
 

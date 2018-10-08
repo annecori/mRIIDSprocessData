@@ -46,14 +46,12 @@ daily.to.weekly    <- function(daily) {
     warning(paste("Ignoring last", extra, "days."))
     daily  <- utils::head(daily,-extra)
   }
-
   weeks  <- cut(daily$date, breaks = "7 days")
-  weekly <- split(daily, weeks) %>%
-            plyr::ldply(function(d)
-            select(d,-date) %>% colSums) %>%
-             dplyr::rename(date = .id)
-
-  weekly
+  weekly <- split(daily, weeks) 
+  weekly <- plyr::ldply(weekly, function(d)
+    colSums(d[ , !names(d) %in% "date"])) 
+  weekly <- dplyr::rename(weekly, date = .id)
+  weekly  
 }
 
 

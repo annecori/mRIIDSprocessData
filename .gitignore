@@ -14,3 +14,5 @@ reports/*.pdf
 /.RData
 /.Rbuildignore
 /reports/disaggregation.tex
+data/CaseCounts/drc/incidence_by_zone.rds
+data/CaseCounts/drc/linelist.rds

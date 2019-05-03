@@ -16,3 +16,4 @@ reports/*.pdf
 /reports/disaggregation.tex
 data/CaseCounts/drc/incidence_by_zone.rds
 data/CaseCounts/drc/linelist.rds
+data/CaseCounts/drc/22_may_2018.xlsx
